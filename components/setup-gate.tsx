@@ -13,15 +13,7 @@ export function SetupGate({
   title: string;
   description: string;
 }) {
-  const { ready, knowledge } = useWorkspace();
-
-  if (!ready) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center text-sm text-muted-foreground">
-        Loading workspace…
-      </div>
-    );
-  }
+  const { knowledge } = useWorkspace();
 
   if (!knowledge) {
     return (

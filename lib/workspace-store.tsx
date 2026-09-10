@@ -4,8 +4,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
-  useSyncExternalStore,
+  useState,
   type ReactNode,
 } from "react";
 import { emptyKnowledge } from "./empty-knowledge";
@@ -107,68 +108,37 @@ function parseStored(raw: string | null): WorkspaceState {
   }
 }
 
-const listeners = new Set<() => void>();
-let snapshot: WorkspaceState = initialState;
-
-if (typeof window !== "undefined") {
-  snapshot = parseStored(localStorage.getItem(STORAGE_KEY));
-}
-
-function emit() {
-  for (const listener of listeners) listener();
-}
-
-function persist(next: WorkspaceState) {
-  snapshot = next;
-  if (typeof window !== "undefined") {
-    if (!next.knowledge && next.emails.length === 0 && next.chats.length === 0) {
-      localStorage.removeItem(STORAGE_KEY);
-    } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    }
-  }
-  emit();
-}
-
-function write(updater: (prev: WorkspaceState) => WorkspaceState) {
-  persist(updater(snapshot));
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-function getSnapshot() {
-  return snapshot;
-}
-
-function getClientReady() {
-  return true;
-}
-
-function getServerReady() {
-  return false;
-}
-
-function readySubscribe() {
-  return () => {};
-}
-
-function getServerSnapshot() {
-  return initialState;
+function isEmptyWorkspace(state: WorkspaceState) {
+  return !state.knowledge && state.emails.length === 0 && state.chats.length === 0;
 }
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const ready = useSyncExternalStore(readySubscribe, getClientReady, getServerReady);
+  const [state, setState] = useState<WorkspaceState>(initialState);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      setState(parseStored(window.localStorage.getItem(STORAGE_KEY)));
+      setHydrated(true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (isEmptyWorkspace(state)) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [hydrated, state]);
 
   const loadPreset = useCallback((presetId: string) => {
     const preset = presetById(presetId);
     if (!preset) return;
     const knowledge = structuredClone(preset.knowledge);
     const chat = emptyChat("Website visitor");
-    persist({
+    setState({
       knowledge,
       presetId,
       emails: buildInboxFromPreset(preset, knowledge),
@@ -180,7 +150,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const startBlank = useCallback((type: BusinessType) => {
     const knowledge = emptyKnowledge(type);
     const chat = emptyChat("Website visitor");
-    persist({
+    setState({
       knowledge,
       presetId: "custom",
       emails: [],
@@ -190,25 +160,25 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateKnowledge = useCallback((next: KnowledgeBase) => {
-    write((prev) => ({ ...prev, knowledge: ensureStoreShape(next) }));
+    setState((prev) => ({ ...prev, knowledge: ensureStoreShape(next) }));
   }, []);
 
   const setBusinessType = useCallback((type: BusinessType) => {
-    write((prev) => {
+    setState((prev) => {
       if (!prev.knowledge) return prev;
       return { ...prev, knowledge: ensureStoreShape({ ...prev.knowledge, businessType: type }) };
     });
   }, []);
 
   const updateEmail = useCallback((id: string, patch: Partial<EmailMessage>) => {
-    write((prev) => ({
+    setState((prev) => ({
       ...prev,
       emails: prev.emails.map((email) => (email.id === id ? { ...email, ...patch } : email)),
     }));
   }, []);
 
   const setEmailStatus = useCallback((id: string, status: EmailStatus) => {
-    write((prev) => ({
+    setState((prev) => ({
       ...prev,
       emails: prev.emails.map((email) =>
         email.id === id
@@ -223,7 +193,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const regenerateDraft = useCallback((id: string) => {
-    write((prev) => {
+    setState((prev) => {
       if (!prev.knowledge) return prev;
       return {
         ...prev,
@@ -236,7 +206,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const simulateIncomingEmail = useCallback(
     (input: { fromName: string; fromEmail: string; subject: string; body: string }) => {
-      write((prev) => {
+      setState((prev) => {
         if (!prev.knowledge) return prev;
         const reply = generateReply({
           query: `${input.subject}\n${input.body}`,
@@ -274,7 +244,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const sendVisitorMessage = useCallback((text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    write((prev) => {
+    setState((prev) => {
       if (!prev.knowledge) return prev;
       let chats = prev.chats;
       let activeId = prev.activeChatId;
@@ -323,7 +293,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const resetChat = useCallback(() => {
     const chat = emptyChat("Website visitor");
-    write((prev) => ({
+    setState((prev) => ({
       ...prev,
       chats: [chat],
       activeChatId: chat.id,
@@ -331,7 +301,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const resetWorkspace = useCallback(() => {
-    persist(initialState);
+    setState(initialState);
   }, []);
 
   const activeChat = useMemo(
@@ -341,7 +311,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<WorkspaceContextValue>(
     () => ({
-      ready,
+      ready: true,
       knowledge: state.knowledge,
       presetId: state.presetId,
       emails: state.emails,
@@ -360,7 +330,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       resetWorkspace,
     }),
     [
-      ready,
       state.knowledge,
       state.presetId,
       state.emails,
