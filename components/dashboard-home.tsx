@@ -46,7 +46,7 @@ function LoadedDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" render={<Link href="/knowledge" />}>
+          <Button variant="outline" render={<Link href="/demo/knowledge" />}>
             Edit knowledge
           </Button>
           <Button variant="ghost" onClick={resetWorkspace}>
@@ -84,13 +84,13 @@ function LoadedDashboard() {
           </CardHeader>
           <CardContent className="grid gap-3 pt-4 sm:grid-cols-2">
             <ChannelCard
-              href="/chat"
+              href="/demo/chat"
               icon={MessageSquare}
               title="Website chat"
               body="Answers hours, prices, and public FAQs from the knowledge base. Emergencies show the safety line, then a human is flagged."
             />
             <ChannelCard
-              href="/inbox"
+              href="/demo/inbox"
               icon={Inbox}
               title="Email drafts"
               body="Every inbound email gets a draft grounded in the same articles. Approve, edit, or escalate — never auto-send."
@@ -111,7 +111,7 @@ function LoadedDashboard() {
                 </Badge>
               </div>
             ))}
-            <Button className="mt-2" render={<Link href="/knowledge" />}>
+            <Button className="mt-2" render={<Link href="/demo/knowledge" />}>
               <BookOpen className="size-4" />
               Open knowledge base
             </Button>

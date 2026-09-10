@@ -1,35 +1,55 @@
 # BizPilot AI
 
-Customer support for **any** kind of business — not a store plugin.
+Customer support for one business at a time, billed as **BizPilot Pro**.
 
-BizPilot keeps one business knowledge base and uses it in two places:
+## Two modes (keep them separate)
 
-- **Website chat** can answer safe, published questions on its own from every knowledge-base section, including business information / about the business, hours, listed offerings, public prices, FAQs, policies, and public documents. Blank product or service fields are omitted. If nothing published matches, chat says the information is unavailable and offers a human — it does not invent details.
-- **Email support** always writes an **editable draft**. A human must approve it before anything is marked sent.
+- **Demo (`/demo`)** — browser-only preview. Knowledge lives in `localStorage`. Chat uses deterministic matching, not an AI model. It is not a customer workspace and cannot take a subscription.
+- **Paid (`/signup` → Stripe → `/app`)** — one business workspace, one website widget, and 500 AI customer replies per Stripe billing month. Requires a PostgreSQL database, Stripe, and an OpenAI key. **Not production-ready until those credentials are set and the signup → payment → widget → AI → cancellation path is proven end-to-end.**
 
-Online selling is one sample. The same product also includes a home-services company and a family clinic.
+## BizPilot Pro
 
-## Knowledge base
+- **USD $29 / month**
+- One business workspace
+- One installed website widget
+- 500 AI-generated customer replies per billing month
+- Knowledge base, conversation inbox, and human handoff
+- Cancel anytime
+- No automatic overage charges
+- When the 500-reply limit is reached, AI replies stop and the owner is notified
 
-Every business can teach BizPilot:
+Stripe Product/Price IDs are never hard-coded. Create a recurring monthly Price at $29 in a **new** Stripe account or catalog for this app, then set `STRIPE_PRICE_ID`.
 
-- Business information
-- Products and/or services
-- Prices or rates
-- Availability or operating hours
-- Policies
-- Frequently asked questions
-- Custom knowledge and documents (public vs internal)
-- Contact details
-- Human-escalation rules
+## Required environment variables
 
-Type-specific fields stay hidden until they matter:
+Copy `.env.example` to `.env.local`. Use a **new** database and **new** Stripe keys for this project. Do not reuse another app’s credentials.
 
-- **Online store:** shipping, stock language, payments, optional cash on delivery
-- **Service business:** coverage area, booking lead time, emergency call-out
-- **Clinic:** appointment booking, insurance, emergency protocol, no automated clinical advice
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | PostgreSQL for users, workspaces, memberships, subscriptions, usage |
+| `AUTH_SECRET` | Signs login cookies (32+ random characters) |
+| `APP_URL` | Public origin for Stripe redirects and the widget snippet |
+| `STRIPE_SECRET_KEY` | Stripe secret key for this BizPilot project |
+| `STRIPE_WEBHOOK_SECRET` | Webhook signing secret for `POST /api/stripe/webhook` |
+| `STRIPE_PRICE_ID` | Recurring monthly Price id (`price_…`) for $29 BizPilot Pro |
+| `STRIPE_PUBLISHABLE_KEY` | Optional |
+| `OPENAI_API_KEY` | Paid widget AI replies |
+| `OPENAI_MODEL` | Optional, defaults to `gpt-4o-mini` |
 
-There are no required Shopify, inventory, shipping, or COD fields.
+After `DATABASE_URL` is set:
+
+```bash
+npx prisma migrate dev --name init
+```
+
+Point Stripe webhooks to `https://YOUR_DOMAIN/api/stripe/webhook` for:
+
+- `checkout.session.completed`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `invoice.paid`
+- `invoice.payment_failed`
 
 ## Run locally
 
@@ -40,12 +60,11 @@ npm run dev
 
 Open [http://localhost:43127](http://localhost:43127).
 
-1. Pick a sample business (electrician, clinic, or outfitter) or start blank.
-2. Edit the knowledge base.
-3. Ask the website chat a published question, then an unsafe one.
-4. Open **Email drafts**, edit a reply, and approve it. Nothing is sent outside the browser.
-
-Answers are retrieved from the knowledge base you entered. No API key is required.
+- `/` marketing and pricing
+- `/demo` local demo desk (no billing, no AI)
+- `/signup` and `/login` paid accounts (need `DATABASE_URL` + `AUTH_SECRET`)
+- `/billing` Stripe Checkout and Customer Portal
+- `/app` paid dashboard (blocked unless the subscription is active)
 
 ```bash
 npm test
@@ -53,6 +72,6 @@ npm run typecheck
 npm run lint
 ```
 
-## Stack
+## Status
 
-Next.js, TypeScript, Tailwind CSS, and shadcn/ui. Workspace state is stored in `localStorage`.
+The subscription **foundation** (schema, auth, Stripe webhook handling, usage limits, tenant isolation, tests) is in the repo. Production billing and AI replies stay **paused** until the environment variables above are provided and the full path is verified against live Stripe and a live database.

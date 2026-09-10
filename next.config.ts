@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
     "*.cursor.com",
     "*.cursor.sh",
   ],
+  async rewrites() {
+    return [{ source: "/w/:key.js", destination: "/w/:key" }];
+  },
 };
 
 export default nextConfig;

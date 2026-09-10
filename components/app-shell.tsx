@@ -22,19 +22,26 @@ const NAV = [
   { href: "/knowledge", label: "Knowledge base", icon: BookOpen },
   { href: "/chat", label: "Website chat", icon: MessageSquare },
   { href: "/inbox", label: "Email drafts", icon: Inbox },
-];
+] as const;
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({
+  onNavigate,
+  basePath,
+}: {
+  onNavigate?: () => void;
+  basePath: string;
+}) {
   const pathname = usePathname();
   return (
     <nav className="grid gap-1">
       {NAV.map((item) => {
-        const active = pathname === item.href;
+        const href = `${basePath}${item.href === "/" ? "" : item.href}` || "/";
+        const active = pathname === href || (item.href === "/" && pathname === basePath);
         const Icon = item.icon;
         return (
           <Link
             key={item.href}
-            href={item.href}
+            href={href}
             onClick={onNavigate}
             className={cn(
               "flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition",
@@ -52,9 +59,9 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function Brand() {
+function Brand({ homeHref }: { homeHref: string }) {
   return (
-    <Link href="/" className="flex items-center gap-2.5 px-1 py-1">
+    <Link href={homeHref} className="flex items-center gap-2.5 px-1 py-1">
       <span className="flex size-9 items-center justify-center rounded-xl bg-[oklch(0.78_0.12_85)] text-[oklch(0.22_0.04_165)]">
         <Sparkles className="size-4" />
       </span>
@@ -87,29 +94,58 @@ function WorkspaceMeta() {
   );
 }
 
-function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarBody({
+  onNavigate,
+  basePath,
+  demo,
+}: {
+  onNavigate?: () => void;
+  basePath: string;
+  demo: boolean;
+}) {
   return (
     <div className="flex h-full flex-col gap-6 p-4">
-      <Brand />
-      <NavLinks onNavigate={onNavigate} />
+      <Brand homeHref={demo ? "/demo" : "/"} />
+      <NavLinks onNavigate={onNavigate} basePath={basePath} />
       <div className="mt-auto grid gap-3">
-        <WorkspaceMeta />
-        <p className="px-1 text-[11px] leading-relaxed text-white/40">
-          Website chat may answer published facts. Email always waits for a human to approve the
-          draft.
-        </p>
+        {demo ? (
+          <div className="rounded-xl bg-amber-400/15 px-3 py-3 text-xs leading-relaxed text-amber-50">
+            Demo mode. This is not a paid workspace. It stays in this browser and does not bill or
+            call an AI model.
+          </div>
+        ) : (
+          <WorkspaceMeta />
+        )}
+        {demo ? (
+          <Link href="/" className="px-1 text-[11px] text-white/55 underline-offset-2 hover:underline">
+            Back to BizPilot Pro
+          </Link>
+        ) : (
+          <p className="px-1 text-[11px] leading-relaxed text-white/40">
+            Website chat may answer published facts. Email always waits for a human to approve the
+            draft.
+          </p>
+        )}
       </div>
     </div>
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  basePath = "",
+  demo = false,
+}: {
+  children: React.ReactNode;
+  basePath?: string;
+  demo?: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
     <div className="flex min-h-full bg-background">
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 bg-sidebar text-sidebar-foreground md:flex md:flex-col">
-        <SidebarBody />
+        <SidebarBody basePath={basePath} demo={demo} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-3 border-b bg-background/80 px-4 py-3 backdrop-blur md:hidden">
@@ -123,7 +159,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <SheetHeader className="sr-only">
               <SheetTitle>Menu</SheetTitle>
             </SheetHeader>
-            <SidebarBody onNavigate={() => setOpen(false)} />
+            <SidebarBody basePath={basePath} demo={demo} onNavigate={() => setOpen(false)} />
           </SheetContent>
         </Sheet>
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>

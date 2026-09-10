@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime       @default(now())
+  memberships  Membership[]
+  notifications Notification[]
+  subscriptions Subscription[]
+}
+
+model Workspace {
+  id            String         @id @default(cuid())
+  name          String
+  ownerUserId   String
+  widgetKey     String         @unique
+  knowledge     Json?
+  createdAt     DateTime       @default(now())
+  memberships   Membership[]
+  subscription  Subscription?
+  usagePeriods  UsagePeriod[]
+  notifications Notification[]
+  conversations Conversation[]
+}
+
+model Membership {
+  id          String    @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+model Subscription {
+  id                   String        @id @default(cuid())
+  workspaceId          String        @unique
+  userId               String
+  stripeCustomerId     String?
+  stripeSubscriptionId String?       @unique
+  stripePriceId        String?
+  status               String
+  cancelAtPeriodEnd    Boolean       @default(false)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  canceledAt           DateTime?
+  updatedAt            DateTime      @updatedAt
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace            Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  usagePeriods         UsagePeriod[]
+
+  @@index([userId])
+}
+
+model UsagePeriod {
+  id             String       @id @default(cuid())
+  workspaceId    String
+  subscriptionId String
+  periodStart    DateTime
+  periodEnd      DateTime
+  replyLimit     Int
+  repliesUsed    Int          @default(0)
+  repliesReserved Int         @default(0)
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, periodStart])
+}
+
+model StripeEvent {
+  id          String   @id
+  type        String
+  processedAt DateTime @default(now())
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  userId      String
+  workspaceId String
+  type        String
+  message     String
+  createdAt   DateTime  @default(now())
+  readAt      DateTime?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, workspaceId])
+}
+
+model Conversation {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  visitorKey     String
+  waitingOnHuman Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  messages       Message[]
+
+  @@index([workspaceId, createdAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  workspaceId    String
+  conversationId String
+  role           String
+  content        String
+  usageCounted   Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, conversationId])
+}

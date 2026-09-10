@@ -1,0 +1,122 @@
+import type { KnowledgeBase } from "@/lib/types";
+
+export type MembershipRole = "owner" | "member";
+
+export type SubscriptionStatus =
+  | "incomplete"
+  | "incomplete_expired"
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "unpaid"
+  | "paused"
+  | "inactive";
+
+export interface UserRecord {
+  id: string;
+  email: string;
+  passwordHash: string;
+  name: string;
+  createdAt: Date;
+}
+
+export interface WorkspaceRecord {
+  id: string;
+  name: string;
+  ownerUserId: string;
+  widgetKey: string;
+  knowledge: KnowledgeBase | null;
+  createdAt: Date;
+}
+
+export interface MembershipRecord {
+  id: string;
+  userId: string;
+  workspaceId: string;
+  role: MembershipRole;
+}
+
+export interface SubscriptionRecord {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  stripePriceId: string | null;
+  status: SubscriptionStatus;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodStart: Date | null;
+  currentPeriodEnd: Date | null;
+  canceledAt: Date | null;
+  updatedAt: Date;
+}
+
+export interface UsagePeriodRecord {
+  id: string;
+  workspaceId: string;
+  subscriptionId: string;
+  periodStart: Date;
+  periodEnd: Date;
+  replyLimit: number;
+  repliesUsed: number;
+  repliesReserved: number;
+}
+
+export interface NotificationRecord {
+  id: string;
+  userId: string;
+  workspaceId: string;
+  type: "usage_limit" | "payment_failed" | "canceled" | "activated";
+  message: string;
+  createdAt: Date;
+  readAt: Date | null;
+}
+
+export interface ConversationRecord {
+  id: string;
+  workspaceId: string;
+  visitorKey: string;
+  waitingOnHuman: boolean;
+  createdAt: Date;
+}
+
+export interface MessageRecord {
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  role: "visitor" | "assistant" | "system";
+  content: string;
+  usageCounted: boolean;
+  createdAt: Date;
+}
+
+export interface StripeEventRecord {
+  id: string;
+  type: string;
+  processedAt: Date;
+}
+
+export type StripeLikeEvent = {
+  id: string;
+  type: string;
+  data: { object: Record<string, unknown> };
+};
+
+export class BillingError extends Error {
+  constructor(
+    message: string,
+    readonly code:
+      | "unauthorized"
+      | "forbidden"
+      | "not_found"
+      | "inactive"
+      | "limit"
+      | "conflict"
+      | "invalid"
+      | "misconfigured",
+  ) {
+    super(message);
+    this.name = "BillingError";
+  }
+}

@@ -1,5 +1,5 @@
-import { ChatStudio } from "@/components/chat-studio";
+import { redirect } from "next/navigation";
 
-export default function ChatPage() {
-  return <ChatStudio />;
+export default function LegacyChatPage() {
+  redirect("/demo/chat");
 }

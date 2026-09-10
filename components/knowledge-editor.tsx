@@ -54,19 +54,59 @@ const SECTIONS = [
 
 type SectionId = (typeof SECTIONS)[number]["id"];
 
-export function KnowledgeEditor() {
+export function KnowledgeEditor({
+  knowledge: knowledgeProp,
+  updateKnowledge: updateKnowledgeProp,
+  setBusinessType: setBusinessTypeProp,
+}: {
+  knowledge?: KnowledgeBase | null;
+  updateKnowledge?: (next: KnowledgeBase) => void;
+  setBusinessType?: (type: BusinessType) => void;
+} = {}) {
+  const demo = useWorkspace();
+  const knowledge = knowledgeProp !== undefined ? knowledgeProp : demo.knowledge;
+  const updateKnowledge = updateKnowledgeProp ?? demo.updateKnowledge;
+  const setBusinessType = setBusinessTypeProp ?? demo.setBusinessType;
+
+  if (knowledgeProp === undefined) {
+    return (
+      <SetupGate
+        title="Build one knowledge base"
+        description="This is the only source of truth for website chat and email drafts. Add the facts a human would be allowed to say out loud."
+      >
+        {demo.knowledge ? (
+          <EditorBody
+            knowledge={demo.knowledge}
+            updateKnowledge={demo.updateKnowledge}
+            setBusinessType={demo.setBusinessType}
+          />
+        ) : null}
+      </SetupGate>
+    );
+  }
+
+  if (!knowledge) {
+    return <p className="text-sm text-muted-foreground">Loading knowledge…</p>;
+  }
+
   return (
-    <SetupGate
-      title="Build one knowledge base"
-      description="This is the only source of truth for website chat and email drafts. Add the facts a human would be allowed to say out loud."
-    >
-      <EditorBody />
-    </SetupGate>
+    <EditorBody
+      knowledge={knowledge}
+      updateKnowledge={updateKnowledge}
+      setBusinessType={setBusinessType}
+    />
   );
 }
 
-function EditorBody() {
-  const { knowledge, updateKnowledge, setBusinessType } = useWorkspace();
+function EditorBody({
+  knowledge,
+  updateKnowledge,
+  setBusinessType,
+}: {
+  knowledge: KnowledgeBase;
+  updateKnowledge: (next: KnowledgeBase) => void;
+  setBusinessType: (type: BusinessType) => void;
+}) {
   const [section, setSection] = useState<SectionId>("business");
   const kb = knowledge;
 

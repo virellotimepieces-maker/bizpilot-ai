@@ -1,5 +1,5 @@
-import { KnowledgeEditor } from "@/components/knowledge-editor";
+import { redirect } from "next/navigation";
 
-export default function KnowledgePage() {
-  return <KnowledgeEditor />;
+export default function LegacyKnowledgePage() {
+  redirect("/demo/knowledge");
 }

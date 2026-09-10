@@ -1,5 +1,5 @@
-import { EmailInbox } from "@/components/email-inbox";
+import { redirect } from "next/navigation";
 
-export default function InboxPage() {
-  return <EmailInbox />;
+export default function LegacyInboxPage() {
+  redirect("/demo/inbox");
 }
