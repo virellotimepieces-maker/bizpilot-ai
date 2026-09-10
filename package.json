@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start --port 43127",
     "lint": "eslint",
-    "test": "node scripts/assert-legacy-brand.mjs"
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/assert-legacy-brand.mjs && tsx --test lib/reply-engine.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -30,6 +31,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5"
   }
 }

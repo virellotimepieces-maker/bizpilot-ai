@@ -141,6 +141,7 @@ export type ReplyIntent =
 
 export interface ReplySource {
   kind:
+    | "business"
     | "hours"
     | "contact"
     | "offering"

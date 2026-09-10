@@ -4,7 +4,7 @@ Customer support for **any** kind of business — not a store plugin.
 
 BizPilot keeps one business knowledge base and uses it in two places:
 
-- **Website chat** can answer safe, published questions on its own (hours, listed offerings, public prices, FAQs, policies).
+- **Website chat** can answer safe, published questions on its own from every knowledge-base section, including business information / about the business, hours, listed offerings, public prices, FAQs, policies, and public documents. Blank product or service fields are omitted. If nothing published matches, chat says the information is unavailable and offers a human — it does not invent details.
 - **Email support** always writes an **editable draft**. A human must approve it before anything is marked sent.
 
 Online selling is one sample. The same product also includes a home-services company and a family clinic.
@@ -46,6 +46,12 @@ Open [http://localhost:43127](http://localhost:43127).
 4. Open **Email drafts**, edit a reply, and approve it. Nothing is sent outside the browser.
 
 Answers are retrieved from the knowledge base you entered. No API key is required.
+
+```bash
+npm test
+npm run typecheck
+npm run lint
+```
 
 ## Stack
 
