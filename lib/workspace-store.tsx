@@ -24,7 +24,7 @@ import type {
   WorkspaceState,
 } from "./types";
 
-const STORAGE_KEY = "replypilot-workspace-v1";
+const STORAGE_KEY = "bizpilot-workspace-v1";
 
 const initialState: WorkspaceState = {
   knowledge: null,

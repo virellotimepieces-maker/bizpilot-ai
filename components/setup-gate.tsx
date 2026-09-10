@@ -19,7 +19,7 @@ export function SetupGate({
     return (
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 py-6">
         <div>
-          <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">ReplyPilot AI</p>
+          <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">BizPilot AI</p>
           <h1 className="font-heading mt-2 text-3xl tracking-tight sm:text-4xl">{title}</h1>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
             {description}

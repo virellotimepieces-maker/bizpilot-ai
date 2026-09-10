@@ -59,7 +59,7 @@ function Brand() {
         <Sparkles className="size-4" />
       </span>
       <span>
-        <span className="block font-heading text-base leading-none text-white">ReplyPilot</span>
+        <span className="block font-heading text-base leading-none text-white">BizPilot AI</span>
         <span className="mt-1 block text-[11px] tracking-[0.18em] text-white/55 uppercase">
           Support desk
         </span>
@@ -116,7 +116,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Button variant="outline" size="icon-sm" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="size-4" />
           </Button>
-          <span className="font-heading">ReplyPilot</span>
+          <span className="font-heading">BizPilot AI</span>
         </header>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetContent side="left" className="w-64 border-0 bg-sidebar p-0 text-sidebar-foreground">

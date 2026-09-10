@@ -15,7 +15,7 @@ export function DashboardHome() {
   return (
     <SetupGate
       title="A support desk for any kind of business"
-      description="Teach ReplyPilot who you are — products or services, prices, hours, policies, and when a human must take over. Website chat and email drafts share that knowledge. Neither one is a store plugin."
+      description="Teach BizPilot who you are — products or services, prices, hours, policies, and when a human must take over. Website chat and email drafts share that knowledge. Neither one is a store plugin."
     >
       <LoadedDashboard />
     </SetupGate>
@@ -126,7 +126,7 @@ function LoadedDashboard() {
             <CardTitle>What this is not</CardTitle>
           </div>
           <CardDescription>
-            ReplyPilot is not a Shopify app, a stock system, or a clinic EHR. Store-only fields such
+            BizPilot is not a Shopify app, a stock system, or a clinic EHR. Store-only fields such
             as shipping, inventory, and cash on delivery appear only if you choose the online-store
             type.
           </CardDescription>

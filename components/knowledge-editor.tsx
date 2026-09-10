@@ -93,7 +93,7 @@ function EditorBody() {
           <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">
             Shared knowledge base
           </p>
-          <h1 className="font-heading mt-2 text-3xl tracking-tight">Teach ReplyPilot your business</h1>
+          <h1 className="font-heading mt-2 text-3xl tracking-tight">Teach BizPilot your business</h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
             Changes here apply immediately to website chat and to new or regenerated email drafts.
             Store-only fields stay hidden unless this is an online store.

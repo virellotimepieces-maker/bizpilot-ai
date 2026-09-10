@@ -1,8 +1,8 @@
-# ReplyPilot AI
+# BizPilot AI
 
 Customer support for **any** kind of business — not a store plugin.
 
-ReplyPilot keeps one business knowledge base and uses it in two places:
+BizPilot keeps one business knowledge base and uses it in two places:
 
 - **Website chat** can answer safe, published questions on its own (hours, listed offerings, public prices, FAQs, policies).
 - **Email support** always writes an **editable draft**. A human must approve it before anything is marked sent.
@@ -11,7 +11,7 @@ Online selling is one sample. The same product also includes a home-services com
 
 ## Knowledge base
 
-Every business can teach ReplyPilot:
+Every business can teach BizPilot:
 
 - Business information
 - Products and/or services

@@ -145,7 +145,7 @@ const storeKnowledge: KnowledgeBase = {
       "Visa, Mastercard, American Express, and Shop Pay. Cash on delivery is available only for workshop pickup orders inside Portland city limits, paid in cash at the counter.",
     cashOnDelivery: true,
     orderTrackingNotes:
-      "Tracking is emailed when the label is created. ReplyPilot cannot look up a live order. Any message with an order number must go to a human.",
+      "Tracking is emailed when the label is created. BizPilot cannot look up a live order. Any message with an order number must go to a human.",
   },
   escalation: {
     autoAnswerChat: true,
