@@ -1,4 +1,5 @@
 import type { KnowledgeBase } from "@/lib/types";
+import type { WebsiteReplySource } from "@/lib/website/types";
 
 export type MembershipRole = "owner" | "member";
 
@@ -67,7 +68,7 @@ export interface NotificationRecord {
   id: string;
   userId: string;
   workspaceId: string;
-  type: "usage_limit" | "payment_failed" | "canceled" | "activated";
+  type: "usage_limit" | "payment_failed" | "canceled" | "activated" | "website_conflict" | "website_sync_error";
   message: string;
   createdAt: Date;
   readAt: Date | null;
@@ -88,6 +89,7 @@ export interface MessageRecord {
   role: "visitor" | "assistant" | "system";
   content: string;
   usageCounted: boolean;
+  sources?: WebsiteReplySource[] | null;
   createdAt: Date;
 }
 

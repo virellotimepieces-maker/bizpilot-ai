@@ -1,6 +1,7 @@
 "use client";
 
 import { KnowledgeEditor } from "@/components/knowledge-editor";
+import { WebsiteKnowledgePanel } from "@/components/website-knowledge-panel";
 import { emptyKnowledge } from "@/lib/empty-knowledge";
 import {
   getKnowledgeSaveView,
@@ -101,6 +102,7 @@ export function PaidKnowledge() {
 
   return (
     <div className="grid gap-3">
+      <WebsiteKnowledgePanel />
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground" aria-live="polite">
           Stored in your paid workspace, not in demo localStorage.

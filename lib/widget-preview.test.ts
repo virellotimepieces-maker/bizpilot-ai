@@ -55,6 +55,9 @@ describe("live widget preview", () => {
       "app/w/[widgetKey]/route.ts",
       "lib/widget-embed-script.ts",
       "lib/widget-chat-scroll.ts",
+      "lib/website/sync.ts",
+      "lib/website/run-sync.ts",
+      "components/website-knowledge-panel.tsx",
     ];
     for (const file of files) {
       const source = readFileSync(file, "utf8");

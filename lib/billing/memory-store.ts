@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { BIZPILOT_PRO } from "@/lib/plan";
+import type { WebsitePageKind, WebsitePageRecord, WebsiteSourceRecord } from "@/lib/website/types";
 import type { BillingStore, CreateUserInput, UpsertSubscriptionInput } from "./store";
 import type {
   ConversationRecord,
@@ -320,6 +321,7 @@ export class MemoryBillingStore implements BillingStore {
     role: MessageRecord["role"];
     content: string;
     usageCounted: boolean;
+    sources?: MessageRecord["sources"];
   }) {
     const conversation = await this.getConversation(input.conversationId, input.workspaceId);
     if (!conversation) throw new Error("conversation_missing");
@@ -330,6 +332,7 @@ export class MemoryBillingStore implements BillingStore {
       role: input.role,
       content: input.content,
       usageCounted: input.usageCounted,
+      sources: input.sources ?? null,
       createdAt: new Date(),
     };
     this.messages.push(row);
@@ -346,5 +349,83 @@ export class MemoryBillingStore implements BillingStore {
 
   async saveKnowledge(workspaceId: string, knowledge: import("@/lib/types").KnowledgeBase) {
     return this.updateWorkspace(workspaceId, { knowledge });
+  }
+
+  websiteSources = new Map<string, WebsiteSourceRecord>();
+  websitePages: WebsitePageRecord[] = [];
+
+  async getWebsiteSource(workspaceId: string) {
+    return this.websiteSources.get(workspaceId) ?? null;
+  }
+
+  async upsertWebsiteSource(input: {
+    workspaceId: string;
+    widgetKey: string;
+    domain: string;
+    verifyToken: string;
+  }) {
+    const current = this.websiteSources.get(input.workspaceId);
+    const now = new Date();
+    const row: WebsiteSourceRecord = {
+      id: current?.id ?? randomUUID(),
+      workspaceId: input.workspaceId,
+      widgetKey: input.widgetKey,
+      domain: input.domain,
+      verifyToken: current?.verifyToken ?? input.verifyToken,
+      verifiedAt: current?.domain === input.domain ? current.verifiedAt : null,
+      lastSyncAt: current?.domain === input.domain ? current.lastSyncAt : null,
+      nextSyncAt: current?.domain === input.domain ? current.nextSyncAt : null,
+      lastSyncStatus: current?.domain === input.domain ? current.lastSyncStatus : "idle",
+      lastSyncError: current?.domain === input.domain ? current.lastSyncError : null,
+      lastSyncPageCount: current?.domain === input.domain ? current.lastSyncPageCount : 0,
+      conflictWarning: current?.domain === input.domain ? current.conflictWarning : null,
+      createdAt: current?.createdAt ?? now,
+      updatedAt: now,
+    };
+    this.websiteSources.set(input.workspaceId, row);
+    return row;
+  }
+
+  async saveWebsiteSource(source: WebsiteSourceRecord) {
+    const row = { ...source, updatedAt: new Date() };
+    this.websiteSources.set(source.workspaceId, row);
+    return row;
+  }
+
+  async listWebsitePages(workspaceId: string, widgetKey: string) {
+    return this.websitePages.filter(
+      (row) => row.workspaceId === workspaceId && row.widgetKey === widgetKey,
+    );
+  }
+
+  async replaceWebsitePages(
+    workspaceId: string,
+    widgetKey: string,
+    sourceId: string,
+    pages: Omit<WebsitePageRecord, "id" | "workspaceId" | "widgetKey" | "sourceId">[],
+  ) {
+    this.websitePages = this.websitePages.filter(
+      (row) => !(row.workspaceId === workspaceId && row.widgetKey === widgetKey),
+    );
+    const stored = pages.map((page) => ({
+      ...page,
+      id: randomUUID(),
+      workspaceId,
+      widgetKey,
+      sourceId,
+      kind: page.kind as WebsitePageKind,
+    }));
+    this.websitePages.push(...stored);
+    return stored;
+  }
+
+  async listWebsiteSourcesDueForSync(now: Date) {
+    return [...this.websiteSources.values()].filter(
+      (row) =>
+        Boolean(row.verifiedAt) &&
+        row.lastSyncStatus !== "syncing" &&
+        row.nextSyncAt !== null &&
+        row.nextSyncAt.getTime() <= now.getTime(),
+    );
   }
 }

@@ -1,5 +1,7 @@
 import { BIZPILOT_PRO, isPaidAccessStatus } from "@/lib/plan";
 import type { KnowledgeBase } from "@/lib/types";
+import { groundedWebsiteAnswer } from "@/lib/website/answer";
+import type { WebsitePageRecord, WebsiteReplySource } from "@/lib/website/types";
 import type { BillingStore } from "./store";
 import { BillingError, type SubscriptionRecord, type UsagePeriodRecord } from "./types";
 
@@ -88,10 +90,15 @@ export class BillingService {
     conversationId?: string;
     question: string;
     now?: Date;
-    generate: (knowledge: KnowledgeBase | null, question: string) => Promise<string>;
+    generate: (
+      knowledge: KnowledgeBase | null,
+      question: string,
+      pages?: WebsitePageRecord[],
+    ) => Promise<string>;
   }) {
     const now = options.now ?? new Date();
     const gate = await this.assertWidgetCanReply(options.widgetKey, now);
+    const pages = await this.store.listWebsitePages(gate.workspace.id, gate.workspace.widgetKey);
     const periodStartMs = gate.period.periodStart.getTime();
     const reserved = await this.store.reserveAiReply(gate.workspace.id, periodStartMs);
     if (!reserved) {
@@ -124,11 +131,20 @@ export class BillingService {
 
     let answer: string;
     try {
-      answer = await options.generate(gate.workspace.knowledge, options.question);
+      answer = await options.generate(gate.workspace.knowledge, options.question, pages);
     } catch (error) {
       await this.store.releaseReservedAiReply(gate.workspace.id, periodStartMs);
       throw error;
     }
+
+    const grounded = groundedWebsiteAnswer({
+      question: options.question,
+      pages,
+      workspaceId: gate.workspace.id,
+      widgetKey: gate.workspace.widgetKey,
+      knowledge: gate.workspace.knowledge,
+    });
+    const sources: WebsiteReplySource[] = grounded.sources;
 
     const committed = await this.store.commitReservedAiReply(gate.workspace.id, periodStartMs);
     if (!committed) {
@@ -145,6 +161,7 @@ export class BillingService {
       role: "assistant",
       content: answer,
       usageCounted: true,
+      sources,
     });
 
     if (committed.repliesUsed >= committed.replyLimit) {
@@ -154,6 +171,7 @@ export class BillingService {
     return {
       conversationId: conversation.id,
       answer,
+      sources,
       usage: {
         used: committed.repliesUsed,
         limit: committed.replyLimit,

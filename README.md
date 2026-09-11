@@ -35,6 +35,7 @@ Copy `.env.example` to `.env.local`. Use a **new** database and **new** Stripe k
 | `STRIPE_PUBLISHABLE_KEY` | Optional |
 | `OPENAI_API_KEY` | Paid widget AI replies |
 | `OPENAI_MODEL` | Optional, defaults to `gpt-4o-mini` |
+| `CRON_SECRET` | Optional. Protects `/api/cron/website-sync` if you call it yourself. Vercel Cron is also accepted. |
 
 After `DATABASE_URL` is set on Vercel Production, `npm run build` runs `prisma migrate deploy` against that Neon database only.
 
@@ -65,6 +66,8 @@ Open [http://localhost:43127](http://localhost:43127).
 - `/signup` and `/login` paid accounts (need `DATABASE_URL` + `AUTH_SECRET`)
 - `/billing` Stripe Checkout and Customer Portal
 - `/app` paid dashboard (blocked unless the subscription is active)
+
+On Knowledge, paid workspaces can verify a public domain and click **Sync website**. BizPilot reads `sitemap.xml` (including Shopify product and policy sitemaps), skips checkout/cart/account/admin URLs, and answers only from that subscriber’s indexed pages. Verified sites re-sync daily via `/api/cron/website-sync`.
 
 ```bash
 npm test

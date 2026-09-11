@@ -30,6 +30,8 @@ model Workspace {
   usagePeriods  UsagePeriod[]
   notifications Notification[]
   conversations Conversation[]
+  websiteSource WebsiteSource?
+  websitePages  WebsitePage[]
 }
 
 model Membership {
@@ -118,8 +120,50 @@ model Message {
   role           String
   content        String
   usageCounted   Boolean      @default(false)
+  sources        Json?
   createdAt      DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, conversationId])
+}
+
+model WebsiteSource {
+  id                 String        @id @default(cuid())
+  workspaceId        String        @unique
+  widgetKey          String
+  domain             String
+  verifyToken        String
+  verifiedAt         DateTime?
+  lastSyncAt         DateTime?
+  nextSyncAt         DateTime?
+  lastSyncStatus     String        @default("idle")
+  lastSyncError      String?
+  lastSyncPageCount  Int           @default(0)
+  conflictWarning    String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  workspace          Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  pages              WebsitePage[]
+
+  @@index([widgetKey])
+  @@index([nextSyncAt])
+}
+
+model WebsitePage {
+  id           String         @id @default(cuid())
+  workspaceId  String
+  widgetKey    String
+  sourceId     String
+  url          String
+  title        String
+  kind         String
+  content      String
+  contentHash  String
+  lastModified DateTime?
+  fetchedAt    DateTime
+  source       WebsiteSource  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  workspace    Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, url])
+  @@index([workspaceId, widgetKey])
 }

@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import type { KnowledgeBase } from "@/lib/types";
 import { BIZPILOT_PRO } from "@/lib/plan";
 import { getPrisma } from "@/lib/db";
+import type { WebsitePageKind, WebsitePageRecord, WebsiteSourceRecord, WebsiteSyncStatus } from "@/lib/website/types";
 import type { BillingStore, CreateUserInput, UpsertSubscriptionInput } from "./store";
 import type {
   ConversationRecord,
@@ -78,6 +79,78 @@ function mapUsage(row: {
   repliesReserved: number;
 }): UsagePeriodRecord {
   return row;
+}
+
+function asSources(value: unknown): MessageRecord["sources"] {
+  if (!Array.isArray(value)) return null;
+  return value.filter((row): row is NonNullable<MessageRecord["sources"]>[number] => {
+    if (!row || typeof row !== "object") return false;
+    const item = row as { title?: unknown; url?: unknown; kind?: unknown };
+    return typeof item.title === "string" && typeof item.url === "string";
+  });
+}
+
+function mapMessage(row: {
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  role: string;
+  content: string;
+  usageCounted: boolean;
+  sources?: unknown;
+  createdAt: Date;
+}): MessageRecord {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    conversationId: row.conversationId,
+    role: row.role as MessageRecord["role"],
+    content: row.content,
+    usageCounted: row.usageCounted,
+    sources: asSources(row.sources),
+    createdAt: row.createdAt,
+  };
+}
+
+function mapWebsiteSource(row: {
+  id: string;
+  workspaceId: string;
+  widgetKey: string;
+  domain: string;
+  verifyToken: string;
+  verifiedAt: Date | null;
+  lastSyncAt: Date | null;
+  nextSyncAt: Date | null;
+  lastSyncStatus: string;
+  lastSyncError: string | null;
+  lastSyncPageCount: number;
+  conflictWarning: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): WebsiteSourceRecord {
+  return {
+    ...row,
+    lastSyncStatus: row.lastSyncStatus as WebsiteSyncStatus,
+  };
+}
+
+function mapWebsitePage(row: {
+  id: string;
+  workspaceId: string;
+  widgetKey: string;
+  sourceId: string;
+  url: string;
+  title: string;
+  kind: string;
+  content: string;
+  contentHash: string;
+  lastModified: Date | null;
+  fetchedAt: Date;
+}): WebsitePageRecord {
+  return {
+    ...row,
+    kind: row.kind as WebsitePageKind,
+  };
 }
 
 export class PrismaBillingStore implements BillingStore {
@@ -372,11 +445,21 @@ export class PrismaBillingStore implements BillingStore {
     role: MessageRecord["role"];
     content: string;
     usageCounted: boolean;
+    sources?: MessageRecord["sources"];
   }) {
     const conversation = await this.getConversation(input.conversationId, input.workspaceId);
     if (!conversation) throw new Error("conversation_missing");
-    const row = await this.prisma().message.create({ data: input });
-    return row as MessageRecord;
+    const row = await this.prisma().message.create({
+      data: {
+        workspaceId: input.workspaceId,
+        conversationId: input.conversationId,
+        role: input.role,
+        content: input.content,
+        usageCounted: input.usageCounted,
+        sources: input.sources === undefined ? undefined : (input.sources as Prisma.InputJsonValue),
+      },
+    });
+    return mapMessage(row);
   }
 
   async listMessages(conversationId: string, workspaceId: string) {
@@ -386,10 +469,114 @@ export class PrismaBillingStore implements BillingStore {
       where: { conversationId, workspaceId },
       orderBy: { createdAt: "asc" },
     });
-    return rows as MessageRecord[];
+    return rows.map(mapMessage);
   }
 
   async saveKnowledge(workspaceId: string, knowledge: KnowledgeBase) {
     return this.updateWorkspace(workspaceId, { knowledge });
+  }
+
+  async getWebsiteSource(workspaceId: string) {
+    const row = await this.prisma().websiteSource.findUnique({ where: { workspaceId } });
+    return row ? mapWebsiteSource(row) : null;
+  }
+
+  async upsertWebsiteSource(input: {
+    workspaceId: string;
+    widgetKey: string;
+    domain: string;
+    verifyToken: string;
+  }) {
+    const current = await this.getWebsiteSource(input.workspaceId);
+    const domainChanged = current?.domain !== input.domain;
+    const row = await this.prisma().websiteSource.upsert({
+      where: { workspaceId: input.workspaceId },
+      create: {
+        workspaceId: input.workspaceId,
+        widgetKey: input.widgetKey,
+        domain: input.domain,
+        verifyToken: input.verifyToken,
+      },
+      update: {
+        widgetKey: input.widgetKey,
+        domain: input.domain,
+        verifyToken: current?.verifyToken ?? input.verifyToken,
+        ...(domainChanged
+          ? {
+              verifiedAt: null,
+              lastSyncAt: null,
+              nextSyncAt: null,
+              lastSyncStatus: "idle",
+              lastSyncError: null,
+              lastSyncPageCount: 0,
+              conflictWarning: null,
+            }
+          : {}),
+      },
+    });
+    return mapWebsiteSource(row);
+  }
+
+  async saveWebsiteSource(source: WebsiteSourceRecord) {
+    const row = await this.prisma().websiteSource.update({
+      where: { id: source.id },
+      data: {
+        widgetKey: source.widgetKey,
+        domain: source.domain,
+        verifyToken: source.verifyToken,
+        verifiedAt: source.verifiedAt,
+        lastSyncAt: source.lastSyncAt,
+        nextSyncAt: source.nextSyncAt,
+        lastSyncStatus: source.lastSyncStatus,
+        lastSyncError: source.lastSyncError,
+        lastSyncPageCount: source.lastSyncPageCount,
+        conflictWarning: source.conflictWarning,
+      },
+    });
+    return mapWebsiteSource(row);
+  }
+
+  async listWebsitePages(workspaceId: string, widgetKey: string) {
+    const rows = await this.prisma().websitePage.findMany({
+      where: { workspaceId, widgetKey },
+      orderBy: { fetchedAt: "desc" },
+    });
+    return rows.map(mapWebsitePage);
+  }
+
+  async replaceWebsitePages(
+    workspaceId: string,
+    widgetKey: string,
+    sourceId: string,
+    pages: Omit<WebsitePageRecord, "id" | "workspaceId" | "widgetKey" | "sourceId">[],
+  ) {
+    await this.prisma().websitePage.deleteMany({ where: { workspaceId, widgetKey } });
+    if (!pages.length) return [];
+    await this.prisma().websitePage.createMany({
+      data: pages.map((page) => ({
+        workspaceId,
+        widgetKey,
+        sourceId,
+        url: page.url,
+        title: page.title,
+        kind: page.kind,
+        content: page.content,
+        contentHash: page.contentHash,
+        lastModified: page.lastModified,
+        fetchedAt: page.fetchedAt,
+      })),
+    });
+    return this.listWebsitePages(workspaceId, widgetKey);
+  }
+
+  async listWebsiteSourcesDueForSync(now: Date) {
+    const rows = await this.prisma().websiteSource.findMany({
+      where: {
+        verifiedAt: { not: null },
+        lastSyncStatus: { not: "syncing" },
+        nextSyncAt: { lte: now },
+      },
+    });
+    return rows.map(mapWebsiteSource);
   }
 }

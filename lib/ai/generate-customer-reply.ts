@@ -1,5 +1,8 @@
 import { BillingError } from "@/lib/billing/types";
 import type { KnowledgeBase } from "@/lib/types";
+import { groundedWebsiteAnswer, websitePagesPrompt, WEBSITE_NO_SOURCE_ANSWER } from "@/lib/website/answer";
+import { retrieveRelevantPages } from "@/lib/website/retrieve";
+import type { WebsitePageRecord } from "@/lib/website/types";
 
 function knowledgePrompt(knowledge: KnowledgeBase | null) {
   if (!knowledge) {
@@ -42,9 +45,32 @@ function knowledgePrompt(knowledge: KnowledgeBase | null) {
 export async function generateCustomerReply(
   knowledge: KnowledgeBase | null,
   question: string,
+  pages: WebsitePageRecord[] = [],
 ): Promise<string> {
+  const sample = pages[0];
+  const grounded = groundedWebsiteAnswer({
+    question,
+    pages,
+    workspaceId: sample?.workspaceId ?? "",
+    widgetKey: sample?.widgetKey ?? "",
+    knowledge,
+  });
+  const relevant = sample
+    ? retrieveRelevantPages(
+        pages.filter(
+          (page) => page.workspaceId === sample.workspaceId && page.widgetKey === sample.widgetKey,
+        ),
+        question,
+      )
+    : [];
+
+  if (!relevant.length && grounded.answer === WEBSITE_NO_SOURCE_ANSWER && !knowledge?.description && !knowledge?.name) {
+    return WEBSITE_NO_SOURCE_ANSWER;
+  }
+
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
+    if (grounded.usedWebsite) return grounded.answer;
     throw new BillingError(
       "AI replies are not configured. Set OPENAI_API_KEY for paid widget answers.",
       "misconfigured",
@@ -59,11 +85,11 @@ export async function generateCustomerReply(
     },
     body: JSON.stringify({
       model,
-      temperature: 0.2,
+      temperature: 0.1,
       messages: [
         {
           role: "system",
-          content: `You are the website chat assistant for one business on BizPilot AI. Answer only from the published knowledge below. If the knowledge does not contain the answer, say the information is unavailable and offer a human teammate. Never invent prices, policies, or capabilities.\n\n${knowledgePrompt(knowledge)}`,
+          content: `You are the website chat assistant for one BizPilot subscriber. Answer only from that subscriber's indexed website pages and published knowledge below. If those sources do not contain the answer, say the information is unavailable and offer a human teammate. Never invent prices, policies, or capabilities. Never use another business's content.\n\nIndexed website pages (include facts only from these URLs):\n${websitePagesPrompt(relevant)}\n\nPublished knowledge:\n${knowledgePrompt(knowledge)}`,
         },
         { role: "user", content: question },
       ],

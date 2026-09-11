@@ -7,7 +7,12 @@ type Conversation = {
   id: string;
   visitorKey: string;
   waitingOnHuman: boolean;
-  messages: { id: string; role: string; content: string }[];
+  messages: {
+    id: string;
+    role: string;
+    content: string;
+    sources?: { title: string; url: string }[] | null;
+  }[];
 };
 
 export function PaidInbox() {
@@ -49,10 +54,23 @@ export function PaidInbox() {
             </CardHeader>
             <CardContent className="grid gap-2 text-sm">
               {conversation.messages.map((message) => (
-                <p key={message.id}>
-                  <span className="text-muted-foreground">{message.role}: </span>
-                  {message.content}
-                </p>
+                <div key={message.id} className="grid gap-1">
+                  <p>
+                    <span className="text-muted-foreground">{message.role}: </span>
+                    {message.content}
+                  </p>
+                  {message.role === "assistant" && message.sources?.length ? (
+                    <p className="text-xs text-muted-foreground">
+                      Internal source:{" "}
+                      {message.sources.map((source, index) => (
+                        <span key={source.url}>
+                          {index > 0 ? " · " : ""}
+                          {source.title} ({source.url})
+                        </span>
+                      ))}
+                    </p>
+                  ) : null}
+                </div>
               ))}
             </CardContent>
           </Card>

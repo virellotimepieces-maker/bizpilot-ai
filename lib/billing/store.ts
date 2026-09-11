@@ -1,4 +1,5 @@
 import type { KnowledgeBase } from "@/lib/types";
+import type { WebsitePageRecord, WebsiteSourceRecord } from "@/lib/website/types";
 import type {
   ConversationRecord,
   MembershipRecord,
@@ -94,8 +95,26 @@ export interface BillingStore {
     role: MessageRecord["role"];
     content: string;
     usageCounted: boolean;
+    sources?: MessageRecord["sources"];
   }): Promise<MessageRecord>;
   listMessages(conversationId: string, workspaceId: string): Promise<MessageRecord[]>;
 
   saveKnowledge(workspaceId: string, knowledge: KnowledgeBase): Promise<WorkspaceRecord>;
+
+  getWebsiteSource(workspaceId: string): Promise<WebsiteSourceRecord | null>;
+  upsertWebsiteSource(input: {
+    workspaceId: string;
+    widgetKey: string;
+    domain: string;
+    verifyToken: string;
+  }): Promise<WebsiteSourceRecord>;
+  saveWebsiteSource(source: WebsiteSourceRecord): Promise<WebsiteSourceRecord>;
+  listWebsitePages(workspaceId: string, widgetKey: string): Promise<WebsitePageRecord[]>;
+  replaceWebsitePages(
+    workspaceId: string,
+    widgetKey: string,
+    sourceId: string,
+    pages: Omit<WebsitePageRecord, "id" | "workspaceId" | "widgetKey" | "sourceId">[],
+  ): Promise<WebsitePageRecord[]>;
+  listWebsiteSourcesDueForSync(now: Date): Promise<WebsiteSourceRecord[]>;
 }

@@ -63,4 +63,8 @@ export const ENV_DOCS = [
     name: "OPENAI_MODEL",
     why: "Optional. Defaults to gpt-4o-mini.",
   },
+  {
+    name: "CRON_SECRET",
+    why: "Optional. Bearer token for GET /api/cron/website-sync if you invoke it outside Vercel Cron.",
+  },
 ] as const;
