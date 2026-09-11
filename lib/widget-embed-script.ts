@@ -5,8 +5,11 @@ export const WIDGET_MAX_HEIGHT = "calc(100dvh - 120px)";
 export const WIDGET_LAUNCHER_SIZE_PX = 56;
 export const WIDGET_DESKTOP_WIDTH_PX = 360;
 export const WIDGET_DESKTOP_HEIGHT_PX = 520;
-export const WIDGET_MOBILE_MEDIA = "(max-width: 640px)";
+export const WIDGET_MOBILE_MEDIA = "(max-width: 767px)";
 export const WIDGET_EDGE_OFFSET = "12px";
+export const WIDGET_MOBILE_RIGHT = "16px";
+export const WIDGET_MOBILE_BOTTOM = "120px";
+export const WIDGET_Z_INDEX = "2147483647";
 
 export type WidgetHostMessageType = "open" | "close";
 
@@ -66,6 +69,8 @@ export function buildWidgetEmbedScript(origin: string, widgetKey: string) {
   var DESKTOP_WIDTH = ${JSON.stringify(String(WIDGET_DESKTOP_WIDTH_PX) + "px")};
   var DESKTOP_HEIGHT = ${JSON.stringify(String(WIDGET_DESKTOP_HEIGHT_PX) + "px")};
   var EDGE = ${JSON.stringify(WIDGET_EDGE_OFFSET)};
+  var MOBILE_RIGHT = ${JSON.stringify(WIDGET_MOBILE_RIGHT)};
+  var MOBILE_BOTTOM = ${JSON.stringify(WIDGET_MOBILE_BOTTOM)};
   var SOURCE = ${JSON.stringify(WIDGET_POST_MESSAGE_SOURCE)};
   if (document.getElementById(${JSON.stringify(WIDGET_IFRAME_ID)})) return;
   var iframe = document.createElement("iframe");
@@ -75,39 +80,51 @@ export function buildWidgetEmbedScript(origin: string, widgetKey: string) {
   iframe.src = ORIGIN + "/embed/" + encodeURIComponent(KEY);
   iframe.setAttribute("allowtransparency", "true");
   iframe.style.position = "fixed";
-  iframe.style.zIndex = "2147483647";
+  iframe.style.zIndex = ${JSON.stringify(WIDGET_Z_INDEX)};
   iframe.style.border = "0";
   iframe.style.background = "transparent";
   iframe.style.colorScheme = "light";
-  iframe.style.overflow = "hidden";
+  iframe.style.overflow = "visible";
   iframe.style.maxWidth = MAX_WIDTH;
   iframe.style.maxHeight = MAX_HEIGHT;
   function isMobile() {
     return window.matchMedia && window.matchMedia(${JSON.stringify(WIDGET_MOBILE_MEDIA)}).matches;
   }
+  function applyAnchor() {
+    iframe.style.position = "fixed";
+    iframe.style.zIndex = ${JSON.stringify(WIDGET_Z_INDEX)};
+    iframe.style.right = isMobile() ? MOBILE_RIGHT : EDGE;
+    iframe.style.bottom = isMobile() ? MOBILE_BOTTOM : EDGE;
+  }
   function applyCollapsed() {
     isOpen = false;
     iframe.style.width = LAUNCHER;
     iframe.style.height = LAUNCHER;
-    iframe.style.right = EDGE;
-    iframe.style.bottom = EDGE;
+    iframe.style.minWidth = LAUNCHER;
+    iframe.style.minHeight = LAUNCHER;
+    iframe.style.overflow = "visible";
     iframe.style.borderRadius = "999px";
     iframe.style.boxShadow = "none";
+    applyAnchor();
   }
   function applyExpanded() {
     isOpen = true;
+    iframe.style.overflow = "hidden";
     iframe.style.maxWidth = MAX_WIDTH;
     iframe.style.maxHeight = MAX_HEIGHT;
-    iframe.style.right = EDGE;
-    iframe.style.bottom = EDGE;
     iframe.style.borderRadius = "16px";
     iframe.style.boxShadow = "0 18px 50px rgba(15,23,42,.25)";
+    applyAnchor();
     if (isMobile()) {
       iframe.style.width = MAX_WIDTH;
       iframe.style.height = MAX_HEIGHT;
+      iframe.style.minWidth = "0";
+      iframe.style.minHeight = "0";
     } else {
       iframe.style.width = DESKTOP_WIDTH;
       iframe.style.height = DESKTOP_HEIGHT;
+      iframe.style.minWidth = "0";
+      iframe.style.minHeight = "0";
     }
   }
   applyCollapsed();
@@ -121,6 +138,7 @@ export function buildWidgetEmbedScript(origin: string, widgetKey: string) {
   });
   window.addEventListener("resize", function () {
     if (isOpen) applyExpanded();
+    else applyCollapsed();
   });
 })();`;
 }

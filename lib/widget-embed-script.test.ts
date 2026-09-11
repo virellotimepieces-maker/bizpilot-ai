@@ -11,7 +11,10 @@ import {
   WIDGET_LAUNCHER_SIZE_PX,
   WIDGET_MAX_HEIGHT,
   WIDGET_MAX_WIDTH,
+  WIDGET_MOBILE_BOTTOM,
   WIDGET_MOBILE_MEDIA,
+  WIDGET_MOBILE_RIGHT,
+  WIDGET_Z_INDEX,
   widgetEmbedPath,
   widgetScriptPath,
 } from "./widget-embed-script";
@@ -71,6 +74,22 @@ describe("generated /w/[widget-id].js embed script", () => {
       new RegExp(`DESKTOP_HEIGHT = "${WIDGET_DESKTOP_HEIGHT_PX}px"`),
     );
     assert.doesNotMatch(script, /width:100vw|height:100vh|height:100dvh|width:\s*100%/);
+  });
+
+  it("sits above the Shopify preview bar on screens below 768px", () => {
+    assert.equal(WIDGET_MOBILE_MEDIA, "(max-width: 767px)");
+    assert.equal(WIDGET_MOBILE_RIGHT, "16px");
+    assert.equal(WIDGET_MOBILE_BOTTOM, "120px");
+    assert.equal(WIDGET_Z_INDEX, "2147483647");
+    assert.match(script, /MOBILE_RIGHT = "16px"/);
+    assert.match(script, /MOBILE_BOTTOM = "120px"/);
+    assert.match(script, /iframe\.style\.zIndex = "2147483647"/);
+    assert.match(script, /iframe\.style\.right = isMobile\(\) \? MOBILE_RIGHT : EDGE/);
+    assert.match(script, /iframe\.style\.bottom = isMobile\(\) \? MOBILE_BOTTOM : EDGE/);
+    assert.match(script, /applyAnchor\(\);\s*if \(isMobile\(\)\)/);
+    assert.match(script, /function applyCollapsed\(\)[\s\S]*applyAnchor\(\)/);
+    assert.match(script, /minWidth = LAUNCHER/);
+    assert.match(script, /minHeight = LAUNCHER/);
   });
 });
 
