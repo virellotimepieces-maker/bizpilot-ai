@@ -67,7 +67,7 @@ Open [http://localhost:43127](http://localhost:43127).
 - `/billing` Stripe Checkout and Customer Portal
 - `/app` paid dashboard (blocked unless the subscription is active)
 
-On Knowledge, paid workspaces can verify a public domain and click **Sync website**. BizPilot reads `sitemap.xml` (including Shopify product and policy sitemaps), skips checkout/cart/account/admin URLs, and answers only from that subscriber’s indexed pages. Verified sites re-sync daily via `/api/cron/website-sync`.
+On Knowledge, paid workspaces can verify a public domain and click **Sync website**. Domain verification follows HTTPS redirects to the live homepage, then matches the workspace widget script by origin and pathname (query parameters such as `?v=` are ignored). BizPilot reads `sitemap.xml` (including Shopify product and policy sitemaps), skips checkout/cart/account/admin URLs, and answers only from that subscriber’s indexed pages. Verified sites re-sync daily via `/api/cron/website-sync`.
 
 ```bash
 npm test

@@ -51,7 +51,12 @@ describe("website ingestion guards", () => {
       `<urlset><url><loc>https://shop.example/products/stonewash-duvet</loc><lastmod>2026-09-01</lastmod></url><url><loc>https://shop.example/cart</loc></url></urlset>`,
     );
     assert.equal(products[0]?.loc, "https://shop.example/products/stonewash-duvet");
-    assert.ok(homepageHasWidgetSnippet('<script src="https://app.example/w/bpw_live.js"></script>', "bpw_live"));
+    assert.ok(
+      homepageHasWidgetSnippet(
+        '<script src="https://bizpilot-ai-mocha.vercel.app/w/bpw_live.js?v=0c6fa93"></script>',
+        "bpw_live",
+      ),
+    );
   });
 
   it("extracts visible page text and ignores scripts", () => {

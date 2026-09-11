@@ -4,7 +4,7 @@ import { getBillingStore } from "@/lib/billing/factory";
 import { BillingService } from "@/lib/billing/service";
 import { BillingError } from "@/lib/billing/types";
 import { jsonError } from "@/lib/http";
-import { verifyWebsiteOwnership } from "@/lib/website/sync";
+import { formatWebsiteVerifyFailure, verifyWebsiteOwnership } from "@/lib/website/verify";
 
 export async function POST() {
   try {
@@ -23,9 +23,13 @@ export async function POST() {
       token: source.verifyToken,
     });
     if (!result.verified) {
-      throw new BillingError(
-        "Could not verify that domain. Confirm the BizPilot snippet is on the live homepage, or publish the verification file, then try again.",
-        "invalid",
+      return NextResponse.json(
+        {
+          error: formatWebsiteVerifyFailure(result.diagnostic),
+          code: "invalid",
+          diagnostic: result.diagnostic,
+        },
+        { status: 400 },
       );
     }
     const saved = await store.saveWebsiteSource({
@@ -33,7 +37,11 @@ export async function POST() {
       widgetKey: workspace.widgetKey,
       verifiedAt: new Date(),
     });
-    return NextResponse.json({ source: saved, method: result.method });
+    return NextResponse.json({
+      source: saved,
+      method: result.method,
+      diagnostic: result.diagnostic,
+    });
   } catch (error) {
     return jsonError(error, "Could not verify the website domain.");
   }

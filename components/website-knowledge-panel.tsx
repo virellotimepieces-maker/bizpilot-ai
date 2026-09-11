@@ -74,9 +74,26 @@ export function WebsiteKnowledgePanel() {
     setError("");
     try {
       const response = await fetch("/api/app/website/verify", { method: "POST" });
-      const payload = (await response.json()) as { source?: WebsiteSourceRecord; error?: string };
+      const payload = (await response.json()) as {
+        source?: WebsiteSourceRecord;
+        error?: string;
+        diagnostic?: {
+          fetchedUrl: string | null;
+          status: number | null;
+          expectedPath: string;
+          foundScriptPathname: boolean;
+        };
+      };
       if (!response.ok) {
-        setError(payload.error || "Could not verify the domain.");
+        const diagnostic = payload.diagnostic
+          ? ` Fetched ${payload.diagnostic.fetchedUrl ?? "no URL"} (${
+              payload.diagnostic.status == null ? "no HTTP status" : `HTTP ${payload.diagnostic.status}`
+            }). Expected script path ${payload.diagnostic.expectedPath} ${
+              payload.diagnostic.foundScriptPathname ? "was found" : "was not found"
+            }.`
+          : "";
+        const base = payload.error || "Could not verify the domain.";
+        setError(base.includes("Fetched ") || base.includes("could not be fetched") ? base : `${base}${diagnostic}`);
         return;
       }
       setSource(payload.source ?? null);

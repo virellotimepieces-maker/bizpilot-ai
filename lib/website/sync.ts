@@ -10,7 +10,7 @@ import {
   websiteOrigin,
   websitePagePriority,
 } from "./urls";
-import { homepageHasWidgetSnippet, wellKnownTokenMatches } from "./verify";
+import { verifyWebsiteOwnership, type WebsiteFetchLike } from "./verify";
 import {
   WEBSITE_FETCH_TIMEOUT_MS,
   WEBSITE_MAX_PAGES,
@@ -20,16 +20,9 @@ import {
   type WebsiteSourceRecord,
 } from "./types";
 
-export type FetchLike = (
-  url: string,
-  init?: { headers?: Record<string, string>; signal?: AbortSignal },
-) => Promise<{
-  ok: boolean;
-  status: number;
-  url: string;
-  headers: { get(name: string): string | null };
-  text(): Promise<string>;
-}>;
+export { verifyWebsiteOwnership };
+
+export type FetchLike = WebsiteFetchLike;
 
 const BOT_HEADERS = {
   "User-Agent": "BizPilotWebsiteIndexer/1.0",
@@ -51,27 +44,6 @@ async function readUrl(fetchImpl: FetchLike, url: string) {
   });
   const body = await response.text();
   return { ...response, body };
-}
-
-export async function verifyWebsiteOwnership(input: {
-  domain: string;
-  widgetKey: string;
-  token: string;
-  fetchImpl?: FetchLike;
-}) {
-  const fetchImpl = input.fetchImpl ?? fetch;
-  const origin = websiteOrigin(input.domain);
-  const homepage = await readUrl(fetchImpl, `${origin}/`).catch(() => null);
-  if (homepage?.ok && homepageHasWidgetSnippet(homepage.body, input.widgetKey)) {
-    return { verified: true, method: "widget_snippet" as const };
-  }
-  const wellKnown = await readUrl(fetchImpl, `${origin}/.well-known/bizpilot-verify.txt`).catch(
-    () => null,
-  );
-  if (wellKnown?.ok && wellKnownTokenMatches(wellKnown.body, input.token)) {
-    return { verified: true, method: "well_known" as const };
-  }
-  return { verified: false, method: null };
 }
 
 async function collectSitemapUrls(origin: string, domain: string, fetchImpl: FetchLike) {
