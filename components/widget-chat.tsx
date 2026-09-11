@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { WIDGET_CHAT_API_PATH } from "@/lib/widget-preview";
 import { useEffect, useState } from "react";
 
 type ChatRow = { role: "visitor" | "assistant"; content: string };
@@ -12,6 +13,7 @@ export function WidgetChat({ widgetKey }: { widgetKey: string }) {
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [rows, setRows] = useState<ChatRow[]>([]);
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -28,34 +30,44 @@ export function WidgetChat({ widgetKey }: { widgetKey: string }) {
 
   async function send(question: string) {
     const trimmed = question.trim();
-    if (!trimmed) return;
+    if (!trimmed || pending || !visitorKey) return;
     setDraft("");
+    setError("");
     setRows((current) => [...current, { role: "visitor", content: trimmed }]);
     setPending(true);
-    const response = await fetch("/api/widget/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        widgetKey,
-        visitorKey,
-        conversationId,
-        question: trimmed,
-      }),
-    });
-    const payload = (await response.json()) as {
-      answer?: string;
-      conversationId?: string;
-      error?: string;
-    };
-    setPending(false);
-    if (payload.conversationId) setConversationId(payload.conversationId);
-    setRows((current) => [
-      ...current,
-      {
-        role: "assistant",
-        content: payload.answer || payload.error || "I could not answer just now.",
-      },
-    ]);
+    try {
+      const response = await fetch(WIDGET_CHAT_API_PATH, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          widgetKey,
+          visitorKey,
+          conversationId,
+          question: trimmed,
+        }),
+      });
+      const payload = (await response.json()) as {
+        answer?: string;
+        conversationId?: string;
+        error?: string;
+      };
+      if (payload.conversationId) setConversationId(payload.conversationId);
+      if (!response.ok && !payload.answer) {
+        setError(payload.error || "The live widget could not answer.");
+        return;
+      }
+      setRows((current) => [
+        ...current,
+        {
+          role: "assistant",
+          content: payload.answer || payload.error || "I could not answer just now.",
+        },
+      ]);
+    } catch {
+      setError("The live widget could not be reached.");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -65,7 +77,7 @@ export function WidgetChat({ widgetKey }: { widgetKey: string }) {
         <p className="text-xs text-neutral-500">Powered by BizPilot Pro</p>
       </div>
       <div className="flex-1 space-y-2 overflow-y-auto p-3">
-        {rows.length === 0 ? (
+        {rows.length === 0 && !error ? (
           <p className="rounded-2xl bg-neutral-50 p-3 text-sm text-neutral-600">
             Ask a question. If this business’s monthly AI allowance is used, you’ll be offered a
             person instead.
@@ -83,7 +95,16 @@ export function WidgetChat({ widgetKey }: { widgetKey: string }) {
             {row.content}
           </div>
         ))}
-        {pending ? <p className="text-xs text-neutral-500">Looking that up…</p> : null}
+        {pending ? (
+          <p className="text-xs text-neutral-500" aria-live="polite">
+            Looking that up…
+          </p>
+        ) : null}
+        {error ? (
+          <p className="rounded-2xl bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {error}
+          </p>
+        ) : null}
       </div>
       <form
         className="flex gap-2 border-t p-3"
@@ -93,8 +114,8 @@ export function WidgetChat({ widgetKey }: { widgetKey: string }) {
         }}
       >
         <Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Message…" />
-        <Button type="submit" disabled={pending || !visitorKey}>
-          Send
+        <Button type="submit" disabled={pending || !visitorKey} aria-busy={pending}>
+          {pending ? "Sending…" : "Send"}
         </Button>
       </form>
     </div>
