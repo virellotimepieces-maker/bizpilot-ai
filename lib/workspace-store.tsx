@@ -9,11 +9,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { emptyKnowledge } from "./empty-knowledge";
+import { emptyKnowledge, normalizeKnowledge } from "./empty-knowledge";
 import { nid } from "./id";
 import { presetById } from "./presets";
-import { emptyChat, buildInboxFromPreset, rebuildEmailDraft } from "./sample-traffic";
+import { emptyChat, buildInboxFromPreset, buildSocialInboxFromPreset, rebuildEmailDraft } from "./sample-traffic";
 import { generateReply } from "./reply-engine";
+import { draftSocialFromInbound, rebuildSocialDraft } from "./social";
 import type {
   BusinessType,
   ChatMessage,
@@ -21,6 +22,8 @@ import type {
   EmailMessage,
   EmailStatus,
   KnowledgeBase,
+  SocialMessage,
+  SocialStatus,
   WorkspaceState,
 } from "./types";
 
@@ -30,6 +33,7 @@ const initialState: WorkspaceState = {
   knowledge: null,
   presetId: null,
   emails: [],
+  socials: [],
   chats: [],
   activeChatId: null,
 };
@@ -39,6 +43,7 @@ interface WorkspaceContextValue {
   knowledge: KnowledgeBase | null;
   presetId: string | null;
   emails: EmailMessage[];
+  socials: SocialMessage[];
   chats: ChatSession[];
   activeChat: ChatSession | null;
   loadPreset: (presetId: string) => void;
@@ -54,6 +59,16 @@ interface WorkspaceContextValue {
     subject: string;
     body: string;
   }) => void;
+  updateSocial: (id: string, patch: Partial<SocialMessage>) => void;
+  setSocialStatus: (id: string, status: SocialStatus) => void;
+  regenerateSocialDraft: (id: string) => void;
+  simulateIncomingSocial: (input: {
+    platform: SocialMessage["platform"];
+    fromName: string;
+    handle: string;
+    body: string;
+    conversationUrl?: string;
+  }) => void;
   sendVisitorMessage: (text: string) => void;
   resetChat: () => void;
   resetWorkspace: () => void;
@@ -62,7 +77,7 @@ interface WorkspaceContextValue {
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 function ensureStoreShape(kb: KnowledgeBase): KnowledgeBase {
-  const next = { ...kb };
+  const next = normalizeKnowledge({ ...kb });
   if (kb.businessType === "online_store") {
     next.store = kb.store ?? {
       shippingPolicy: "",
@@ -100,6 +115,7 @@ function parseStored(raw: string | null): WorkspaceState {
       knowledge: parsed.knowledge ? ensureStoreShape(parsed.knowledge) : null,
       presetId: parsed.presetId ?? null,
       emails: parsed.emails ?? [],
+      socials: parsed.socials ?? [],
       chats: parsed.chats ?? [],
       activeChatId: parsed.activeChatId ?? parsed.chats?.[0]?.id ?? null,
     };
@@ -109,7 +125,7 @@ function parseStored(raw: string | null): WorkspaceState {
 }
 
 function isEmptyWorkspace(state: WorkspaceState) {
-  return !state.knowledge && state.emails.length === 0 && state.chats.length === 0;
+  return !state.knowledge && state.emails.length === 0 && state.socials.length === 0 && state.chats.length === 0;
 }
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
@@ -142,6 +158,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       knowledge,
       presetId,
       emails: buildInboxFromPreset(preset, knowledge),
+      socials: buildSocialInboxFromPreset(preset, knowledge),
       chats: [chat],
       activeChatId: chat.id,
     });
@@ -154,6 +171,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       knowledge,
       presetId: "custom",
       emails: [],
+      socials: [],
       chats: [chat],
       activeChatId: chat.id,
     });
@@ -241,6 +259,67 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const updateSocial = useCallback((id: string, patch: Partial<SocialMessage>) => {
+    setState((prev) => ({
+      ...prev,
+      socials: prev.socials.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+    }));
+  }, []);
+
+  const setSocialStatus = useCallback((id: string, status: SocialStatus) => {
+    setState((prev) => ({
+      ...prev,
+      socials: prev.socials.map((row) =>
+        row.id === id
+          ? {
+              ...row,
+              status,
+              postedAt: status === "posted" ? new Date().toISOString() : row.postedAt,
+            }
+          : row,
+      ),
+    }));
+  }, []);
+
+  const regenerateSocialDraft = useCallback((id: string) => {
+    setState((prev) => {
+      if (!prev.knowledge) return prev;
+      return {
+        ...prev,
+        socials: prev.socials.map((row) =>
+          row.id === id ? rebuildSocialDraft(row, prev.knowledge!) : row,
+        ),
+      };
+    });
+  }, []);
+
+  const simulateIncomingSocial = useCallback(
+    (input: {
+      platform: SocialMessage["platform"];
+      fromName: string;
+      handle: string;
+      body: string;
+      conversationUrl?: string;
+    }) => {
+      setState((prev) => {
+        if (!prev.knowledge) return prev;
+        const message: SocialMessage = {
+          id: nid("soc"),
+          ...draftSocialFromInbound({
+            kb: prev.knowledge,
+            platform: input.platform,
+            fromName: input.fromName,
+            handle: input.handle,
+            body: input.body,
+            conversationUrl: input.conversationUrl,
+          }),
+        };
+        return { ...prev, socials: [message, ...prev.socials] };
+      });
+    },
+    [],
+  );
+
   const sendVisitorMessage = useCallback((text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -315,6 +394,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       knowledge: state.knowledge,
       presetId: state.presetId,
       emails: state.emails,
+      socials: state.socials,
       chats: state.chats,
       activeChat,
       loadPreset,
@@ -325,6 +405,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setEmailStatus,
       regenerateDraft,
       simulateIncomingEmail,
+      updateSocial,
+      setSocialStatus,
+      regenerateSocialDraft,
+      simulateIncomingSocial,
       sendVisitorMessage,
       resetChat,
       resetWorkspace,
@@ -333,6 +417,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       state.knowledge,
       state.presetId,
       state.emails,
+      state.socials,
       state.chats,
       activeChat,
       loadPreset,
@@ -343,6 +428,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setEmailStatus,
       regenerateDraft,
       simulateIncomingEmail,
+      updateSocial,
+      setSocialStatus,
+      regenerateSocialDraft,
+      simulateIncomingSocial,
       sendVisitorMessage,
       resetChat,
       resetWorkspace,

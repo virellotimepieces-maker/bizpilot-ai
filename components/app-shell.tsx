@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Menu,
   MessageSquare,
+  Share2,
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
@@ -23,6 +24,7 @@ const NAV = [
   { href: "/knowledge", label: "Knowledge base", icon: BookOpen },
   { href: "/chat", label: "Website chat", icon: MessageSquare },
   { href: "/inbox", label: "Email drafts", icon: Inbox },
+  { href: "/social", label: "Social drafts", icon: Share2 },
 ] as const;
 
 function NavLinks({
@@ -81,7 +83,7 @@ function WorkspaceMeta() {
   if (!knowledge) {
     return (
       <p className="px-3 text-xs leading-relaxed text-white/55">
-        Load a business to share one knowledge base across chat and email.
+        Load a business to share one knowledge base across chat, email, and social.
       </p>
     );
   }
@@ -123,8 +125,7 @@ function SidebarBody({
           </Link>
         ) : (
           <p className="px-1 text-[11px] leading-relaxed text-white/40">
-            Website chat may answer published facts. Email always waits for a human to approve the
-            draft.
+            Website chat may answer published facts. Email and social drafts always wait for a human.
           </p>
         )}
       </div>
@@ -165,8 +166,10 @@ export function AppShell({
                 : item.href === "/chat"
                   ? "Chat"
                   : item.href === "/inbox"
-                    ? "Inbox"
-                    : "Overview";
+                    ? "Email"
+                    : item.href === "/social"
+                      ? "Social"
+                      : "Overview";
             return (
               <Link
                 key={item.href}

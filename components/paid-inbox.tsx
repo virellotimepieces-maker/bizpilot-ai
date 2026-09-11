@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS, PAGE_TITLE_CLASS } from "@/lib/ui/type-scale";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type Conversation = {
@@ -39,6 +40,13 @@ export function PaidInbox() {
       <div>
         <p className="text-xs tracking-[0.2em] text-primary uppercase">Conversation inbox</p>
         <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Website widget conversations</h1>
+        <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
+          Live Instagram, Facebook, TikTok, and Messenger inboxes are not connected.{" "}
+          <Link href="/app/social" className="underline underline-offset-2">
+            Paste those messages under Social drafts
+          </Link>{" "}
+          — BizPilot writes a reply and never posts it for you.
+        </p>
       </div>
       {conversations.length === 0 ? (
         <p className={HELPER_TEXT_CLASS}>

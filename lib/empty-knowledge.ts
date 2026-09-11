@@ -3,9 +3,53 @@ import { nid } from "./id";
 import type {
   BusinessHours,
   BusinessType,
+  ContactDetails,
   KnowledgeBase,
   OfferingKind,
 } from "./types";
+
+export function emptyContact(): ContactDetails {
+  return {
+    email: "",
+    phone: "",
+    address: "",
+    website: "",
+    extra: "",
+    instagram: "",
+    facebook: "",
+    tiktok: "",
+    messenger: "",
+  };
+}
+
+export function normalizeContact(contact?: Partial<ContactDetails> | null): ContactDetails {
+  const blank = emptyContact();
+  if (!contact) return blank;
+  return {
+    email: contact.email ?? "",
+    phone: contact.phone ?? "",
+    address: contact.address ?? "",
+    website: contact.website ?? "",
+    extra: contact.extra ?? "",
+    instagram: contact.instagram ?? "",
+    facebook: contact.facebook ?? "",
+    tiktok: contact.tiktok ?? "",
+    messenger: contact.messenger ?? "",
+  };
+}
+
+export function normalizeKnowledge(kb: KnowledgeBase): KnowledgeBase {
+  return { ...kb, contact: normalizeContact(kb.contact) };
+}
+
+export function hasSocialProfiles(contact: ContactDetails) {
+  return Boolean(
+    contact.instagram.trim() ||
+      contact.facebook.trim() ||
+      contact.tiktok.trim() ||
+      contact.messenger.trim(),
+  );
+}
 
 export function defaultHours(): BusinessHours {
   return {
@@ -29,13 +73,7 @@ export function emptyKnowledge(type: BusinessType = "custom"): KnowledgeBase {
     description: "",
     industry: "",
     voice: "Clear, warm, and concise. Never invent policies or prices.",
-    contact: {
-      email: "",
-      phone: "",
-      address: "",
-      website: "",
-      extra: "",
-    },
+    contact: emptyContact(),
     hours: defaultHours(),
     offerings: [
       {

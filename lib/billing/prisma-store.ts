@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { randomBytes } from "node:crypto";
-import type { KnowledgeBase } from "@/lib/types";
+import { normalizeKnowledge } from "@/lib/empty-knowledge";
+import type { KnowledgeBase, ReplySource } from "@/lib/types";
 import { BIZPILOT_PRO } from "@/lib/plan";
 import { getPrisma } from "@/lib/db";
 import type { WebsitePageKind, WebsitePageRecord, WebsiteSourceRecord, WebsiteSyncStatus } from "@/lib/website/types";
@@ -10,6 +11,7 @@ import type {
   MembershipRecord,
   MessageRecord,
   NotificationRecord,
+  SocialMessageRecord,
   StripeEventRecord,
   SubscriptionRecord,
   UsagePeriodRecord,
@@ -23,7 +25,7 @@ function newWidgetKey() {
 
 function asKnowledge(value: unknown): KnowledgeBase | null {
   if (!value || typeof value !== "object") return null;
-  return value as KnowledgeBase;
+  return normalizeKnowledge(value as KnowledgeBase);
 }
 
 function mapUser(row: { id: string; email: string; passwordHash: string; name: string; createdAt: Date }): UserRecord {
@@ -79,6 +81,40 @@ function mapUsage(row: {
   repliesReserved: number;
 }): UsagePeriodRecord {
   return row;
+}
+
+function asReplySources(value: unknown): ReplySource[] | null {
+  if (!Array.isArray(value)) return null;
+  return value.filter((row): row is ReplySource => {
+    if (!row || typeof row !== "object") return false;
+    const item = row as { kind?: unknown; title?: unknown };
+    return typeof item.kind === "string" && typeof item.title === "string";
+  });
+}
+
+function mapSocialMessage(row: {
+  id: string;
+  workspaceId: string;
+  widgetKey: string;
+  platform: string;
+  fromName: string;
+  handle: string;
+  body: string;
+  conversationUrl: string | null;
+  status: string;
+  draftBody: string;
+  intent: string;
+  sources: unknown;
+  operatorNote: string;
+  usedInternalKnowledge: boolean;
+  postedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): SocialMessageRecord {
+  return {
+    ...row,
+    sources: asReplySources(row.sources),
+  };
 }
 
 function asSources(value: unknown): MessageRecord["sources"] {
@@ -581,5 +617,89 @@ export class PrismaBillingStore implements BillingStore {
       },
     });
     return rows.map(mapWebsiteSource);
+  }
+
+  async listSocialMessages(workspaceId: string, widgetKey: string) {
+    const rows = await this.prisma().socialMessage.findMany({
+      where: { workspaceId, widgetKey },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map(mapSocialMessage);
+  }
+
+  async getSocialMessage(id: string, workspaceId: string, widgetKey: string) {
+    const row = await this.prisma().socialMessage.findFirst({
+      where: { id, workspaceId, widgetKey },
+    });
+    return row ? mapSocialMessage(row) : null;
+  }
+
+  async createSocialMessage(input: {
+    workspaceId: string;
+    widgetKey: string;
+    platform: string;
+    fromName: string;
+    handle: string;
+    body: string;
+    conversationUrl?: string | null;
+    status: string;
+    draftBody: string;
+    intent: string;
+    sources?: ReplySource[] | null;
+    operatorNote: string;
+    usedInternalKnowledge: boolean;
+  }) {
+    const row = await this.prisma().socialMessage.create({
+      data: {
+        workspaceId: input.workspaceId,
+        widgetKey: input.widgetKey,
+        platform: input.platform,
+        fromName: input.fromName,
+        handle: input.handle,
+        body: input.body,
+        conversationUrl: input.conversationUrl ?? null,
+        status: input.status,
+        draftBody: input.draftBody,
+        intent: input.intent,
+        sources: input.sources === undefined || input.sources === null
+          ? undefined
+          : (input.sources as unknown as Prisma.InputJsonValue),
+        operatorNote: input.operatorNote,
+        usedInternalKnowledge: input.usedInternalKnowledge,
+      },
+    });
+    return mapSocialMessage(row);
+  }
+
+  async updateSocialMessage(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+    patch: Partial<
+      Pick<
+        SocialMessageRecord,
+        "draftBody" | "status" | "postedAt" | "operatorNote" | "intent" | "sources" | "usedInternalKnowledge"
+      >
+    >,
+  ) {
+    const existing = await this.getSocialMessage(id, workspaceId, widgetKey);
+    if (!existing) throw new Error("social_missing");
+    const row = await this.prisma().socialMessage.update({
+      where: { id },
+      data: {
+        ...(patch.draftBody !== undefined ? { draftBody: patch.draftBody } : {}),
+        ...(patch.status !== undefined ? { status: patch.status } : {}),
+        ...(patch.postedAt !== undefined ? { postedAt: patch.postedAt } : {}),
+        ...(patch.operatorNote !== undefined ? { operatorNote: patch.operatorNote } : {}),
+        ...(patch.intent !== undefined ? { intent: patch.intent } : {}),
+        ...(patch.sources !== undefined
+          ? { sources: (patch.sources ?? Prisma.JsonNull) as unknown as Prisma.InputJsonValue }
+          : {}),
+        ...(patch.usedInternalKnowledge !== undefined
+          ? { usedInternalKnowledge: patch.usedInternalKnowledge }
+          : {}),
+      },
+    });
+    return mapSocialMessage(row);
   }
 }

@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { BIZPILOT_PRO } from "@/lib/plan";
+import type { KnowledgeBase, ReplySource } from "@/lib/types";
 import type { WebsitePageKind, WebsitePageRecord, WebsiteSourceRecord } from "@/lib/website/types";
 import type { BillingStore, CreateUserInput, UpsertSubscriptionInput } from "./store";
 import type {
@@ -7,6 +8,7 @@ import type {
   MembershipRecord,
   MessageRecord,
   NotificationRecord,
+  SocialMessageRecord,
   StripeEventRecord,
   SubscriptionRecord,
   UsagePeriodRecord,
@@ -31,6 +33,7 @@ export class MemoryBillingStore implements BillingStore {
   notifications: NotificationRecord[] = [];
   conversations = new Map<string, ConversationRecord>();
   messages: MessageRecord[] = [];
+  socialMessages: SocialMessageRecord[] = [];
   private locks = new Map<string, Promise<void>>();
 
   private async withLock<T>(key: string, fn: () => Promise<T> | T): Promise<T> {
@@ -347,7 +350,7 @@ export class MemoryBillingStore implements BillingStore {
     );
   }
 
-  async saveKnowledge(workspaceId: string, knowledge: import("@/lib/types").KnowledgeBase) {
+  async saveKnowledge(workspaceId: string, knowledge: KnowledgeBase) {
     return this.updateWorkspace(workspaceId, { knowledge });
   }
 
@@ -428,5 +431,82 @@ export class MemoryBillingStore implements BillingStore {
         row.nextSyncAt !== null &&
         row.nextSyncAt.getTime() <= now.getTime(),
     );
+  }
+
+  async listSocialMessages(workspaceId: string, widgetKey: string) {
+    return this.socialMessages
+      .filter((row) => row.workspaceId === workspaceId && row.widgetKey === widgetKey)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getSocialMessage(id: string, workspaceId: string, widgetKey: string) {
+    const row = this.socialMessages.find((item) => item.id === id);
+    if (!row || row.workspaceId !== workspaceId || row.widgetKey !== widgetKey) return null;
+    return row;
+  }
+
+  async createSocialMessage(input: {
+    workspaceId: string;
+    widgetKey: string;
+    platform: string;
+    fromName: string;
+    handle: string;
+    body: string;
+    conversationUrl?: string | null;
+    status: string;
+    draftBody: string;
+    intent: string;
+    sources?: ReplySource[] | null;
+    operatorNote: string;
+    usedInternalKnowledge: boolean;
+  }) {
+    const now = new Date();
+    const row: SocialMessageRecord = {
+      id: randomUUID(),
+      workspaceId: input.workspaceId,
+      widgetKey: input.widgetKey,
+      platform: input.platform,
+      fromName: input.fromName,
+      handle: input.handle,
+      body: input.body,
+      conversationUrl: input.conversationUrl ?? null,
+      status: input.status,
+      draftBody: input.draftBody,
+      intent: input.intent,
+      sources: input.sources ?? null,
+      operatorNote: input.operatorNote,
+      usedInternalKnowledge: input.usedInternalKnowledge,
+      postedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.socialMessages.push(row);
+    return row;
+  }
+
+  async updateSocialMessage(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+    patch: Partial<
+      Pick<
+        SocialMessageRecord,
+        "draftBody" | "status" | "postedAt" | "operatorNote" | "intent" | "sources" | "usedInternalKnowledge"
+      >
+    >,
+  ) {
+    const row = await this.getSocialMessage(id, workspaceId, widgetKey);
+    if (!row) throw new Error("social_missing");
+    if (patch.draftBody !== undefined) row.draftBody = patch.draftBody;
+    if (patch.status !== undefined) row.status = patch.status;
+    if (patch.postedAt !== undefined) row.postedAt = patch.postedAt;
+    if (patch.operatorNote !== undefined) row.operatorNote = patch.operatorNote;
+    if (patch.intent !== undefined) row.intent = patch.intent;
+    if (patch.sources !== undefined) row.sources = patch.sources;
+    if (patch.usedInternalKnowledge !== undefined) {
+      row.usedInternalKnowledge = patch.usedInternalKnowledge;
+    }
+    row.updatedAt = new Date();
+    return row;
   }
 }

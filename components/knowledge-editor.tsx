@@ -86,7 +86,7 @@ export function KnowledgeEditor({
     return (
       <SetupGate
         title="Build one knowledge base"
-        description="This is the only source of truth for website chat and email drafts. Add the facts a human would be allowed to say out loud."
+        description="This is the only source of truth for website chat, email drafts, and social drafts. Add the facts a human would be allowed to say out loud."
       >
         {demo.knowledge ? (
           <EditorBody
@@ -149,8 +149,8 @@ function EditorBody({
           </p>
           <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Teach BizPilot your business</h1>
           <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
-            Changes here apply immediately to website chat and to new or regenerated email drafts.
-            Store-only fields stay hidden unless this is an online store.
+            Changes here apply immediately to website chat and to new or regenerated email and social
+            drafts. Store-only fields stay hidden unless this is an online store.
           </p>
         </div>
         <Field label="Business type" className="lg:w-64">
@@ -311,6 +311,44 @@ function EditorBody({
                     onChange={(e) => patch({ contact: { ...kb.contact, extra: e.target.value } })}
                   />
                 </Field>
+                <p className={`sm:col-span-2 ${HELPER_TEXT_CLASS}`}>
+                  Social profiles are published facts for drafts. BizPilot does not connect to
+                  Instagram, Facebook, TikTok, or Messenger, and it never posts for you.
+                </p>
+                <Field label="Instagram">
+                  <Input
+                    value={kb.contact.instagram}
+                    onChange={(e) =>
+                      patch({ contact: { ...kb.contact, instagram: e.target.value } })
+                    }
+                    placeholder="@yourbusiness"
+                  />
+                </Field>
+                <Field label="Facebook">
+                  <Input
+                    value={kb.contact.facebook}
+                    onChange={(e) =>
+                      patch({ contact: { ...kb.contact, facebook: e.target.value } })
+                    }
+                    placeholder="facebook.com/yourbusiness"
+                  />
+                </Field>
+                <Field label="TikTok">
+                  <Input
+                    value={kb.contact.tiktok}
+                    onChange={(e) => patch({ contact: { ...kb.contact, tiktok: e.target.value } })}
+                    placeholder="@yourbusiness"
+                  />
+                </Field>
+                <Field label="Messenger">
+                  <Input
+                    value={kb.contact.messenger}
+                    onChange={(e) =>
+                      patch({ contact: { ...kb.contact, messenger: e.target.value } })
+                    }
+                    placeholder="m.me/yourbusiness"
+                  />
+                </Field>
               </div>
             )}
 
@@ -320,7 +358,7 @@ function EditorBody({
                   <div>
                     <Label>Website chat may auto-answer safe questions</Label>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Email drafts are never sent automatically, even when this is on.
+                      Email and social drafts are never sent or posted automatically, even when this is on.
                     </p>
                   </div>
                   <Switch
@@ -757,7 +795,7 @@ function DocList({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="public">Public — chat may use this</SelectItem>
-                <SelectItem value="internal">Internal — email drafts only, with review</SelectItem>
+                <SelectItem value="internal">Internal — email and social drafts only, with review</SelectItem>
               </SelectContent>
             </Select>
           </Field>

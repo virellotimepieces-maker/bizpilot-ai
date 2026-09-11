@@ -13,7 +13,8 @@ Customer support for one business at a time, billed as **BizPilot Pro**.
 - One business workspace
 - One installed website widget
 - 500 AI-generated customer replies per billing month
-- Knowledge base, conversation inbox, and human handoff
+- Knowledge base, conversation inbox, email drafts, and social drafts (copy and post yourself)
+- Instagram, Facebook, TikTok, and Messenger are not live-connected — there is no auto-post
 - Cancel anytime
 - No automatic overage charges
 - When the 500-reply limit is reached, AI replies stop and the owner is notified
@@ -63,6 +64,7 @@ Open [http://localhost:43127](http://localhost:43127).
 
 - `/` marketing and pricing
 - `/demo` local demo desk (no billing, no AI)
+- `/demo/social` paste Instagram, Facebook, TikTok, or Messenger messages into drafts (never auto-posted)
 - `/signup` and `/login` paid accounts (need `DATABASE_URL` + `AUTH_SECRET`)
 - `/billing` Stripe Checkout and Customer Portal
 - `/app` paid dashboard (blocked unless the subscription is active)

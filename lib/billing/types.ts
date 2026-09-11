@@ -1,4 +1,4 @@
-import type { KnowledgeBase } from "@/lib/types";
+import type { KnowledgeBase, ReplySource } from "@/lib/types";
 import type { WebsiteReplySource } from "@/lib/website/types";
 
 export type MembershipRole = "owner" | "member";
@@ -91,6 +91,26 @@ export interface MessageRecord {
   usageCounted: boolean;
   sources?: WebsiteReplySource[] | null;
   createdAt: Date;
+}
+
+export interface SocialMessageRecord {
+  id: string;
+  workspaceId: string;
+  widgetKey: string;
+  platform: string;
+  fromName: string;
+  handle: string;
+  body: string;
+  conversationUrl: string | null;
+  status: string;
+  draftBody: string;
+  intent: string;
+  sources: ReplySource[] | null;
+  operatorNote: string;
+  usedInternalKnowledge: boolean;
+  postedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface StripeEventRecord {

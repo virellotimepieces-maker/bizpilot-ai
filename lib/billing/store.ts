@@ -1,4 +1,4 @@
-import type { KnowledgeBase } from "@/lib/types";
+import type { KnowledgeBase, ReplySource } from "@/lib/types";
 import type { WebsitePageRecord, WebsiteSourceRecord } from "@/lib/website/types";
 import type {
   ConversationRecord,
@@ -6,6 +6,7 @@ import type {
   MembershipRole,
   MessageRecord,
   NotificationRecord,
+  SocialMessageRecord,
   StripeEventRecord,
   SubscriptionRecord,
   SubscriptionStatus,
@@ -117,4 +118,37 @@ export interface BillingStore {
     pages: Omit<WebsitePageRecord, "id" | "workspaceId" | "widgetKey" | "sourceId">[],
   ): Promise<WebsitePageRecord[]>;
   listWebsiteSourcesDueForSync(now: Date): Promise<WebsiteSourceRecord[]>;
+
+  listSocialMessages(workspaceId: string, widgetKey: string): Promise<SocialMessageRecord[]>;
+  getSocialMessage(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+  ): Promise<SocialMessageRecord | null>;
+  createSocialMessage(input: {
+    workspaceId: string;
+    widgetKey: string;
+    platform: string;
+    fromName: string;
+    handle: string;
+    body: string;
+    conversationUrl?: string | null;
+    status: string;
+    draftBody: string;
+    intent: string;
+    sources?: ReplySource[] | null;
+    operatorNote: string;
+    usedInternalKnowledge: boolean;
+  }): Promise<SocialMessageRecord>;
+  updateSocialMessage(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+    patch: Partial<
+      Pick<
+        SocialMessageRecord,
+        "draftBody" | "status" | "postedAt" | "operatorNote" | "intent" | "sources" | "usedInternalKnowledge"
+      >
+    >,
+  ): Promise<SocialMessageRecord>;
 }

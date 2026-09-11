@@ -9,14 +9,14 @@ import { knowledgeCoverage } from "@/lib/completeness";
 import { BUSINESS_TYPE_LABEL } from "@/lib/labels";
 import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS, PAGE_TITLE_CLASS, SECTION_HEADING_CLASS } from "@/lib/ui/type-scale";
 import { useWorkspace } from "@/lib/workspace-store";
-import { BookOpen, Inbox, MessageSquare, ShieldCheck } from "lucide-react";
+import { BookOpen, Inbox, MessageSquare, Share2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 export function DashboardHome() {
   return (
     <SetupGate
       title="A support desk for any kind of business"
-      description="Teach BizPilot who you are — products or services, prices, hours, policies, and when a human must take over. Website chat and email drafts share that knowledge. Neither one is a store plugin."
+      description="Teach BizPilot who you are — products or services, prices, hours, policies, and when a human must take over. Website chat, email drafts, and social drafts share that knowledge. Neither one is a store plugin."
     >
       <LoadedDashboard />
     </SetupGate>
@@ -24,11 +24,20 @@ export function DashboardHome() {
 }
 
 function LoadedDashboard() {
-  const { knowledge, emails, chats, resetWorkspace } = useWorkspace();
+  const {
+    knowledge,
+    emails,
+    socials,
+    chats,
+    resetWorkspace,
+  } = useWorkspace();
   if (!knowledge) return null;
 
   const coverage = knowledgeCoverage(knowledge);
   const pending = emails.filter((e) => e.status === "draft_ready" || e.status === "escalated" || e.status === "needs_review");
+  const pendingSocial = socials.filter(
+    (row) => row.status === "draft_ready" || row.status === "escalated" || row.status === "needs_review",
+  );
   const waiting = chats.filter((c) => c.waitingOnHuman).length;
   const auto = chats.flatMap((c) => c.messages).filter((m) => m.autoAnswered).length;
 
@@ -56,16 +65,21 @@ function LoadedDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Knowledge coverage"
           value={`${coverage.percent}%`}
-          hint="Shared by chat and email"
+          hint="Shared by chat, email, and social"
         />
         <Stat
           label="Email drafts waiting"
           value={String(pending.length)}
           hint="Nothing sends without approval"
+        />
+        <Stat
+          label="Social drafts waiting"
+          value={String(pendingSocial.length)}
+          hint="Nothing posts without you"
         />
         <Stat
           label="Chat answers from the KB"
@@ -77,13 +91,13 @@ function LoadedDashboard() {
       <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
         <Card>
           <CardHeader className="border-b">
-            <CardTitle>Same knowledge, two channels</CardTitle>
+            <CardTitle>Same knowledge, three channels</CardTitle>
             <CardDescription>
-              Website chat may reply on its own when the answer is already published. Email support
-              writes an editable draft and stops until someone on your team sends it.
+              Website chat may reply on its own when the answer is already published. Email and
+              social write an editable draft and stop until someone on your team sends or posts it.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-3 pt-4 sm:grid-cols-2">
+          <CardContent className="grid gap-3 pt-4 sm:grid-cols-3">
             <ChannelCard
               href="/demo/chat"
               icon={MessageSquare}
@@ -96,12 +110,18 @@ function LoadedDashboard() {
               title="Email drafts"
               body="Every inbound email gets a draft grounded in the same articles. Approve, edit, or escalate — never auto-send."
             />
+            <ChannelCard
+              href="/demo/social"
+              icon={Share2}
+              title="Social drafts"
+              body="Paste an Instagram, Facebook, TikTok, or Messenger message. Copy the draft and post it yourself — BizPilot never posts."
+            />
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="border-b">
             <CardTitle>Knowledge checklist</CardTitle>
-            <CardDescription>Fill these once. Both channels read them live.</CardDescription>
+            <CardDescription>Fill these once. Chat, email, and social drafts read them live.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-2 pt-4">
             {coverage.items.map((item) => (

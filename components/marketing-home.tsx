@@ -9,7 +9,7 @@ const FEATURES = [
   "One business workspace",
   "One installed website widget",
   `${BIZPILOT_PRO.replyLimit} AI-generated customer replies per billing month`,
-  "Knowledge base, conversation inbox, and human handoff",
+  "Knowledge base, website chat, email drafts, and social drafts",
   "Cancel anytime",
   "No automatic overage charges",
 ];
@@ -29,7 +29,7 @@ export function MarketingHome() {
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
             Subscribe for one workspace, one widget, and {BIZPILOT_PRO.replyLimit} AI replies each
             month. When the allowance is used, AI stops and the owner is notified. There is no
-            overage invoice.
+            overage invoice. Email and social replies are drafts you send or post yourself.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Button size="lg" render={<Link href="/signup" />}>

@@ -270,6 +270,36 @@ describe("BizPilot Pro subscription", () => {
     const convosA = await store.listConversations(a.workspace.id);
     const leaked = await store.getConversation(convosA[0]!.id, b.workspace.id);
     assert.equal(leaked, null);
+    const socialA = await store.createSocialMessage({
+      workspaceId: a.workspace.id,
+      widgetKey: a.workspace.widgetKey,
+      platform: "instagram",
+      fromName: "Pat",
+      handle: "@pat",
+      body: "Do you ship to Alaska?",
+      status: "draft_ready",
+      draftBody: "We ship to Alaska for $18.",
+      intent: "store_shipping",
+      operatorNote: "Draft only.",
+      usedInternalKnowledge: false,
+    });
+    assert.equal((await store.listSocialMessages(b.workspace.id, b.workspace.widgetKey)).length, 0);
+    assert.equal(
+      (await store.listSocialMessages(a.workspace.id, b.workspace.widgetKey)).length,
+      0,
+    );
+    assert.equal(
+      await store.getSocialMessage(socialA.id, b.workspace.id, b.workspace.widgetKey),
+      null,
+    );
+    await assert.rejects(() =>
+      store.updateSocialMessage(socialA.id, b.workspace.id, b.workspace.widgetKey, {
+        status: "posted",
+      }),
+    );
+    const visible = await store.listSocialMessages(a.workspace.id, a.workspace.widgetKey);
+    assert.equal(visible.length, 1);
+    assert.equal(visible[0]?.id, socialA.id);
   });
 
   it("resets the 500-reply allowance when a new Stripe period starts", async () => {

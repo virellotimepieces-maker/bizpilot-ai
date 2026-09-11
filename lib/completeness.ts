@@ -1,5 +1,6 @@
 import type { KnowledgeBase } from "./types";
 import { showsClinicOperations, showsServiceOperations, showsStoreOperations } from "./labels";
+import { hasSocialProfiles } from "./empty-knowledge";
 
 export interface CoverageItem {
   key: string;
@@ -55,6 +56,11 @@ export function knowledgeCoverage(kb: KnowledgeBase | null): {
       key: "contact",
       label: "Contact details",
       filled: Boolean(kb.contact.email.trim() || kb.contact.phone.trim()),
+    },
+    {
+      key: "social",
+      label: "Social profiles",
+      filled: hasSocialProfiles(kb.contact),
     },
     {
       key: "escalation",

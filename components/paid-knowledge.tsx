@@ -2,7 +2,7 @@
 
 import { KnowledgeEditor } from "@/components/knowledge-editor";
 import { WebsiteKnowledgePanel } from "@/components/website-knowledge-panel";
-import { emptyKnowledge } from "@/lib/empty-knowledge";
+import { emptyKnowledge, normalizeKnowledge } from "@/lib/empty-knowledge";
 import {
   getKnowledgeSaveView,
   isKnowledgeDirty,
@@ -31,7 +31,7 @@ export function PaidKnowledge() {
           setError(payload.error);
           return;
         }
-        const loaded = payload.knowledge ?? emptyKnowledge("custom");
+        const loaded = normalizeKnowledge(payload.knowledge ?? emptyKnowledge("custom"));
         setKnowledge(loaded);
         setPersisted(loaded);
         setJustSaved(false);

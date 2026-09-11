@@ -94,6 +94,9 @@ export function PaidOverview() {
             <Button size="sm" render={<Link href="/app/knowledge" />}>
               Edit knowledge
             </Button>
+            <Button size="sm" variant="outline" render={<Link href="/app/social" />}>
+              Social drafts
+            </Button>
             <Button size="sm" variant="outline" render={<Link href="/app/widget" />}>
               Install widget
             </Button>

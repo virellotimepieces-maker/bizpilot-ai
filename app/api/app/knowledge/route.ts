@@ -3,6 +3,7 @@ import { getSessionUserId } from "@/lib/auth/session";
 import { getBillingStore } from "@/lib/billing/factory";
 import { BillingService } from "@/lib/billing/service";
 import { BillingError } from "@/lib/billing/types";
+import { emptyKnowledge, normalizeKnowledge } from "@/lib/empty-knowledge";
 import { jsonError } from "@/lib/http";
 import type { KnowledgeBase } from "@/lib/types";
 
@@ -21,7 +22,10 @@ async function paidContext() {
 export async function GET() {
   try {
     const { workspace } = await paidContext();
-    return NextResponse.json({ knowledge: workspace.knowledge });
+    const knowledge = workspace.knowledge
+      ? normalizeKnowledge(workspace.knowledge)
+      : emptyKnowledge("custom");
+    return NextResponse.json({ knowledge });
   } catch (error) {
     return jsonError(error, "Could not load knowledge.");
   }
@@ -32,7 +36,7 @@ export async function PUT(request: NextRequest) {
     const { store, workspace } = await paidContext();
     const body = (await request.json()) as { knowledge?: KnowledgeBase };
     if (!body.knowledge) throw new BillingError("Knowledge is required.", "invalid");
-    const saved = await store.saveKnowledge(workspace.id, body.knowledge);
+    const saved = await store.saveKnowledge(workspace.id, normalizeKnowledge(body.knowledge));
     return NextResponse.json({ knowledge: saved.knowledge });
   } catch (error) {
     return jsonError(error, "Could not save knowledge.");

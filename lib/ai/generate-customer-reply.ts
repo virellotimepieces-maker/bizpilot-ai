@@ -34,7 +34,17 @@ function knowledgePrompt(knowledge: KnowledgeBase | null) {
       .map((row) => `${row.title}:\n${row.body}`)
       .join("\n"),
     knowledge.contact &&
-      `Contact: ${[knowledge.contact.phone, knowledge.contact.email, knowledge.contact.address].filter(Boolean).join(" · ")}`,
+      `Contact: ${[
+        knowledge.contact.phone,
+        knowledge.contact.email,
+        knowledge.contact.address,
+        knowledge.contact.instagram && `Instagram ${knowledge.contact.instagram}`,
+        knowledge.contact.facebook && `Facebook ${knowledge.contact.facebook}`,
+        knowledge.contact.tiktok && `TikTok ${knowledge.contact.tiktok}`,
+        knowledge.contact.messenger && `Messenger ${knowledge.contact.messenger}`,
+      ]
+        .filter(Boolean)
+        .join(" · ")}`,
     knowledge.escalation?.handoffMessage &&
       `When you cannot answer, offer this handoff: ${knowledge.escalation.handoffMessage}`,
   ]

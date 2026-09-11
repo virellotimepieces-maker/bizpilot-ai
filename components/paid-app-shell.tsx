@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   MessageSquare,
   Puzzle,
+  Share2,
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
@@ -18,6 +19,7 @@ const NAV = [
   { href: "/app", label: "Overview", short: "Overview", icon: LayoutDashboard },
   { href: "/app/knowledge", label: "Knowledge", short: "Knowledge", icon: BookOpen },
   { href: "/app/inbox", label: "Inbox", short: "Inbox", icon: MessageSquare },
+  { href: "/app/social", label: "Social drafts", short: "Social", icon: Share2 },
   { href: "/app/widget", label: "Website widget", short: "Widget", icon: Puzzle },
   { href: "/billing", label: "Billing", short: "Billing", icon: CreditCard },
   { href: "/account", label: "Account", short: "Account", icon: UserRound },

@@ -1,10 +1,12 @@
 import { nid } from "./id";
 import { emailSubjectFor, generateReply } from "./reply-engine";
+import { draftSocialFromInbound } from "./social";
 import type {
   BusinessPreset,
   ChatSession,
   EmailMessage,
   KnowledgeBase,
+  SocialMessage,
 } from "./types";
 
 export function buildInboxFromPreset(
@@ -41,6 +43,24 @@ export function buildInboxFromPreset(
       usedInternalKnowledge: reply.usedInternalKnowledge,
     };
   });
+}
+
+export function buildSocialInboxFromPreset(
+  preset: BusinessPreset,
+  knowledge: KnowledgeBase,
+): SocialMessage[] {
+  return preset.sampleSocials.map((sample) => ({
+    id: nid("soc"),
+    ...draftSocialFromInbound({
+      kb: knowledge,
+      platform: sample.platform,
+      fromName: sample.fromName,
+      handle: sample.handle,
+      body: sample.body,
+      conversationUrl: sample.conversationUrl,
+      receivedAt: sample.receivedAt,
+    }),
+  }));
 }
 
 export function emptyChat(visitorName = "Website visitor"): ChatSession {

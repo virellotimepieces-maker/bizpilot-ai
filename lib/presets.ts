@@ -42,6 +42,10 @@ const storeKnowledge: KnowledgeBase = {
     address: "412 NE Alberta St, Portland, OR 97211",
     website: "https://fieldandember.example",
     extra: "Workshop pickup is available Tuesday–Saturday.",
+    instagram: "@fieldandember",
+    facebook: "facebook.com/fieldandember",
+    tiktok: "@fieldandember",
+    messenger: "m.me/fieldandember",
   },
   hours: hours(
     "America/Los_Angeles",
@@ -178,6 +182,10 @@ const serviceKnowledge: KnowledgeBase = {
     address: "Serving the East Bay from our Oakland shop, 880 27th St",
     website: "https://lumenelectrical.example",
     extra: "CSLB #1048821. Text the dispatch line for same-day triage.",
+    instagram: "@lumenelectrical",
+    facebook: "facebook.com/lumenelectrical",
+    tiktok: "",
+    messenger: "m.me/lumenelectrical",
   },
   hours: hours(
     "America/Los_Angeles",
@@ -314,6 +322,10 @@ const clinicKnowledge: KnowledgeBase = {
     address: "2201 Willowbrook Ave, Sacramento, CA 95825",
     website: "https://willowbrookclinic.example",
     extra: "Fax (916) 555-0175. Patient portal messages are answered on business days.",
+    instagram: "@willowbrookclinic",
+    facebook: "facebook.com/willowbrookclinic",
+    tiktok: "",
+    messenger: "",
   },
   hours: hours(
     "America/Los_Angeles",
@@ -472,6 +484,22 @@ export const PRESETS: BusinessPreset[] = [
         receivedAt: "Yesterday, 6:18 PM",
       },
     ],
+    sampleSocials: [
+      {
+        platform: "instagram",
+        fromName: "Priya Raman",
+        handle: "@priya.home",
+        body: "Hi — we just bought a 1920s bungalow in Berkeley. Do you work in this city, and what is the rate for a diagnostic visit?",
+        receivedAt: "Today, 8:14 AM",
+      },
+      {
+        platform: "messenger",
+        fromName: "Elena Voss",
+        handle: "Elena Voss",
+        body: "An outlet is sparking in our kitchen. What should we do right now?",
+        receivedAt: "Yesterday, 9:02 PM",
+      },
+    ],
   },
   {
     id: "clinic-willowbrook",
@@ -510,6 +538,22 @@ export const PRESETS: BusinessPreset[] = [
         receivedAt: "Yesterday, 8:55 PM",
       },
     ],
+    sampleSocials: [
+      {
+        platform: "facebook",
+        fromName: "Jordan Hale",
+        handle: "Jordan Hale",
+        body: "Are you open this Saturday, and can I get a vaccine then or do I need an appointment?",
+        receivedAt: "Yesterday, 4:11 PM",
+      },
+      {
+        platform: "instagram",
+        fromName: "Chris Nguyen",
+        handle: "@chris.n",
+        body: "I've had a sore throat for four days. Can you tell me which antibiotic to start and the dosage?",
+        receivedAt: "Yesterday, 8:58 PM",
+      },
+    ],
   },
   {
     id: "store-field-ember",
@@ -546,6 +590,22 @@ export const PRESETS: BusinessPreset[] = [
         subject: "Refund for a jacket I bought in January",
         body: "I bought a Hearth Trail Jacket about eight months ago and now I want a full refund. I still have it. Process this today or I will open a chargeback.",
         receivedAt: "Yesterday, 2:47 PM",
+      },
+    ],
+    sampleSocials: [
+      {
+        platform: "instagram",
+        fromName: "Riley Brooks",
+        handle: "@rileyhikes",
+        body: "I wear a 40-inch chest and like a sweater underneath. Which size of the Hearth Trail Jacket should I get, and is medium in stock?",
+        receivedAt: "Today, 9:11 AM",
+      },
+      {
+        platform: "tiktok",
+        fromName: "Alex Chen",
+        handle: "@alexc",
+        body: "Do you ship the Ember Enamel Mug pair to Anchorage, Alaska, and what does shipping cost?",
+        receivedAt: "Today, 10:30 AM",
       },
     ],
   },

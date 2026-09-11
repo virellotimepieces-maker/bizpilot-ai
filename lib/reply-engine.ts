@@ -89,7 +89,7 @@ const INTENT_PATTERNS: { intent: ReplyIntent; re: RegExp }[] = [
   },
   {
     intent: "contact",
-    re: /\b(phone|call you|email|address|where are you|located|fax)\b/i,
+    re: /\b(phone|call you|email|address|where are you|located|fax|instagram|facebook|tiktok|messenger|dm|direct message|social (media|page|account))\b/i,
   },
   {
     intent: "store_shipping",
@@ -566,6 +566,10 @@ function contactBlock(kb: KnowledgeBase) {
     kb.contact.email && `Email: ${kb.contact.email}`,
     kb.contact.address && `Address: ${kb.contact.address}`,
     kb.contact.website && `Website: ${kb.contact.website}`,
+    kb.contact.instagram && `Instagram: ${kb.contact.instagram}`,
+    kb.contact.facebook && `Facebook: ${kb.contact.facebook}`,
+    kb.contact.tiktok && `TikTok: ${kb.contact.tiktok}`,
+    kb.contact.messenger && `Messenger: ${kb.contact.messenger}`,
     kb.contact.extra,
   ]
     .filter(Boolean)
@@ -640,6 +644,30 @@ function wrapEmail(kb: KnowledgeBase, customerName: string | undefined, body: st
   const first = customerName?.split(" ")[0] ?? "there";
   const sign = kb.name || "Support";
   return `Hi ${first},\n\n${body}\n\nIf you need anything else, reply to this email or call us${kb.contact.phone ? ` at ${kb.contact.phone}` : ""}.\n\n— ${sign}`;
+}
+
+function wrapSocial(kb: KnowledgeBase, customerName: string | undefined, body: string) {
+  const first = customerName?.split(" ")[0];
+  const sign = kb.name || "Support";
+  const greeting = first ? `Hi ${first},\n\n` : "";
+  return `${greeting}${body}\n\n— ${sign}`;
+}
+
+function lockHumanChannel(channel: ReplyChannel, operatorNote: string) {
+  if (channel === "email") {
+    const extra = operatorNote.toLowerCase().includes("email")
+      ? ""
+      : " Email never auto-sends.";
+    return { requiresHuman: true as const, safeForChatAuto: false as const, operatorNote: `${operatorNote}${extra}`.trim() };
+  }
+  if (channel === "social") {
+    return {
+      requiresHuman: true as const,
+      safeForChatAuto: false as const,
+      operatorNote: `${operatorNote} Social replies stay drafts — copy and post them yourself. BizPilot never posts to Instagram, Facebook, TikTok, or Messenger.`,
+    };
+  }
+  return null;
 }
 
 export function generateReply(options: {
@@ -744,10 +772,17 @@ export function generateReply(options: {
 
   if (channel === "email") {
     body = wrapEmail(kb, customerName, body);
-    requiresHuman = true;
-    safeForChatAuto = false;
+  } else if (channel === "social") {
+    body = wrapSocial(kb, customerName, body);
   } else if (intent === "emergency") {
     body = `${body}\n\n${kb.escalation.handoffMessage}`;
+  }
+
+  const locked = lockHumanChannel(channel, operatorNote);
+  if (locked) {
+    requiresHuman = locked.requiresHuman;
+    safeForChatAuto = locked.safeForChatAuto;
+    operatorNote = locked.operatorNote;
   }
 
   body = sanitizeReplyBody(body);
@@ -769,7 +804,7 @@ export function generateReply(options: {
     sources: collected.sources.filter((source) => source.title.trim()),
     operatorNote,
     safeForChatAuto: channel === "chat" ? safeForChatAuto || intent === "emergency" : false,
-    requiresHuman: channel === "email" ? true : requiresHuman,
+    requiresHuman: channel === "chat" ? requiresHuman : true,
     usedInternalKnowledge: usedInternal,
   };
 }

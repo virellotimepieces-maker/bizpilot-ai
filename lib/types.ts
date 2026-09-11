@@ -32,6 +32,10 @@ export interface ContactDetails {
   address: string;
   website: string;
   extra: string;
+  instagram: string;
+  facebook: string;
+  tiktok: string;
+  messenger: string;
 }
 
 export interface Offering {
@@ -115,7 +119,33 @@ export interface KnowledgeBase {
   clinicOps?: ClinicOperations;
 }
 
-export type ReplyChannel = "chat" | "email";
+export type ReplyChannel = "chat" | "email" | "social";
+
+export type SocialPlatform = "instagram" | "facebook" | "tiktok" | "messenger";
+
+export type SocialStatus =
+  | "draft_ready"
+  | "needs_review"
+  | "escalated"
+  | "posted"
+  | "discarded";
+
+export interface SocialMessage {
+  id: string;
+  platform: SocialPlatform;
+  fromName: string;
+  handle: string;
+  body: string;
+  receivedAt: string;
+  conversationUrl?: string;
+  status: SocialStatus;
+  draftBody: string;
+  intent: ReplyIntent;
+  sources: ReplySource[];
+  operatorNote: string;
+  usedInternalKnowledge: boolean;
+  postedAt?: string;
+}
 
 export type ReplyIntent =
   | "hours"
@@ -217,6 +247,7 @@ export interface WorkspaceState {
   knowledge: KnowledgeBase | null;
   presetId: string | null;
   emails: EmailMessage[];
+  socials: SocialMessage[];
   chats: ChatSession[];
   activeChatId: string | null;
 }
@@ -240,5 +271,16 @@ export interface BusinessPreset {
     | "operatorNote"
     | "usedInternalKnowledge"
     | "sentAt"
+  >[];
+  sampleSocials: Omit<
+    SocialMessage,
+    | "id"
+    | "status"
+    | "draftBody"
+    | "intent"
+    | "sources"
+    | "operatorNote"
+    | "usedInternalKnowledge"
+    | "postedAt"
   >[];
 }

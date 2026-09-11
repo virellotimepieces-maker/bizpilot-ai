@@ -32,6 +32,7 @@ model Workspace {
   conversations Conversation[]
   websiteSource WebsiteSource?
   websitePages  WebsitePage[]
+  socialMessages SocialMessage[]
 }
 
 model Membership {
@@ -166,5 +167,29 @@ model WebsitePage {
   workspace    Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, url])
+  @@index([workspaceId, widgetKey])
+}
+
+model SocialMessage {
+  id                    String    @id @default(cuid())
+  workspaceId           String
+  widgetKey             String
+  platform              String
+  fromName              String
+  handle                String
+  body                  String
+  conversationUrl       String?
+  status                String
+  draftBody             String
+  intent                String
+  sources               Json?
+  operatorNote          String
+  usedInternalKnowledge Boolean   @default(false)
+  postedAt              DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
   @@index([workspaceId, widgetKey])
 }

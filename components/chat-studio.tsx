@@ -18,7 +18,7 @@ export function ChatStudio() {
   return (
     <SetupGate
       title="Preview website chat"
-      description="The widget on the right reads the same knowledge base as email. Safe, published facts can be answered automatically. Everything else is handed to a human."
+      description="The widget on the right reads the same knowledge base as email and social drafts. Safe, published facts can be answered automatically. Everything else is handed to a human."
     >
       <ChatBody />
     </SetupGate>
@@ -70,7 +70,7 @@ function ChatBody() {
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div>
                 <p className="text-sm font-medium">Chat with {knowledge.name}</p>
-                <p className="text-xs text-neutral-500">Powered by BizPilot · same knowledge as email</p>
+                <p className="text-xs text-neutral-500">Powered by BizPilot · same knowledge as email and social</p>
               </div>
               <Badge variant="secondary">Live demo</Badge>
             </div>
@@ -78,7 +78,7 @@ function ChatBody() {
               {(activeChat?.messages.length ?? 0) === 0 && (
                 <div className="rounded-2xl bg-white p-3 text-sm leading-relaxed text-neutral-600 shadow-sm">
                   Hi — I can help with hours, {offeringWord(knowledge.businessType)}, published
-                  prices, and policies. I won&apos;t guess, and I won&apos;t send email for you.
+                  prices, and policies. I won&apos;t guess, and I won&apos;t send email or post on social for you.
                 </div>
               )}
               {activeChat?.messages.map((message) => (
