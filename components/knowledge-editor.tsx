@@ -16,6 +16,12 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { nid } from "@/lib/id";
 import {
+  formatClockTime,
+  HOURS_DAY_ROW_CLASS,
+  HOURS_TIME_FIELDS_CLASS,
+  HOURS_TIME_INPUT_CLASS,
+} from "@/lib/hours-display";
+import {
   BUSINESS_TYPE_HINT,
   BUSINESS_TYPE_LABEL,
   DAY_LABEL,
@@ -477,7 +483,7 @@ function OfferingList({
   );
 }
 
-function HoursEditor({
+export function HoursEditor({
   kb,
   patch,
 }: {
@@ -494,58 +500,83 @@ function HoursEditor({
       </Field>
       <div className="grid gap-2">
         {kb.hours.days.map((day) => (
-          <div
-            key={day.day}
-            className="grid grid-cols-[7rem_auto_1fr_1fr] items-center gap-2 rounded-lg border px-2 py-2 sm:grid-cols-[9rem_auto_1fr_1fr]"
-          >
-            <span className="text-sm">{DAY_LABEL[day.day]}</span>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Switch
-                size="sm"
-                checked={!day.closed}
-                onCheckedChange={(checked) =>
-                  patch({
-                    hours: {
-                      ...kb.hours,
-                      days: kb.hours.days.map((item) =>
-                        item.day === day.day ? { ...item, closed: !checked } : item,
-                      ),
-                    },
-                  })
-                }
-              />
-              Open
-            </label>
-            <Input
-              type="time"
-              disabled={day.closed}
-              value={day.open}
-              onChange={(e) =>
-                patch({
-                  hours: {
-                    ...kb.hours,
-                    days: kb.hours.days.map((item) =>
-                      item.day === day.day ? { ...item, open: e.target.value } : item,
-                    ),
-                  },
-                })
-              }
-            />
-            <Input
-              type="time"
-              disabled={day.closed}
-              value={day.close}
-              onChange={(e) =>
-                patch({
-                  hours: {
-                    ...kb.hours,
-                    days: kb.hours.days.map((item) =>
-                      item.day === day.day ? { ...item, close: e.target.value } : item,
-                    ),
-                  },
-                })
-              }
-            />
+          <div key={day.day} className={HOURS_DAY_ROW_CLASS}>
+            <div className="flex items-center justify-between gap-3 sm:contents">
+              <span className="text-sm font-medium">{DAY_LABEL[day.day]}</span>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground sm:pt-1">
+                <Switch
+                  size="sm"
+                  checked={!day.closed}
+                  onCheckedChange={(checked) =>
+                    patch({
+                      hours: {
+                        ...kb.hours,
+                        days: kb.hours.days.map((item) =>
+                          item.day === day.day ? { ...item, closed: !checked } : item,
+                        ),
+                      },
+                    })
+                  }
+                />
+                Open
+              </label>
+            </div>
+            <div className={HOURS_TIME_FIELDS_CLASS}>
+              <div className="grid min-w-0 gap-1.5">
+                <Label htmlFor={`hours-open-${day.day}`}>Opens</Label>
+                <p
+                  className="text-sm font-medium tabular-nums sm:hidden"
+                  data-testid={`hours-open-display-${day.day}`}
+                >
+                  {day.closed ? "Closed" : formatClockTime(day.open)}
+                </p>
+                <Input
+                  id={`hours-open-${day.day}`}
+                  type="time"
+                  disabled={day.closed}
+                  value={day.open}
+                  aria-label="Opens"
+                  className={HOURS_TIME_INPUT_CLASS}
+                  onChange={(e) =>
+                    patch({
+                      hours: {
+                        ...kb.hours,
+                        days: kb.hours.days.map((item) =>
+                          item.day === day.day ? { ...item, open: e.target.value } : item,
+                        ),
+                      },
+                    })
+                  }
+                />
+              </div>
+              <div className="grid min-w-0 gap-1.5">
+                <Label htmlFor={`hours-close-${day.day}`}>Closes</Label>
+                <p
+                  className="text-sm font-medium tabular-nums sm:hidden"
+                  data-testid={`hours-close-display-${day.day}`}
+                >
+                  {day.closed ? "Closed" : formatClockTime(day.close)}
+                </p>
+                <Input
+                  id={`hours-close-${day.day}`}
+                  type="time"
+                  disabled={day.closed}
+                  value={day.close}
+                  aria-label="Closes"
+                  className={HOURS_TIME_INPUT_CLASS}
+                  onChange={(e) =>
+                    patch({
+                      hours: {
+                        ...kb.hours,
+                        days: kb.hours.days.map((item) =>
+                          item.day === day.day ? { ...item, close: e.target.value } : item,
+                        ),
+                      },
+                    })
+                  }
+                />
+              </div>
+            </div>
           </div>
         ))}
       </div>
