@@ -2,7 +2,7 @@ export const WIDGET_CHAT_API_PATH = "/api/widget/chat";
 export const COPY_SNIPPET_FEEDBACK_MS = 2500;
 
 export const WIDGET_PREVIEW_IFRAME_CLASS =
-  "h-[min(70dvh,560px)] min-h-[420px] w-full max-w-full overflow-hidden rounded-2xl border bg-[#f4f1ea]";
+  "h-[min(70dvh,520px)] min-h-[420px] w-full max-w-full rounded-2xl border bg-white";
 
 function normalizeOrigin(origin: string) {
   return origin.trim().replace(/\/$/, "");

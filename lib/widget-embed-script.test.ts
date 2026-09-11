@@ -94,7 +94,7 @@ describe("widget embed route wiring", () => {
     const { widgetScriptOrigin } = await import("./widget-embed-script");
     assert.equal(
       widgetScriptOrigin({
-        url: "http://0.0.0.0:43217/w/sandbox.js",
+        url: "http://0.0.0.0:43217/w/bpw_existing_widget_key.js",
         headers: { get: (name: string) => (name === "host" ? "127.0.0.1:43217" : null) },
       }),
       "http://127.0.0.1:43217",

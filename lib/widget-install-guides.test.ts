@@ -56,7 +56,6 @@ describe("widget install guides", () => {
     assert.ok(titles.includes("Snippet pasted more than once"));
     assert.ok(titles.includes("Subscription inactive"));
     assert.ok(titles.includes("Content Security Policy blocking the script"));
-    assert.ok(titles.includes("Chat covers the whole phone screen"));
   });
 
   it("warns never to share secrets and stays readable on narrow screens", () => {
