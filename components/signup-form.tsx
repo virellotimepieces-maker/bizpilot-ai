@@ -4,24 +4,51 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/field";
+import { PasswordInput } from "@/components/password-input";
 import { SiteHeader } from "@/components/site-header";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+const PASSWORD_MISMATCH_ERROR = "Passwords do not match.";
+
 export function SignupForm() {
   const router = useRouter();
+  const passwordId = useId();
+  const confirmPasswordId = useId();
   const [name, setName] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [mismatchError, setMismatchError] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
+  function updatePassword(nextPassword: string) {
+    setPassword(nextPassword);
+    if (mismatchError && nextPassword === confirmPassword) {
+      setMismatchError("");
+    }
+  }
+
+  function updateConfirmPassword(nextConfirmPassword: string) {
+    setConfirmPassword(nextConfirmPassword);
+    if (mismatchError && password === nextConfirmPassword) {
+      setMismatchError("");
+    }
+  }
+
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (password !== confirmPassword) {
+      setMismatchError(PASSWORD_MISMATCH_ERROR);
+      setError("");
+      return;
+    }
     setPending(true);
     setError("");
+    setMismatchError("");
     const response = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -68,13 +95,30 @@ export function SignupForm() {
                   required
                 />
               </Field>
-              <Field label="Password" hint="At least 8 characters.">
-                <Input
-                  type="password"
+              <Field label="Password" hint="At least 8 characters." htmlFor={passwordId}>
+                <PasswordInput
+                  id={passwordId}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={updatePassword}
                   required
                   minLength={8}
+                  autoComplete="new-password"
+                />
+              </Field>
+              <Field
+                label="Confirm password"
+                htmlFor={confirmPasswordId}
+                error={mismatchError}
+              >
+                <PasswordInput
+                  id={confirmPasswordId}
+                  value={confirmPassword}
+                  onChange={updateConfirmPassword}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  invalid={Boolean(mismatchError)}
+                  describedBy={mismatchError ? `${confirmPasswordId}-error` : undefined}
                 />
               </Field>
               {error ? <p className="text-sm text-destructive">{error}</p> : null}
