@@ -149,8 +149,9 @@ export function PaidWidget() {
         {previewOpen ? (
           <div className="grid gap-2">
             <p className="text-sm text-muted-foreground">
-              This is the live production widget for this workspace. Successful AI answers count
-              toward the 500-reply monthly allowance.
+              This is the live production widget for this workspace. Visitors see a round chat
+              button first — tap it to open. Successful AI answers count toward the 500-reply
+              monthly allowance.
             </p>
             {previewLoading ? (
               <p className="text-sm text-muted-foreground" aria-live="polite">

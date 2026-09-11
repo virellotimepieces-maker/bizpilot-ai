@@ -53,6 +53,8 @@ describe("live widget preview", () => {
       "lib/widget-install-guides.ts",
       "app/embed/[widgetKey]/page.tsx",
       "app/w/[widgetKey]/route.ts",
+      "lib/widget-embed-script.ts",
+      "app/widget-sandbox/page.tsx",
     ];
     for (const file of files) {
       const source = readFileSync(file, "utf8");
@@ -63,6 +65,11 @@ describe("live widget preview", () => {
     }
     const chat = readFileSync("components/widget-chat.tsx", "utf8");
     assert.match(chat, /WIDGET_CHAT_API_PATH/);
+    assert.match(chat, /startOpen = false/);
+    assert.match(chat, /aria-label="Open chat"/);
+    assert.match(chat, /aria-label="Close chat"/);
+    assert.match(chat, /Send/);
+    assert.doesNotMatch(chat, /h-dvh/);
   });
 });
 

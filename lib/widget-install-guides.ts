@@ -51,6 +51,11 @@ export const WIDGET_TROUBLESHOOTING = [
     title: "Content Security Policy blocking the script",
     body: "If the chat never appears and the browser developer tools mention Content-Security-Policy, your host is blocking outside scripts. Ask whoever manages the site to allow this BizPilot script origin from the snippet. Until that rule is added, the widget cannot load.",
   },
+  {
+    id: "mobile-cover",
+    title: "Chat covers the whole phone screen",
+    body: "The live snippet starts as a round button. After you tap it, the window stays inside the screen (max-height: calc(100dvh - 120px), max-width: calc(100vw - 24px)) so the storefront and the phone toolbar stay visible. Hard-refresh the public site or purge cache if you still see an old full-screen window.",
+  },
 ] as const;
 
 const GUIDES: Record<WidgetPlatformId, WidgetInstallGuide> = {

@@ -60,6 +60,8 @@ npm run dev
 
 Open [http://localhost:43127](http://localhost:43127).
 
+The website widget (`/w/{widget-id}.js`) starts as a round chat button. It does not open until that button is tapped, and on phones the window stays inside the screen so the storefront remains visible. A layout sandbox is at `/widget-sandbox`.
+
 - `/` marketing and pricing
 - `/demo` local demo desk (no billing, no AI)
 - `/signup` and `/login` paid accounts (need `DATABASE_URL` + `AUTH_SECRET`)

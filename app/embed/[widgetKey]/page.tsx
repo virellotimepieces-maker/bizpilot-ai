@@ -6,5 +6,9 @@ export default async function EmbedPage({
   params: Promise<{ widgetKey: string }>;
 }) {
   const { widgetKey } = await params;
-  return <WidgetChat widgetKey={widgetKey} />;
+  return (
+    <div className="h-full">
+      <WidgetChat widgetKey={widgetKey} />
+    </div>
+  );
 }
