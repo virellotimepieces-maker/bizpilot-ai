@@ -1,4 +1,4 @@
-import { buildWidgetEmbedScript } from "@/lib/widget-embed-script";
+import { buildWidgetEmbedScript, widgetScriptOrigin } from "@/lib/widget-embed-script";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
@@ -7,7 +7,7 @@ export async function GET(
 ) {
   const { widgetKey: raw } = await context.params;
   const widgetKey = raw.replace(/\.js$/, "");
-  const origin = new URL(request.url).origin;
+  const origin = widgetScriptOrigin(request);
   const script = buildWidgetEmbedScript(origin, widgetKey);
   return new NextResponse(script, {
     headers: {

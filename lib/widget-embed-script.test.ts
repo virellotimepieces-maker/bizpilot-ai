@@ -89,4 +89,28 @@ describe("widget embed route wiring", () => {
     const source = readFileSync("lib/widget-embed-script.ts", "utf8");
     assert.doesNotMatch(source, /OPENAI_API_KEY|DATABASE_URL|STRIPE_SECRET_KEY|AUTH_SECRET/);
   });
+
+  it("uses the request host so local 0.0.0.0 binds still match the page origin", async () => {
+    const { widgetScriptOrigin } = await import("./widget-embed-script");
+    assert.equal(
+      widgetScriptOrigin({
+        url: "http://0.0.0.0:43217/w/sandbox.js",
+        headers: { get: (name: string) => (name === "host" ? "127.0.0.1:43217" : null) },
+      }),
+      "http://127.0.0.1:43217",
+    );
+    assert.equal(
+      widgetScriptOrigin({
+        url: "http://0.0.0.0:43217/w/live.js",
+        headers: {
+          get: (name: string) => {
+            if (name === "x-forwarded-host") return "bizpilot-ai-mocha.vercel.app";
+            if (name === "x-forwarded-proto") return "https";
+            return null;
+          },
+        },
+      }),
+      "https://bizpilot-ai-mocha.vercel.app",
+    );
+  });
 });

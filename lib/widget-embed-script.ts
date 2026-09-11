@@ -36,6 +36,26 @@ export function buildWidgetHostMessage(type: WidgetHostMessageType): WidgetHostM
   return { source: WIDGET_POST_MESSAGE_SOURCE, type };
 }
 
+export function widgetScriptOrigin(request: {
+  url: string;
+  headers: { get(name: string): string | null };
+  nextUrl?: { protocol?: string };
+}) {
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = (forwardedHost ?? request.headers.get("host") ?? "")
+    .split(",")[0]
+    .trim()
+    .replace(/^0\.0\.0\.0/, "127.0.0.1");
+  if (host) {
+    const forwardedProto = request.headers.get("x-forwarded-proto");
+    const proto =
+      forwardedProto?.split(",")[0].trim() ||
+      (request.nextUrl?.protocol === "https:" ? "https" : "http");
+    return `${proto}://${host}`;
+  }
+  return new URL(request.url).origin.replace("://0.0.0.0", "://127.0.0.1");
+}
+
 export function buildWidgetEmbedScript(origin: string, widgetKey: string) {
   return `(() => {
   var KEY = ${JSON.stringify(widgetKey)};
