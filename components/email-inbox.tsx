@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { INTENT_LABEL } from "@/lib/intent-labels";
+import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS, PAGE_TITLE_CLASS } from "@/lib/ui/type-scale";
 import type { EmailMessage, EmailStatus } from "@/lib/types";
 import { useWorkspace } from "@/lib/workspace-store";
 import { MailPlus, RefreshCw, Send, ShieldAlert } from "lucide-react";
@@ -68,14 +69,14 @@ function InboxBody() {
   if (!knowledge) return null;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+    <div className={PAGE_SHELL_CLASS}>
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">
             Email support
           </p>
-          <h1 className="font-heading mt-2 text-3xl tracking-tight">Drafts that wait for you</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Drafts that wait for you</h1>
+          <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
             {knowledge.name} email is grounded in the shared knowledge base. Approve, edit, or
             escalate. There is no auto-send switch on this channel.
           </p>

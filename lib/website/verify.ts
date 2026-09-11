@@ -14,6 +14,7 @@ export type WebsiteFetchLike = (
   url: string;
   headers: { get(name: string): string | null };
   text(): Promise<string>;
+  arrayBuffer?: () => Promise<ArrayBuffer>;
 }>;
 
 export type WebsiteVerifyDiagnostic = {

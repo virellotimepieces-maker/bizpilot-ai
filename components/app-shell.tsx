@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { BUSINESS_TYPE_LABEL } from "@/lib/labels";
 import { useWorkspace } from "@/lib/workspace-store";
 import { cn } from "@/lib/utils";
+import { TAB_ITEM_CLASS, TAB_ROW_CLASS, TOUCH_TARGET_CLASS } from "@/lib/ui/type-scale";
 import {
   BookOpen,
   Inbox,
@@ -44,7 +45,7 @@ function NavLinks({
             href={href}
             onClick={onNavigate}
             className={cn(
-              "flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition",
+              "flex min-h-11 items-center gap-2.5 rounded-xl px-3 py-2 text-base transition",
               active
                 ? "bg-white/12 text-white shadow-sm"
                 : "text-white/70 hover:bg-white/8 hover:text-white",
@@ -141,19 +142,47 @@ export function AppShell({
   demo?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
 
   return (
     <div className="flex min-h-full bg-background">
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 bg-sidebar text-sidebar-foreground md:flex md:flex-col">
         <SidebarBody basePath={basePath} demo={demo} />
       </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b bg-background/80 px-4 py-3 backdrop-blur md:hidden">
-          <Button variant="outline" size="icon-sm" onClick={() => setOpen(true)} aria-label="Open menu">
+      <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
+        <header className="flex items-center gap-3 border-b bg-background/80 px-3 py-2 backdrop-blur md:hidden">
+          <Button variant="outline" size="icon" className={TOUCH_TARGET_CLASS} onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="size-4" />
           </Button>
-          <span className="font-heading">BizPilot AI</span>
+          <span className="font-heading text-2xl leading-none">BizPilot AI</span>
         </header>
+        <nav className={`${TAB_ROW_CLASS} border-b px-3 py-2 md:hidden`} aria-label="Desk">
+          {NAV.map((item) => {
+            const href = `${basePath}${item.href === "/" ? "" : item.href}` || "/";
+            const compact =
+              item.href === "/knowledge"
+                ? "Knowledge"
+                : item.href === "/chat"
+                  ? "Chat"
+                  : item.href === "/inbox"
+                    ? "Inbox"
+                    : "Overview";
+            return (
+              <Link
+                key={item.href}
+                href={href}
+                className={cn(
+                  TAB_ITEM_CLASS,
+                  pathname === href || (item.href === "/" && pathname === basePath)
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-muted-foreground ring-1 ring-foreground/10",
+                )}
+              >
+                {compact}
+              </Link>
+            );
+          })}
+        </nav>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetContent side="left" className="w-64 border-0 bg-sidebar p-0 text-sidebar-foreground">
             <SheetHeader className="sr-only">
@@ -162,7 +191,7 @@ export function AppShell({
             <SidebarBody basePath={basePath} demo={demo} onNavigate={() => setOpen(false)} />
           </SheetContent>
         </Sheet>
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <main className="min-w-0 flex-1 overflow-x-hidden px-3 py-4 sm:px-6 lg:px-8">{children}</main>
       </div>
     </div>
   );

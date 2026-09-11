@@ -1,6 +1,6 @@
 export const WEBSITE_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 export const WEBSITE_MAX_PAGES = 60;
-export const WEBSITE_MAX_SITEMAPS = 8;
+export const WEBSITE_MAX_SITEMAPS = 24;
 export const WEBSITE_FETCH_TIMEOUT_MS = 15000;
 
 export type WebsitePageKind =
@@ -17,6 +17,15 @@ export type WebsitePageKind =
   | "other";
 
 export type WebsiteSyncStatus = "idle" | "syncing" | "success" | "error";
+
+export type WebsiteSyncDiagnostic = {
+  sitemapFetched: { url: string; status: number | null }[];
+  childSitemapsFound: number;
+  urlsDiscovered: number;
+  pagesIndexed: number;
+  pagesSkipped: number;
+  failures: number;
+};
 
 export type WebsiteReplySource = {
   title: string;
@@ -49,6 +58,7 @@ export type WebsiteSourceRecord = {
   nextSyncAt: Date | null;
   lastSyncStatus: WebsiteSyncStatus;
   lastSyncError: string | null;
+  lastSyncDiagnostic: string | null;
   lastSyncPageCount: number;
   conflictWarning: string | null;
   createdAt: Date;

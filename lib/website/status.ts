@@ -13,6 +13,7 @@ export function websiteLastSyncSummary(
   source: (Omit<WebsiteSourceRecord, "lastSyncAt" | "nextSyncAt"> & {
     lastSyncAt: Date | string | null;
     nextSyncAt?: Date | string | null;
+    lastSyncDiagnostic?: string | null;
   }) | null,
   now = new Date(),
 ) {
@@ -27,5 +28,6 @@ export function websiteLastSyncSummary(
   const minutes = Math.max(0, Math.round((now.getTime() - lastSyncAt.getTime()) / 60000));
   const when =
     minutes < 1 ? "just now" : minutes < 60 ? `${minutes} min ago` : `${Math.round(minutes / 60)} hr ago`;
-  return `Last synced ${when} · ${source.lastSyncPageCount} public page${source.lastSyncPageCount === 1 ? "" : "s"}.`;
+  const count = `Last synced ${when} · ${source.lastSyncPageCount} public page${source.lastSyncPageCount === 1 ? "" : "s"}.`;
+  return source.lastSyncDiagnostic ? `${count} ${source.lastSyncDiagnostic}` : count;
 }

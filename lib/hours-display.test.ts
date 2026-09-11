@@ -26,6 +26,7 @@ describe("hours display", () => {
     assert.match(HOURS_TIME_FIELDS_CLASS, /grid-cols-1/);
     assert.match(HOURS_TIME_FIELDS_CLASS, /min-\[400px\]:grid-cols-2/);
     assert.match(HOURS_TIME_FIELDS_CLASS, /sm:contents/);
+    assert.match(HOURS_TIME_INPUT_CLASS, /min-h-11/);
     assert.match(HOURS_TIME_INPUT_CLASS, /w-full/);
     assert.match(HOURS_TIME_INPUT_CLASS, /text-base/);
     assert.match(HOURS_TIME_INPUT_CLASS, /min-w-0/);

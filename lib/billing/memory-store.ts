@@ -377,6 +377,7 @@ export class MemoryBillingStore implements BillingStore {
       nextSyncAt: current?.domain === input.domain ? current.nextSyncAt : null,
       lastSyncStatus: current?.domain === input.domain ? current.lastSyncStatus : "idle",
       lastSyncError: current?.domain === input.domain ? current.lastSyncError : null,
+      lastSyncDiagnostic: current?.domain === input.domain ? current.lastSyncDiagnostic : null,
       lastSyncPageCount: current?.domain === input.domain ? current.lastSyncPageCount : 0,
       conflictWarning: current?.domain === input.domain ? current.conflictWarning : null,
       createdAt: current?.createdAt ?? now,

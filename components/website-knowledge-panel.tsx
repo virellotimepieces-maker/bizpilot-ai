@@ -6,6 +6,7 @@ import { Field } from "@/components/field";
 import { Input } from "@/components/ui/input";
 import { websiteLastSyncSummary, websiteSyncButtonLabel } from "@/lib/website/status";
 import type { WebsiteSourceRecord } from "@/lib/website/types";
+import { HELPER_TEXT_CLASS } from "@/lib/ui/type-scale";
 import { useEffect, useState } from "react";
 
 export function WebsiteKnowledgePanel() {
@@ -134,7 +135,7 @@ export function WebsiteKnowledgePanel() {
           account, and admin URLs are skipped.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-4 pt-4">
+      <CardContent className="grid gap-3 pt-3">
         <Field
           label="Website domain"
           hint="Example: harborandpine.com. After the snippet is on the live site, verify, then sync."
@@ -146,7 +147,7 @@ export function WebsiteKnowledgePanel() {
             onChange={(event) => setDomain(event.target.value)}
             placeholder="your-store.com"
             autoComplete="url"
-            className="h-10"
+            className="h-11 min-h-11"
           />
         </Field>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -175,16 +176,16 @@ export function WebsiteKnowledgePanel() {
             {websiteSyncButtonLabel(syncing ? "syncing" : source?.lastSyncStatus || "idle")}
           </Button>
         </div>
-        <p className="text-sm text-muted-foreground" aria-live="polite">
+        <p className={HELPER_TEXT_CLASS} aria-live="polite">
           {websiteLastSyncSummary(source)}
           {source?.nextSyncAt
             ? ` Automatic re-sync is scheduled after ${new Date(source.nextSyncAt).toLocaleString()}.`
             : ""}
         </p>
         {source?.verifiedAt ? (
-          <p className="text-sm text-muted-foreground">Domain verified for this widget.</p>
+          <p className={HELPER_TEXT_CLASS}>Domain verified for this widget.</p>
         ) : verifyHint ? (
-          <p className="text-sm leading-relaxed text-muted-foreground">{verifyHint}</p>
+          <p className={`leading-relaxed ${HELPER_TEXT_CLASS}`}>{verifyHint}</p>
         ) : null}
         {source?.conflictWarning ? (
           <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
@@ -192,7 +193,7 @@ export function WebsiteKnowledgePanel() {
           </p>
         ) : null}
         {source?.lastSyncStatus === "error" || error ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-sm text-destructive md:text-base" role="alert">
             {error || source?.lastSyncError}
           </p>
         ) : null}

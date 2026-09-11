@@ -29,6 +29,7 @@ import {
   WIDGET_VERIFY_STEPS,
   type WidgetPlatformId,
 } from "@/lib/widget-install-guides";
+import { HELPER_TEXT_CLASS, SECTION_HEADING_CLASS } from "@/lib/ui/type-scale";
 import { useEffect, useRef, useState } from "react";
 
 export function PaidWidget() {
@@ -113,7 +114,7 @@ export function PaidWidget() {
       </CardHeader>
       <CardContent className="grid gap-5 pt-4">
         {pageState === "loading" ? (
-          <p className="text-sm text-muted-foreground" aria-live="polite">
+          <p className={HELPER_TEXT_CLASS} aria-live="polite">
             Loading install snippet…
           </p>
         ) : null}
@@ -183,7 +184,7 @@ export function PaidWidget() {
               value={platform}
               onValueChange={(value) => setPlatform(value as WidgetPlatformId)}
             >
-              <SelectTrigger className="h-10 w-full min-w-0">
+              <SelectTrigger className="h-11 min-h-11 w-full min-w-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -197,7 +198,7 @@ export function PaidWidget() {
           </Field>
 
           <div>
-            <h2 className="font-heading text-lg">Install on {guide.label}</h2>
+            <h2 className={SECTION_HEADING_CLASS}>Install on {guide.label}</h2>
             <ol className="mt-3 grid list-decimal gap-2 pl-5">
               {guide.steps.map((step) => (
                 <li key={step} className="pl-1">
@@ -216,7 +217,7 @@ export function PaidWidget() {
           </div>
 
           <div>
-            <h2 className="font-heading text-lg">Check that it worked</h2>
+            <h2 className={SECTION_HEADING_CLASS}>Check that it worked</h2>
             <ol className="mt-3 grid list-decimal gap-2 pl-5">
               {WIDGET_VERIFY_STEPS.map((step) => (
                 <li key={step} className="pl-1">
@@ -227,7 +228,7 @@ export function PaidWidget() {
           </div>
 
           <div>
-            <h2 className="font-heading text-lg">If something looks wrong</h2>
+            <h2 className={SECTION_HEADING_CLASS}>If something looks wrong</h2>
             <div className="mt-3 grid gap-3">
               {WIDGET_TROUBLESHOOTING.map((item) => (
                 <div key={item.id} className="rounded-xl border px-3 py-3">

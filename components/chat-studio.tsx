@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { INTENT_LABEL } from "@/lib/intent-labels";
 import { BUSINESS_TYPE_LABEL } from "@/lib/labels";
+import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS, PAGE_TITLE_CLASS, SECTION_HEADING_CLASS } from "@/lib/ui/type-scale";
 import { PRESETS } from "@/lib/presets";
 import type { BusinessType, ChatMessage, KnowledgeBase } from "@/lib/types";
 import { useWorkspace } from "@/lib/workspace-store";
@@ -47,12 +48,12 @@ function ChatBody() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+    <div className={PAGE_SHELL_CLASS}>
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">Website chat</p>
-          <h1 className="font-heading mt-2 text-3xl tracking-tight">Customer site + operator view</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Customer site + operator view</h1>
+          <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
             Left: what a visitor sees on {knowledge.name}. Right: whether BizPilot answered from
             the knowledge base or asked a human to step in. Email is not sent from here.
           </p>
@@ -112,7 +113,7 @@ function ChatBody() {
         </CustomerSite>
 
         <aside className="rounded-2xl border bg-card p-4 shadow-sm">
-          <h2 className="font-heading text-lg">Operator view</h2>
+          <h2 className={SECTION_HEADING_CLASS}>Operator view</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {BUSINESS_TYPE_LABEL[knowledge.businessType]} knowledge base ·{" "}
             {knowledge.escalation.autoAnswerChat
@@ -210,7 +211,7 @@ function CustomerSite({
         <p className={`text-xs font-medium tracking-[0.2em] uppercase ${theme.accent}`}>
           Sample customer website
         </p>
-        <h2 className="font-heading mt-2 max-w-xl text-3xl leading-tight">{knowledge.name}</h2>
+        <h2 className={`${PAGE_TITLE_CLASS} mt-2 max-w-xl`}>{knowledge.name}</h2>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-neutral-600">
           {knowledge.tagline || knowledge.description}
         </p>

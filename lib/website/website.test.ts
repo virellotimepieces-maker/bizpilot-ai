@@ -37,7 +37,11 @@ describe("website ingestion guards", () => {
     assert.equal(isPrivateOrUnsafeUrl("https://shop.com/admin"), true);
     assert.equal(isPrivateOrUnsafeUrl("https://shop.com/checkouts/cn/abc"), true);
     assert.equal(shouldIndexWebsiteUrl("https://shop.com/products/linen-duvet"), true);
-    assert.equal(shouldIndexWebsiteUrl("https://shop.com/policies/refund-policy"), true);
+    assert.equal(shouldIndexWebsiteUrl("https://shop.com/collections/mens-watches"), true);
+    assert.equal(shouldIndexWebsiteUrl("https://shop.com/blogs/news/how-to-choose"), true);
+    assert.equal(shouldIndexWebsiteUrl("https://shop.com/search"), false);
+    assert.equal(isPrivateOrUnsafeUrl("https://shop.com/search"), true);
+    assert.equal(isPrivateOrUnsafeUrl("https://shop.com/?preview_theme_id=123"), true);
     assert.equal(shouldIndexWebsiteUrl("https://shop.com/cart"), false);
     assert.equal(classifyWebsitePage("https://shop.com/policies/shipping-policy"), "shipping");
   });
@@ -169,6 +173,7 @@ describe("website crawl uses sitemap and skips private paths", () => {
       nextSyncAt: null,
       lastSyncStatus: "idle",
       lastSyncError: null,
+      lastSyncDiagnostic: null,
       lastSyncPageCount: 0,
       conflictWarning: null,
       createdAt: new Date(),

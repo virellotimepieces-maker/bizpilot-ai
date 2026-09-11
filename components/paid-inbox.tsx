@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS, PAGE_TITLE_CLASS } from "@/lib/ui/type-scale";
 import { useEffect, useState } from "react";
 
 type Conversation = {
@@ -31,16 +32,16 @@ export function PaidInbox() {
       });
   }, []);
 
-  if (error) return <p className="text-sm text-destructive">{error}</p>;
+  if (error) return <p className="text-sm text-destructive md:text-base">{error}</p>;
 
   return (
-    <div className="mx-auto grid w-full max-w-4xl gap-4">
+    <div className={`${PAGE_SHELL_CLASS} max-w-4xl`}>
       <div>
         <p className="text-xs tracking-[0.2em] text-primary uppercase">Conversation inbox</p>
-        <h1 className="font-heading mt-2 text-3xl">Website widget conversations</h1>
+        <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Website widget conversations</h1>
       </div>
       {conversations.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className={HELPER_TEXT_CLASS}>
           No widget conversations yet. Install the widget, then customer messages appear here.
         </p>
       ) : (

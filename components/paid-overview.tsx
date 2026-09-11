@@ -3,8 +3,9 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { PAGE_TITLE_CLASS, PAGE_SHELL_CLASS, HELPER_TEXT_CLASS, SECTION_HEADING_CLASS } from "@/lib/ui/type-scale";
 
 type Bootstrap = {
   workspace: { name: string } | null;
@@ -36,7 +37,7 @@ export function PaidOverview() {
       });
   }, [router]);
 
-  if (!data) return <p className="text-sm text-muted-foreground">Loading workspace…</p>;
+  if (!data) return <p className={HELPER_TEXT_CLASS}>Loading workspace…</p>;
   if (data.missingEnv?.length) {
     return (
       <Card>
@@ -55,11 +56,11 @@ export function PaidOverview() {
     return <p className="text-sm">Redirecting to billing…</p>;
   }
 
-  return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+    return (
+      <div className={PAGE_SHELL_CLASS}>
       <div>
         <p className="text-xs tracking-[0.2em] text-primary uppercase">Paid workspace</p>
-        <h1 className="font-heading mt-2 text-3xl">{data.workspace?.name}</h1>
+        <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>{data.workspace?.name}</h1>
       </div>
       {data.notifications
         .filter((row) => row.type === "usage_limit" || row.type === "payment_failed")
@@ -75,7 +76,7 @@ export function PaidOverview() {
             <CardTitle>AI replies this month</CardTitle>
             <CardDescription>Counted only after a successful model response.</CardDescription>
           </CardHeader>
-          <CardContent className="text-2xl font-heading">
+          <CardContent className={`${SECTION_HEADING_CLASS} font-heading`}>
             {data.usage ? `${data.usage.used} / ${data.usage.limit}` : "—"}
           </CardContent>
         </Card>

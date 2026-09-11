@@ -1,7 +1,7 @@
 import type { WebsitePageKind } from "./types";
 
 const PRIVATE_PATH =
-  /(^|\/)(checkouts?|cart|account|accounts|admin|login|signin|signup|register|orders?|password|customer_authentication|wp-admin|wp-login\.php|cdn-cgi|challenge|wallets|customer_account)(\/|$)/i;
+  /(^|\/)(checkouts?|cart|account|accounts|admin|login|signin|signup|register|orders?|password|customer_authentication|wp-admin|wp-login\.php|cdn-cgi|challenge|wallets|customer_account|search|preview)(\/|$)/i;
 
 export function normalizeWebsiteDomain(input: string) {
   const trimmed = input.trim().toLowerCase();
@@ -34,6 +34,9 @@ export function isPrivateOrUnsafeUrl(raw: string) {
   if (parsed.username || parsed.password) return true;
   const host = parsed.hostname.toLowerCase();
   if (host.startsWith("checkout.") || host.startsWith("admin.") || host.startsWith("account.")) {
+    return true;
+  }
+  if (/preview_theme_id|theme_preview|preview_key=|_ab=0|&preview=/i.test(parsed.search)) {
     return true;
   }
   return PRIVATE_PATH.test(parsed.pathname);
@@ -92,7 +95,7 @@ export function shouldIndexWebsiteUrl(url: string, title = "") {
   if (kind !== "other") return true;
   const path = safePath(url).replace(/\/$/, "") || "/";
   if (path === "/") return true;
-  if (/\/pages\//.test(path)) return true;
+  if (/^\/(pages|collections|blogs|products|policies)(\/|$)/i.test(path)) return true;
   return false;
 }
 

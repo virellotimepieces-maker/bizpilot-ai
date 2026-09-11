@@ -123,6 +123,7 @@ function mapWebsiteSource(row: {
   nextSyncAt: Date | null;
   lastSyncStatus: string;
   lastSyncError: string | null;
+  lastSyncDiagnostic: string | null;
   lastSyncPageCount: number;
   conflictWarning: string | null;
   createdAt: Date;
@@ -508,6 +509,7 @@ export class PrismaBillingStore implements BillingStore {
               nextSyncAt: null,
               lastSyncStatus: "idle",
               lastSyncError: null,
+              lastSyncDiagnostic: null,
               lastSyncPageCount: 0,
               conflictWarning: null,
             }
@@ -529,6 +531,7 @@ export class PrismaBillingStore implements BillingStore {
         nextSyncAt: source.nextSyncAt,
         lastSyncStatus: source.lastSyncStatus,
         lastSyncError: source.lastSyncError,
+        lastSyncDiagnostic: source.lastSyncDiagnostic,
         lastSyncPageCount: source.lastSyncPageCount,
         conflictWarning: source.conflictWarning,
       },

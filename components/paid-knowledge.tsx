@@ -11,6 +11,7 @@ import {
 } from "@/lib/knowledge-save-state";
 import type { BusinessType, KnowledgeBase } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { HELPER_TEXT_CLASS } from "@/lib/ui/type-scale";
 import { useEffect, useRef, useState } from "react";
 
 export function PaidKnowledge() {
@@ -94,7 +95,7 @@ export function PaidKnowledge() {
 
   if (!knowledge) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className={HELPER_TEXT_CLASS}>
         {error ?? "Loading knowledge…"}
       </p>
     );
@@ -104,7 +105,7 @@ export function PaidKnowledge() {
     <div className="grid gap-3">
       <WebsiteKnowledgePanel />
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-muted-foreground" aria-live="polite">
+        <p className={HELPER_TEXT_CLASS} aria-live="polite">
           Stored in your paid workspace, not in demo localStorage.
         </p>
         <div className="flex flex-col items-stretch gap-1 sm:items-end">

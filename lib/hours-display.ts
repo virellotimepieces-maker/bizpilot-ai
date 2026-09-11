@@ -7,7 +7,7 @@ export const HOURS_TIME_FIELDS_CLASS =
   "grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 sm:contents";
 
 export const HOURS_TIME_INPUT_CLASS =
-  "h-11 min-h-11 w-full min-w-0 text-base tabular-nums sm:h-8 sm:min-h-8";
+  "h-11 min-h-11 w-full min-w-0 text-base tabular-nums";
 
 export function formatClockTime(value: string) {
   const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());

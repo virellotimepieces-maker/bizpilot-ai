@@ -138,6 +138,7 @@ model WebsiteSource {
   nextSyncAt         DateTime?
   lastSyncStatus     String        @default("idle")
   lastSyncError      String?
+  lastSyncDiagnostic String?
   lastSyncPageCount  Int           @default(0)
   conflictWarning    String?
   createdAt          DateTime      @default(now())

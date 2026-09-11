@@ -41,21 +41,29 @@ import type {
   Policy,
 } from "@/lib/types";
 import { useWorkspace } from "@/lib/workspace-store";
+import {
+  HELPER_TEXT_CLASS,
+  PAGE_SHELL_CLASS,
+  PAGE_TITLE_CLASS,
+  SECTION_HEADING_CLASS,
+  TAB_ITEM_CLASS,
+  TAB_ROW_CLASS,
+} from "@/lib/ui/type-scale";
 import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 const SECTIONS = [
-  { id: "business", label: "Business information" },
-  { id: "offerings", label: "Products & services" },
-  { id: "pricing", label: "Prices or rates" },
-  { id: "hours", label: "Hours & availability" },
-  { id: "policies", label: "Policies" },
-  { id: "faqs", label: "FAQs" },
-  { id: "documents", label: "Custom knowledge" },
-  { id: "contact", label: "Contact details" },
-  { id: "escalation", label: "Human escalation" },
-  { id: "operations", label: "Type-specific fields" },
+  { id: "business", label: "Business information", short: "Business" },
+  { id: "offerings", label: "Products & services", short: "Offerings" },
+  { id: "pricing", label: "Prices or rates", short: "Prices" },
+  { id: "hours", label: "Hours & availability", short: "Hours" },
+  { id: "policies", label: "Policies", short: "Policies" },
+  { id: "faqs", label: "FAQs", short: "FAQs" },
+  { id: "documents", label: "Custom knowledge", short: "Knowledge" },
+  { id: "contact", label: "Contact details", short: "Contact" },
+  { id: "escalation", label: "Human escalation", short: "Escalation" },
+  { id: "operations", label: "Type-specific fields", short: "Type" },
 ] as const;
 
 type SectionId = (typeof SECTIONS)[number]["id"];
@@ -133,14 +141,14 @@ function EditorBody({
   const patch = (partial: Partial<KnowledgeBase>) => updateKnowledge({ ...kb, ...partial });
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+    <div className={PAGE_SHELL_CLASS}>
+      <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
           <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">
             Shared knowledge base
           </p>
-          <h1 className="font-heading mt-2 text-3xl tracking-tight">Teach BizPilot your business</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Teach BizPilot your business</h1>
+          <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
             Changes here apply immediately to website chat and to new or regenerated email drafts.
             Store-only fields stay hidden unless this is an online store.
           </p>
@@ -167,24 +175,15 @@ function EditorBody({
         </Field>
       </div>
 
-      <p className="rounded-xl border bg-card px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+      <p className={`rounded-xl border bg-card px-3 py-3 ${HELPER_TEXT_CLASS}`}>
         {BUSINESS_TYPE_HINT[kb.businessType]}
       </p>
 
-      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <aside className="flex gap-2 overflow-x-auto lg:sticky lg:top-6 lg:block lg:h-fit lg:overflow-visible">
-          {SECTIONS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setSection(item.id)}
-              className={`rounded-xl px-3 py-2 text-left text-sm whitespace-nowrap transition lg:block lg:w-full ${
-                section === item.id
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-card text-muted-foreground ring-1 ring-foreground/10 hover:text-foreground"
-              }`}
-            >
-              {item.id === "offerings"
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
+        <aside className={`${TAB_ROW_CLASS} lg:sticky lg:top-6 lg:block lg:h-fit lg:overflow-visible lg:pb-0`}>
+          {SECTIONS.map((item) => {
+            const fullLabel =
+              item.id === "offerings"
                 ? offeringLabel(kb.businessType)
                 : item.id === "operations"
                   ? showsStoreOperations(kb.businessType)
@@ -194,14 +193,34 @@ function EditorBody({
                       : showsClinicOperations(kb.businessType)
                         ? "Clinic operations"
                         : "Type-specific"
-                  : item.label}
-            </button>
-          ))}
+                  : item.label;
+            const shortLabel =
+              item.id === "offerings"
+                ? "Offerings"
+                : item.id === "operations"
+                  ? "Type"
+                  : item.short;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setSection(item.id)}
+                className={`${TAB_ITEM_CLASS} lg:w-full lg:justify-start ${
+                  section === item.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-muted-foreground ring-1 ring-foreground/10 hover:text-foreground"
+                }`}
+              >
+                <span className="md:hidden">{shortLabel}</span>
+                <span className="hidden md:inline">{fullLabel}</span>
+              </button>
+            );
+          })}
         </aside>
 
-        <section className="rounded-2xl border bg-card p-4 shadow-sm sm:p-6">
-          <h2 className="font-heading text-xl">{sectionLabel}</h2>
-          <div className="mt-5 grid gap-5">
+        <section className="min-w-0 rounded-2xl border bg-card p-3 shadow-sm md:p-6">
+          <h2 className={SECTION_HEADING_CLASS}>{sectionLabel}</h2>
+          <div className="mt-4 grid gap-4">
             {section === "business" && (
               <>
                 <Field label="Business name">

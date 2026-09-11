@@ -1,6 +1,7 @@
 "use client";
 
 import { PresetGallery } from "@/components/preset-gallery";
+import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS, PAGE_TITLE_CLASS } from "@/lib/ui/type-scale";
 import { useWorkspace } from "@/lib/workspace-store";
 import type { ReactNode } from "react";
 
@@ -17,11 +18,11 @@ export function SetupGate({
 
   if (!knowledge) {
     return (
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 py-6">
+      <div className={`${PAGE_SHELL_CLASS} max-w-5xl py-4`}>
         <div>
           <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">BizPilot AI</p>
-          <h1 className="font-heading mt-2 text-3xl tracking-tight sm:text-4xl">{title}</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+          <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>{title}</h1>
+          <p className={`mt-3 max-w-2xl ${HELPER_TEXT_CLASS}`}>
             {description}
           </p>
         </div>

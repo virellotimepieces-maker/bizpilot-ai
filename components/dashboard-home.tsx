@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { knowledgeCoverage } from "@/lib/completeness";
 import { BUSINESS_TYPE_LABEL } from "@/lib/labels";
+import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS, PAGE_TITLE_CLASS, SECTION_HEADING_CLASS } from "@/lib/ui/type-scale";
 import { useWorkspace } from "@/lib/workspace-store";
 import { BookOpen, Inbox, MessageSquare, ShieldCheck } from "lucide-react";
 import Link from "next/link";
@@ -32,16 +33,16 @@ function LoadedDashboard() {
   const auto = chats.flatMap((c) => c.messages).filter((m) => m.autoAnswered).length;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+    <div className={PAGE_SHELL_CLASS}>
+      <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
           <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">
             {BUSINESS_TYPE_LABEL[knowledge.businessType]}
           </p>
-          <h1 className="font-heading mt-2 text-3xl tracking-tight sm:text-4xl">
+          <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>
             {knowledge.name}
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+          <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
             {knowledge.tagline || knowledge.description}
           </p>
         </div>
@@ -144,8 +145,8 @@ function Stat({ label, value, hint }: { label: string; value: string; hint: stri
     <Card size="sm">
       <CardHeader>
         <CardDescription>{label}</CardDescription>
-        <CardTitle className="font-heading text-3xl">{value}</CardTitle>
-        <p className="text-xs text-muted-foreground">{hint}</p>
+        <CardTitle className={SECTION_HEADING_CLASS}>{value}</CardTitle>
+        <p className={HELPER_TEXT_CLASS}>{hint}</p>
       </CardHeader>
     </Card>
   );

@@ -87,11 +87,11 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
-    @apply font-sans;
+    @apply overflow-x-hidden font-sans;
+  }
+  body {
+    @apply min-w-0 overflow-x-hidden bg-background text-foreground;
   }
   .font-heading {
     font-family: var(--font-heading), ui-serif, Georgia, serif;

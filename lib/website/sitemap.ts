@@ -4,36 +4,67 @@ export type SitemapEntry = {
   sitemap?: boolean;
 };
 
+export const SHOPIFY_POLICY_PATHS = [
+  "/policies/refund-policy",
+  "/policies/shipping-policy",
+  "/policies/privacy-policy",
+  "/policies/terms-of-service",
+  "/policies/contact-information",
+] as const;
+
 function decodeLoc(value: string) {
   return value
     .trim()
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&apos;/gi, "'")
+    .replace(/&quot;/gi, '"');
+}
+
+function extractBlocks(xml: string, localName: string) {
+  const re = new RegExp(
+    `<(?:[\\w.-]+:)?${localName}(?:\\s[^>]*)?>([\\s\\S]*?)</(?:[\\w.-]+:)?${localName}>`,
+    "gi",
+  );
+  return [...xml.matchAll(re)].map((match) => match[1] ?? "");
+}
+
+function extractPageLoc(chunk: string) {
+  const match = chunk.match(
+    /<(?!image:)(?:[\w.-]+:)?loc>\s*([^<]+)\s*<\/(?!image:)(?:[\w.-]+:)?loc>/i,
+  );
+  return match?.[1] ? decodeLoc(match[1]) : "";
+}
+
+function extractLastmod(chunk: string) {
+  const match = chunk.match(/<(?:[\w.-]+:)?lastmod>\s*([^<]+)\s*<\/(?:[\w.-]+:)?lastmod>/i);
+  return match?.[1] ? decodeLoc(match[1]) : undefined;
+}
+
+export function isSitemapIndexXml(xml: string) {
+  return /<(?:[\w.-]+:)?sitemapindex[\s>]/i.test(xml);
 }
 
 export function parseSitemapXml(xml: string): SitemapEntry[] {
-  const source = xml.replace(/<\?xml[\s\S]*?\?>/i, "");
-  const isIndex = /<sitemapindex[\s>]/i.test(source);
-  if (isIndex) {
-    const locs = [...source.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/gi)].map((match) =>
-      decodeLoc(match[1] ?? ""),
-    );
-    return locs.filter(Boolean).map((loc) => ({ loc, sitemap: true }));
+  const source = xml.replace(/^\uFEFF/, "").replace(/<\?xml[\s\S]*?\?>/i, "");
+  if (isSitemapIndexXml(source)) {
+    return extractBlocks(source, "sitemap").flatMap((block) => {
+      const loc = extractPageLoc(block);
+      return loc ? [{ loc, lastmod: extractLastmod(block), sitemap: true as const }] : [];
+    });
   }
 
-  const chunks = source.split(/<url[\s>]/i).slice(1);
-  const entries: SitemapEntry[] = [];
-  for (const chunk of chunks) {
-    const loc = chunk.match(/<loc>\s*([^<]+)\s*<\/loc>/i)?.[1];
-    if (!loc) continue;
-    const lastmod = chunk.match(/<lastmod>\s*([^<]+)\s*<\/lastmod>/i)?.[1];
-    entries.push({ loc: decodeLoc(loc), lastmod: lastmod ? decodeLoc(lastmod) : undefined });
+  const urlBlocks = extractBlocks(source, "url");
+  if (urlBlocks.length) {
+    return urlBlocks.flatMap((block) => {
+      const loc = extractPageLoc(block);
+      return loc ? [{ loc, lastmod: extractLastmod(block) }] : [];
+    });
   }
-  if (entries.length) return entries;
 
-  return [...source.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/gi)]
+  return [...source.matchAll(/<(?!image:)(?:[\w.-]+:)?loc>\s*([^<]+)\s*<\/(?!image:)(?:[\w.-]+:)?loc>/gi)]
     .map((match) => decodeLoc(match[1] ?? ""))
     .filter(Boolean)
     .map((loc) => ({ loc }));
@@ -41,5 +72,29 @@ export function parseSitemapXml(xml: string): SitemapEntry[] {
 
 export function sitemapCandidates(origin: string) {
   const base = origin.replace(/\/$/, "");
-  return [`${base}/sitemap.xml`, `${base}/sitemap_index.xml`];
+  const host = (() => {
+    try {
+      return new URL(base).host.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  })();
+  const urls = [
+    `${base}/sitemap.xml`,
+    `${base}/sitemap.xml.gz`,
+    `${base}/sitemap_index.xml`,
+    `${base}/sitemap_index.xml.gz`,
+  ];
+  if (host && !/^www\./i.test(new URL(base).host)) {
+    urls.push(
+      `https://www.${host}/sitemap.xml`,
+      `https://www.${host}/sitemap.xml.gz`,
+    );
+  }
+  return [...new Set(urls)];
+}
+
+export function shopifyPolicyUrls(origin: string) {
+  const base = origin.replace(/\/$/, "");
+  return SHOPIFY_POLICY_PATHS.map((path) => `${base}${path}`);
 }

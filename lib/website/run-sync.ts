@@ -1,5 +1,5 @@
 import type { BillingStore } from "@/lib/billing/store";
-import { crawlWebsitePages, nextWebsiteSyncAt } from "./sync";
+import { crawlWebsitePages, formatWebsiteSyncDiagnostic, nextWebsiteSyncAt } from "./sync";
 import type { FetchLike } from "./sync";
 import type { WebsiteSourceRecord } from "./types";
 
@@ -21,6 +21,28 @@ export async function runWebsiteSync(input: {
       fetchImpl: input.fetchImpl,
       now,
     });
+    const diagnostic = formatWebsiteSyncDiagnostic(crawled.diagnostic);
+    if (!crawled.pages.length) {
+      const message = crawled.error || `No public pages were indexed. ${diagnostic}`;
+      const saved = await input.store.saveWebsiteSource({
+        ...syncing,
+        lastSyncStatus: "error",
+        lastSyncError: message,
+        lastSyncDiagnostic: diagnostic,
+        lastSyncPageCount: 0,
+        nextSyncAt: nextWebsiteSyncAt(now),
+      });
+      const workspace = await input.store.getWorkspace(saved.workspaceId);
+      if (workspace) {
+        await input.store.addNotification({
+          userId: workspace.ownerUserId,
+          workspaceId: workspace.id,
+          type: "website_sync_error",
+          message,
+        });
+      }
+      return saved;
+    }
     await input.store.replaceWebsitePages(
       syncing.workspaceId,
       syncing.widgetKey,
@@ -31,6 +53,7 @@ export async function runWebsiteSync(input: {
       ...syncing,
       lastSyncStatus: "success",
       lastSyncError: null,
+      lastSyncDiagnostic: diagnostic,
       lastSyncAt: now,
       nextSyncAt: nextWebsiteSyncAt(now),
       lastSyncPageCount: crawled.pages.length,
@@ -54,6 +77,7 @@ export async function runWebsiteSync(input: {
       ...syncing,
       lastSyncStatus: "error",
       lastSyncError: message,
+      lastSyncDiagnostic: message,
       nextSyncAt: nextWebsiteSyncAt(now),
     });
     const workspace = await input.store.getWorkspace(saved.workspaceId);
