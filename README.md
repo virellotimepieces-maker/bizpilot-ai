@@ -36,10 +36,10 @@ Copy `.env.example` to `.env.local`. Use a **new** database and **new** Stripe k
 | `OPENAI_API_KEY` | Paid widget AI replies |
 | `OPENAI_MODEL` | Optional, defaults to `gpt-4o-mini` |
 
-After `DATABASE_URL` is set:
+After `DATABASE_URL` is set on Vercel Production, `npm run build` runs `prisma migrate deploy` against that Neon database only.
 
 ```bash
-npx prisma migrate dev --name init
+npx prisma migrate deploy
 ```
 
 Point Stripe webhooks to `https://YOUR_DOMAIN/api/stripe/webhook` for:
