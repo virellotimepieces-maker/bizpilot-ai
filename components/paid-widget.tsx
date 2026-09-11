@@ -2,6 +2,14 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field } from "@/components/field";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   COPY_SNIPPET_FEEDBACK_MS,
   copySnippetLabel,
@@ -12,6 +20,15 @@ import {
   widgetPreviewMissingOriginError,
   WIDGET_PREVIEW_IFRAME_CLASS,
 } from "@/lib/widget-preview";
+import {
+  getWidgetInstallGuide,
+  WIDGET_INSTALL_GUIDE_LAYOUT_CLASS,
+  WIDGET_PLATFORMS,
+  WIDGET_SECRET_WARNING,
+  WIDGET_TROUBLESHOOTING,
+  WIDGET_VERIFY_STEPS,
+  type WidgetPlatformId,
+} from "@/lib/widget-install-guides";
 import { useEffect, useRef, useState } from "react";
 
 export function PaidWidget() {
@@ -23,6 +40,7 @@ export function PaidWidget() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
+  const [platform, setPlatform] = useState<WidgetPlatformId>("shopify");
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -53,6 +71,7 @@ export function PaidWidget() {
 
   const snippet = widgetInstallSnippet(appUrl, widgetKey);
   const previewUrl = widgetPreviewEmbedUrl(appUrl, widgetKey);
+  const guide = getWidgetInstallGuide(platform);
 
   async function copySnippet() {
     if (!widgetKey) return;
@@ -85,14 +104,14 @@ export function PaidWidget() {
   return (
     <Card className="mx-auto max-w-3xl">
       <CardHeader className="border-b">
-        <CardTitle>Website widget</CardTitle>
+        <CardTitle>Install widget</CardTitle>
         <CardDescription>
-          One widget per BizPilot Pro workspace. Paste this on the business website. The widget
-          talks to BizPilot’s servers, checks the subscription, and counts AI replies only after a
-          successful answer.
+          One widget per BizPilot Pro workspace. Copy the unique snippet, follow the steps for your
+          website, then confirm the chat launcher on the public site. Successful AI answers count
+          toward the 500-reply monthly allowance.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-3 pt-4">
+      <CardContent className="grid gap-5 pt-4">
         {pageState === "loading" ? (
           <p className="text-sm text-muted-foreground" aria-live="polite">
             Loading install snippet…
@@ -124,6 +143,9 @@ export function PaidWidget() {
             {widgetPreviewButtonLabel()}
           </Button>
         </div>
+        <p className="rounded-xl border bg-muted/40 px-3 py-3 text-sm leading-relaxed">
+          {WIDGET_SECRET_WARNING}
+        </p>
         {previewOpen ? (
           <div className="grid gap-2">
             <p className="text-sm text-muted-foreground">
@@ -154,6 +176,68 @@ export function PaidWidget() {
             ) : null}
           </div>
         ) : null}
+
+        <div className={WIDGET_INSTALL_GUIDE_LAYOUT_CLASS}>
+          <Field label="Your website platform" hint="Pick the platform you actually use. The snippet is the same for every site.">
+            <Select
+              value={platform}
+              onValueChange={(value) => setPlatform(value as WidgetPlatformId)}
+            >
+              <SelectTrigger className="h-10 w-full min-w-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {WIDGET_PLATFORMS.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <div>
+            <h2 className="font-heading text-lg">Install on {guide.label}</h2>
+            <ol className="mt-3 grid list-decimal gap-2 pl-5">
+              {guide.steps.map((step) => (
+                <li key={step} className="pl-1">
+                  {step}
+                </li>
+              ))}
+            </ol>
+            <p className="mt-3">
+              <span className="font-medium">Where to paste: </span>
+              {guide.pasteWhere}
+            </p>
+            <p>
+              <span className="font-medium">How to publish: </span>
+              {guide.publishHow}
+            </p>
+          </div>
+
+          <div>
+            <h2 className="font-heading text-lg">Check that it worked</h2>
+            <ol className="mt-3 grid list-decimal gap-2 pl-5">
+              {WIDGET_VERIFY_STEPS.map((step) => (
+                <li key={step} className="pl-1">
+                  {step}
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <div>
+            <h2 className="font-heading text-lg">If something looks wrong</h2>
+            <div className="mt-3 grid gap-3">
+              {WIDGET_TROUBLESHOOTING.map((item) => (
+                <div key={item.id} className="rounded-xl border px-3 py-3">
+                  <p className="font-medium">{item.title}</p>
+                  <p className="mt-1 text-muted-foreground">{item.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

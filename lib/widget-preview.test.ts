@@ -50,6 +50,7 @@ describe("live widget preview", () => {
       "components/widget-chat.tsx",
       "components/paid-widget.tsx",
       "lib/widget-preview.ts",
+      "lib/widget-install-guides.ts",
       "app/embed/[widgetKey]/page.tsx",
       "app/w/[widgetKey]/route.ts",
     ];
