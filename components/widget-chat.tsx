@@ -2,10 +2,11 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { isNearBottom, scrollMessagesToLatest } from "@/lib/widget-chat-scroll";
 import { buildWidgetHostMessage } from "@/lib/widget-embed-script";
 import { WIDGET_CHAT_API_PATH } from "@/lib/widget-preview";
 import { MessageCircle, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type ChatRow = { role: "visitor" | "assistant"; content: string };
 
@@ -28,6 +29,10 @@ export function WidgetChat({
   const [rows, setRows] = useState<ChatRow[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const bottomAnchorRef = useRef<HTMLDivElement>(null);
+  const pinToBottomRef = useRef(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,11 +60,36 @@ export function WidgetChat({
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    pinToBottomRef.current = true;
+    scrollMessagesToLatest(bottomAnchorRef.current);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!pinToBottomRef.current) return;
+    scrollMessagesToLatest(bottomAnchorRef.current);
+  }, [open, rows, pending, error]);
+
+  useEffect(() => {
+    if (!open) return;
+    const content = contentRef.current;
+    if (!content || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (!pinToBottomRef.current) return;
+      scrollMessagesToLatest(bottomAnchorRef.current);
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [open]);
+
   async function send(question: string) {
     const trimmed = question.trim();
     if (!trimmed || pending || !visitorKey) return;
     setDraft("");
     setError("");
+    pinToBottomRef.current = true;
     setRows((current) => [...current, { role: "visitor", content: trimmed }]);
     setPending(true);
     try {
@@ -105,6 +135,7 @@ export function WidgetChat({
           aria-label="Open chat"
           onClick={() => {
             notifyHost("open");
+            pinToBottomRef.current = true;
             setOpen(true);
           }}
           className="flex size-14 items-center justify-center rounded-full bg-teal-800 text-white shadow-[0_8px_24px_rgba(15,23,42,0.28)]"
@@ -131,38 +162,48 @@ export function WidgetChat({
           <X className="size-5" aria-hidden="true" />
         </button>
       </div>
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-        {rows.length === 0 && !error ? (
-          <p className="rounded-2xl bg-neutral-50 p-3 text-sm text-neutral-600">
-            Ask a question. If this business’s monthly AI allowance is used, you’ll be offered a
-            person instead.
-          </p>
-        ) : null}
-        {rows.map((row, index) => (
-          <div
-            key={`${row.role}-${index}`}
-            className={
-              row.role === "visitor"
-                ? "ml-8 rounded-2xl bg-neutral-900 px-3 py-2 text-sm text-white"
-                : "mr-8 rounded-2xl bg-neutral-100 px-3 py-2 text-sm"
-            }
-          >
-            {row.content}
-          </div>
-        ))}
-        {pending ? (
-          <p className="text-xs text-neutral-500" aria-live="polite">
-            Looking that up…
-          </p>
-        ) : null}
-        {error ? (
-          <p className="rounded-2xl bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-            {error}
-          </p>
-        ) : null}
+      <div
+        ref={scrollerRef}
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-3"
+        onScroll={() => {
+          const scroller = scrollerRef.current;
+          if (scroller) pinToBottomRef.current = isNearBottom(scroller);
+        }}
+      >
+        <div ref={contentRef} className="space-y-2">
+          {rows.length === 0 && !error ? (
+            <p className="rounded-2xl bg-neutral-50 p-3 text-sm text-neutral-600">
+              Ask a question. If this business’s monthly AI allowance is used, you’ll be offered a
+              person instead.
+            </p>
+          ) : null}
+          {rows.map((row, index) => (
+            <div
+              key={`${row.role}-${index}`}
+              className={
+                row.role === "visitor"
+                  ? "ml-8 rounded-2xl bg-neutral-900 px-3 py-2 text-sm text-white"
+                  : "mr-8 rounded-2xl bg-neutral-100 px-3 py-2 text-sm"
+              }
+            >
+              {row.content}
+            </div>
+          ))}
+          {pending ? (
+            <p className="text-xs text-neutral-500" aria-live="polite">
+              Looking that up…
+            </p>
+          ) : null}
+          {error ? (
+            <p className="rounded-2xl bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </div>
+        <div ref={bottomAnchorRef} data-widget-scroll-anchor="" aria-hidden="true" />
       </div>
       <form
-        className="sticky bottom-0 z-10 flex shrink-0 gap-2 border-t bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        className="flex shrink-0 gap-2 border-t bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         onSubmit={(event) => {
           event.preventDefault();
           void send(draft);

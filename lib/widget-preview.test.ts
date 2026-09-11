@@ -54,6 +54,7 @@ describe("live widget preview", () => {
       "app/embed/[widgetKey]/page.tsx",
       "app/w/[widgetKey]/route.ts",
       "lib/widget-embed-script.ts",
+      "lib/widget-chat-scroll.ts",
     ];
     for (const file of files) {
       const source = readFileSync(file, "utf8");
@@ -69,6 +70,9 @@ describe("live widget preview", () => {
     assert.match(chat, /aria-label="Close chat"/);
     assert.match(chat, /Send/);
     assert.doesNotMatch(chat, /h-dvh/);
+    assert.match(chat, /scrollMessagesToLatest/);
+    assert.match(chat, /data-widget-scroll-anchor/);
+    assert.match(chat, /overscroll-contain/);
   });
 });
 
