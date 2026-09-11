@@ -387,4 +387,99 @@ describe("BizPilot Pro subscription", () => {
     const notes = await store.listNotifications(user.id, workspace.id);
     assert.equal(notes.filter((row) => row.type === "usage_limit").length, 1);
   });
+
+  it("keeps status active when invoice.paid and subscription.created arrive before checkout.session.completed", async () => {
+    const store = new MemoryBillingStore();
+    const { user, workspace } = await seedAccount(store);
+    const start = new Date("2026-09-01T00:00:00Z");
+    const end = new Date("2026-10-01T00:00:00Z");
+    const stripeSubscriptionId = `sub_${workspace.id.slice(0, 8)}`;
+    const live = {
+      async retrieveSubscription(id: string) {
+        assert.equal(id, stripeSubscriptionId);
+        return {
+          id,
+          customer: `cus_${workspace.id.slice(0, 8)}`,
+          status: "active",
+          cancel_at_period_end: false,
+          metadata: { userId: user.id, workspaceId: workspace.id },
+          items: {
+            data: [
+              {
+                price: { id: PRICE },
+                current_period_start: unix(start),
+                current_period_end: unix(end),
+              },
+            ],
+          },
+        };
+      },
+    };
+
+    await applyStripeEvent(
+      store,
+      invoiceEvent("evt_inv_first", "invoice.paid", workspace.id, start, end),
+      live,
+    );
+    await applyStripeEvent(
+      store,
+      subscriptionEvent("evt_sub_created_active", "customer.subscription.created", {
+        userId: user.id,
+        workspaceId: workspace.id,
+        status: "active",
+        start,
+        end,
+      }),
+      live,
+    );
+    await applyStripeEvent(store, checkoutEvent("evt_co_last", user.id, workspace.id), live);
+
+    const subscription = await store.getSubscriptionByWorkspace(workspace.id);
+    assert.equal(subscription?.status, "active");
+    assert.equal(subscription?.stripeSubscriptionId, stripeSubscriptionId);
+    assert.equal(subscription?.stripeCustomerId, `cus_${workspace.id.slice(0, 8)}`);
+    assert.equal(subscription?.stripePriceId, PRICE);
+    const service = new BillingService(store);
+    const paid = await service.requirePaidWorkspace(user.id, workspace.id, start);
+    assert.equal(paid.subscription.status, "active");
+    assert.equal(hasPaidDashboardAccess(paid.subscription, start), true);
+  });
+
+  it("does not let a late checkout.session.completed downgrade an active subscription to incomplete", async () => {
+    const store = new MemoryBillingStore();
+    const { user, workspace } = await seedAccount(store);
+    const start = new Date("2026-09-01T00:00:00Z");
+    const end = new Date("2026-10-01T00:00:00Z");
+    await applyStripeEvent(
+      store,
+      invoiceEvent("evt_inv_stale", "invoice.paid", workspace.id, start, end),
+    );
+    await applyStripeEvent(
+      store,
+      subscriptionEvent("evt_sub_already_active", "customer.subscription.created", {
+        userId: user.id,
+        workspaceId: workspace.id,
+        status: "active",
+        start,
+        end,
+      }),
+    );
+    const staleCheckoutReader = {
+      async retrieveSubscription() {
+        return {
+          id: `sub_${workspace.id.slice(0, 8)}`,
+          customer: `cus_${workspace.id.slice(0, 8)}`,
+          status: "incomplete",
+          metadata: { userId: user.id, workspaceId: workspace.id },
+        };
+      },
+    };
+    await applyStripeEvent(
+      store,
+      checkoutEvent("evt_co_stale_incomplete", user.id, workspace.id),
+      staleCheckoutReader,
+    );
+    const subscription = await store.getSubscriptionByWorkspace(workspace.id);
+    assert.equal(subscription?.status, "active");
+  });
 });

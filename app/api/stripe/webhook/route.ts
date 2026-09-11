@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBillingStore } from "@/lib/billing/factory";
 import { applyStripeEvent } from "@/lib/billing/stripe-events";
+import { stripeLiveLookup } from "@/lib/billing/stripe-live";
 import { jsonError } from "@/lib/http";
 import { getStripe } from "@/lib/stripe";
 import { requireEnv } from "@/lib/env";
@@ -21,7 +22,11 @@ export async function POST(request: NextRequest) {
       requireEnv("STRIPE_WEBHOOK_SECRET"),
     );
     const store = getBillingStore();
-    const result = await applyStripeEvent(store, event as unknown as StripeLikeEvent);
+    const result = await applyStripeEvent(
+      store,
+      event as unknown as StripeLikeEvent,
+      stripeLiveLookup(),
+    );
     return NextResponse.json({ received: true, ...result });
   } catch (error) {
     if (error instanceof Error && /signature/i.test(error.message)) {
