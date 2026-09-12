@@ -1,3 +1,4 @@
+import { chatAutoDecision, freezeVisitorText } from "@/lib/chat-auto";
 import { BIZPILOT_PRO, isPaidAccessStatus } from "@/lib/plan";
 import type { KnowledgeBase } from "@/lib/types";
 import { groundedWebsiteAnswer } from "@/lib/website/answer";
@@ -145,6 +146,34 @@ export class BillingService {
       return {
         conversationId: thread.id,
         answer: handoff,
+        waitingOnHuman: true,
+        sources: [],
+        usage: null,
+      };
+    }
+
+    const decision = chatAutoDecision(workspace.knowledge, options.question);
+    if (!decision.autoAnswer) {
+      await this.store.addMessage({
+        workspaceId: workspace.id,
+        conversationId: thread.id,
+        role: "visitor",
+        content: options.question,
+        usageCounted: false,
+      });
+      await this.store.setConversationWaiting(thread.id, workspace.id, true);
+      await this.notifyHumanNeeded(workspace.id, subscription!.userId);
+      const answer = freezeVisitorText(workspace.knowledge, decision.reply);
+      await this.store.addMessage({
+        workspaceId: workspace.id,
+        conversationId: thread.id,
+        role: "assistant",
+        content: answer,
+        usageCounted: false,
+      });
+      return {
+        conversationId: thread.id,
+        answer,
         waitingOnHuman: true,
         sources: [],
         usage: null,

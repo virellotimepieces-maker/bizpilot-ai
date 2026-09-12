@@ -9,6 +9,7 @@ import { BIZPILOT_PRO } from "../plan";
 import type { StripeLikeEvent } from "./types";
 
 const PRICE = "price_test_bizpilot_pro";
+const SAFE_QUESTION = "Do you provide website hosting?";
 
 function unix(date: Date) {
   return Math.floor(date.getTime() / 1000);
@@ -348,7 +349,7 @@ describe("BizPilot Pro subscription", () => {
       await service.generateCountedAiReply({
         widgetKey: workspace.widgetKey,
         visitorKey: `v${i}`,
-        question: "Hello",
+        question: SAFE_QUESTION,
         now: start,
         generate: async () => "Hi",
       });
@@ -393,7 +394,7 @@ describe("BizPilot Pro subscription", () => {
         service.generateCountedAiReply({
           widgetKey: workspace.widgetKey,
           visitorKey: "fail",
-          question: "Hello",
+          question: SAFE_QUESTION,
           now: start,
           generate: async () => {
             throw new Error("model_down");
@@ -419,7 +420,7 @@ describe("BizPilot Pro subscription", () => {
     const last = await service.generateCountedAiReply({
       widgetKey: workspace.widgetKey,
       visitorKey: "last",
-      question: "Last one",
+      question: SAFE_QUESTION,
       now: start,
       generate: async () => "Counted.",
     });
@@ -428,7 +429,7 @@ describe("BizPilot Pro subscription", () => {
     const over = await service.generateCountedAiReply({
       widgetKey: workspace.widgetKey,
       visitorKey: "over",
-      question: "One more",
+      question: SAFE_QUESTION,
       now: start,
       generate: async () => "Should not count",
     });
@@ -439,7 +440,7 @@ describe("BizPilot Pro subscription", () => {
     assert.equal(overThread?.waitingOnHuman, true);
     const overMessages = await store.listMessages(overThread!.id, workspace.id);
     assert.equal(
-      overMessages.some((row) => row.role === "visitor" && row.content === "One more"),
+      overMessages.some((row) => row.role === "visitor" && row.content === SAFE_QUESTION),
       true,
     );
     const notes = await store.listNotifications(user.id, workspace.id);
@@ -618,11 +619,60 @@ describe("BizPilot Pro subscription", () => {
       widgetKey: a.workspace.widgetKey,
       visitorKey: "visitor-a",
       conversationId: first.conversationId,
-      question: "Thanks",
+      question: SAFE_QUESTION,
       now: start,
       generate: async () => "You're welcome.",
     });
     assert.equal(resumed.waitingOnHuman, false);
     assert.equal((await service.peekUsage(a.workspace.id, start)).period.repliesUsed, 2);
+  });
+
+  it("answers safe website questions with AI and freezes legal ones without burning quota", async () => {
+    const store = new MemoryBillingStore();
+    const { user, workspace } = await seedAccount(store, "Shoreline");
+    const start = new Date("2026-09-01T00:00:00Z");
+    const end = new Date("2026-10-01T00:00:00Z");
+    await applyStripeEvent(store, checkoutEvent("evt_co_gate", user.id, workspace.id));
+    await applyStripeEvent(
+      store,
+      subscriptionEvent("evt_sub_gate", "customer.subscription.updated", {
+        userId: user.id,
+        workspaceId: workspace.id,
+        status: "active",
+        start,
+        end,
+      }),
+    );
+    const service = new BillingService(store);
+    let generated = 0;
+    const safe = await service.generateCountedAiReply({
+      widgetKey: workspace.widgetKey,
+      visitorKey: "safe",
+      question: "Do you provide website hosting?",
+      now: start,
+      generate: async () => {
+        generated += 1;
+        return "Northwind Studio does web projects.";
+      },
+    });
+    assert.equal(safe.waitingOnHuman, false);
+    assert.equal(generated, 1);
+    assert.equal(safe.usage?.used, 1);
+
+    generated = 0;
+    const frozen = await service.generateCountedAiReply({
+      widgetKey: workspace.widgetKey,
+      visitorKey: "legal",
+      question: "I will sue you and call my lawyer.",
+      now: start,
+      generate: async () => {
+        generated += 1;
+        return "Should not run";
+      },
+    });
+    assert.equal(frozen.waitingOnHuman, true);
+    assert.equal(generated, 0);
+    assert.equal(frozen.usage, null);
+    assert.equal((await service.peekUsage(workspace.id, start)).period.repliesUsed, 1);
   });
 });

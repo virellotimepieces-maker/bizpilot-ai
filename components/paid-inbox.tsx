@@ -97,8 +97,9 @@ export function PaidInbox() {
         <p className="text-xs tracking-[0.2em] text-primary uppercase">Conversation inbox</p>
         <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Website widget conversations</h1>
         <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
-          Reply here and the visitor sees it in the widget. AI pauses until you resume it. Email and
-          social stay drafts —{" "}
+          Reply here and the visitor sees it in the widget. Website chat answers safe questions
+          (hours, published prices, contact) on its own. Complaints, legal, medical, emergencies,
+          and “Talk to a person” pause AI until you resume it. Email and social stay drafts —{" "}
           <Link href="/app/email" className="underline underline-offset-2">
             Email drafts
           </Link>{" "}

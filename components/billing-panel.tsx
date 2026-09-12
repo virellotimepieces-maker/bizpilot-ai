@@ -1,11 +1,12 @@
 "use client";
 
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BIZPILOT_PRO } from "@/lib/plan";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Bootstrap = {
   user: { email: string; name: string };
@@ -23,9 +24,11 @@ type Bootstrap = {
 
 export function BillingPanel() {
   const search = useSearchParams();
+  const router = useRouter();
   const [data, setData] = useState<Bootstrap | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState<"checkout" | "portal" | null>(null);
+  const [waitingOnWebhook, setWaitingOnWebhook] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,6 +44,40 @@ export function BillingPanel() {
       cancelled = true;
     };
   }, []);
+
+  const checkoutState = search.get("checkout");
+
+  useEffect(() => {
+    if (checkoutState !== "success") return;
+    setWaitingOnWebhook(true);
+    let tries = 0;
+    const timer = window.setInterval(() => {
+      tries += 1;
+      void fetch("/api/app/bootstrap")
+        .then((response) => response.json() as Promise<Bootstrap>)
+        .then((payload) => {
+          setData(payload);
+          if (payload.paidAccess) {
+            window.clearInterval(timer);
+            setWaitingOnWebhook(false);
+            router.replace("/app");
+          } else if (tries >= 15) {
+            window.clearInterval(timer);
+            setWaitingOnWebhook(false);
+            setError(
+              "Stripe Checkout finished, but this workspace is still locked. Confirm the webhook endpoint is APP_URL/api/stripe/webhook for checkout.session.completed and subscription events.",
+            );
+          }
+        })
+        .catch(() => {
+          if (tries >= 15) {
+            window.clearInterval(timer);
+            setWaitingOnWebhook(false);
+          }
+        });
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [checkoutState, router]);
 
   async function startCheckout() {
     setPending("checkout");
@@ -68,7 +105,8 @@ export function BillingPanel() {
     window.location.href = payload.url;
   }
 
-  const checkoutState = search.get("checkout");
+  const failedPayment =
+    data?.subscription?.status === "past_due" || data?.subscription?.status === "unpaid";
 
   return (
     <div className="min-h-full">
@@ -85,8 +123,11 @@ export function BillingPanel() {
           <CardContent className="grid gap-4 pt-4">
             {checkoutState === "success" ? (
               <p className="text-sm">
-                Checkout finished. If the webhook is configured, this workspace will unlock within a
-                few seconds.
+                {waitingOnWebhook
+                  ? "Checkout finished. Waiting for Stripe to unlock this workspace…"
+                  : data?.paidAccess
+                    ? "BizPilot Pro is active."
+                    : "Checkout finished. If the dashboard is still locked, the Stripe webhook is missing or delayed."}
               </p>
             ) : null}
             {data?.missingEnv?.length ? (
@@ -99,9 +140,18 @@ export function BillingPanel() {
               Status: <strong>{data?.subscription?.status ?? "not subscribed"}</strong>
               {data?.subscription?.cancelAtPeriodEnd ? " (cancels at period end)" : ""}
             </p>
+            {failedPayment ? (
+              <p className="text-sm text-destructive">
+                A payment failed. Update the card in Customer Portal — do not start a second
+                subscription.
+              </p>
+            ) : null}
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
             <div className="flex flex-wrap gap-2">
-              <Button onClick={startCheckout} disabled={pending !== null || data?.paidAccess}>
+              <Button
+                onClick={startCheckout}
+                disabled={pending !== null || Boolean(data?.paidAccess) || failedPayment}
+              >
                 {pending === "checkout" ? "Redirecting…" : "Subscribe — $29 / month"}
               </Button>
               <Button variant="outline" onClick={openPortal} disabled={pending !== null}>
@@ -115,6 +165,7 @@ export function BillingPanel() {
           </CardContent>
         </Card>
       </main>
+      <SiteFooter />
     </div>
   );
 }

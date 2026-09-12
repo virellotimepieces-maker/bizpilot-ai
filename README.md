@@ -14,7 +14,7 @@ Customer support for one business at a time, billed as **BizPilot Pro**.
 - One installed website widget
 - 500 AI-generated customer replies per billing month
 - Knowledge base, website inbox (you can reply in the widget; AI pauses until you resume it), email drafts, and social drafts
-- Email and social are drafts you send or post yourself — no SMTP send, no live Meta/TikTok, no auto-post
+- Website chat answers **safe published questions directly**. Complaints, legal, medical, emergencies, and “Talk to a person” pause AI and wait for Inbox. Email and social never auto-send.
 - Cancel anytime
 - No automatic overage charges
 - When the 500-reply limit is reached, AI replies stop and the owner is notified
@@ -67,7 +67,7 @@ Open [http://localhost:43127](http://localhost:43127).
 - `/demo/social` paste Instagram, Facebook, TikTok, or Messenger messages into drafts (never auto-posted)
 - `/signup` and `/login` paid accounts (need `DATABASE_URL` + `AUTH_SECRET`)
 - `/privacy` and `/terms`
-- `/billing` Stripe Checkout and Customer Portal
+- `/billing` Stripe Checkout and Customer Portal. After Checkout, the page waits for the webhook to unlock `/app`. If a payment failed, update the card in Customer Portal — do not start a second subscription.
 - `/app` paid dashboard (blocked unless the subscription is active)
 - `/app/inbox` website widget conversations — send a reply into the live chat
 - `/app/email` paste a received email, copy the draft, mark it sent yourself
