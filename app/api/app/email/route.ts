@@ -4,7 +4,7 @@ import { getBillingStore } from "@/lib/billing/factory";
 import { BillingService } from "@/lib/billing/service";
 import { BillingError } from "@/lib/billing/types";
 import { emptyKnowledge, normalizeKnowledge } from "@/lib/empty-knowledge";
-import { draftEmailFromInbound, isEmailStatus, rebuildEmailDraft } from "@/lib/email-draft";
+import { draftEmailFromInboundAi, isEmailStatus, rebuildEmailDraftAi } from "@/lib/email-draft";
 import { jsonError } from "@/lib/http";
 import type { EmailMessage } from "@/lib/types";
 
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       throw new BillingError("Sender email is required.", "invalid");
     }
     const kb = normalizeKnowledge(workspace.knowledge ?? emptyKnowledge("custom"));
-    const draft = draftEmailFromInbound({
+    const draft = await draftEmailFromInboundAi({
       kb,
       fromName: body.fromName?.trim() || body.fromEmail.trim(),
       fromEmail: body.fromEmail.trim(),
@@ -113,7 +113,7 @@ export async function PATCH(request: NextRequest) {
         usedInternalKnowledge: existing.usedInternalKnowledge,
         sentAt: existing.sentAt?.toISOString(),
       };
-      const rebuilt = rebuildEmailDraft(current, kb);
+      const rebuilt = await rebuildEmailDraftAi(current, kb);
       const message = await store.updateEmailDraft(existing.id, workspace.id, workspace.widgetKey, {
         draftBody: rebuilt.draftBody,
         draftSubject: rebuilt.draftSubject,

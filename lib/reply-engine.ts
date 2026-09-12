@@ -1,3 +1,4 @@
+import { customerFirstName, formatFinishedEmail } from "./email-format";
 import { DAY_LABEL } from "./labels";
 import type {
   GeneratedReply,
@@ -708,9 +709,11 @@ function composeSafeAnswer(
 }
 
 function wrapEmail(kb: KnowledgeBase, customerName: string | undefined, body: string) {
-  const first = customerName?.split(" ")[0] ?? "there";
-  const sign = kb.name || "Support";
-  return `Hi ${first},\n\n${body}\n\nIf you need anything else, reply to this email or call us${kb.contact.phone ? ` at ${kb.contact.phone}` : ""}.\n\n— ${sign}`;
+  return formatFinishedEmail({
+    firstName: customerFirstName(customerName),
+    businessName: kb.name,
+    body,
+  });
 }
 
 function wrapSocial(kb: KnowledgeBase, customerName: string | undefined, body: string) {

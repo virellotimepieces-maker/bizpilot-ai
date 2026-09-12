@@ -267,7 +267,7 @@ describe("email drafts stay customer-facing", () => {
         hours: {
           ...virello.hours,
           days: virello.hours.days.map((day) =>
-            day.day === "mon" ? { ...day, closed: false, open: "09:00", close: "17:00" } : day,
+            day.day === "monday" ? { ...day, closed: false, open: "09:00", close: "17:00" } : day,
           ),
         },
       },
@@ -290,7 +290,7 @@ describe("email drafts stay customer-facing", () => {
         hours: {
           ...virello.hours,
           days: virello.hours.days.map((day) =>
-            day.day === "mon" ? { ...day, closed: false, open: "09:00", close: "17:00" } : day,
+            day.day === "monday" ? { ...day, closed: false, open: "09:00", close: "17:00" } : day,
           ),
         },
       },

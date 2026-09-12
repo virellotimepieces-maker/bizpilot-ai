@@ -1,25 +1,32 @@
+import type { ChatComplete } from "@/lib/ai/generate-email-reply";
 import type { BillingStore } from "@/lib/billing/store";
 import type { GmailReplyDraftRecord, WorkspaceRecord } from "@/lib/billing/types";
 import { emptyKnowledge, normalizeKnowledge } from "@/lib/empty-knowledge";
-import { draftEmailFromInbound, rebuildEmailDraft } from "@/lib/email-draft";
+import { draftEmailFromInboundAi, rebuildEmailDraftAi } from "@/lib/email-draft";
 import type { EmailMessage } from "@/lib/types";
 import { replySubjectFor } from "./send";
 
-export function draftFromGmailMessage(input: {
-  workspace: WorkspaceRecord;
-  fromName: string;
-  fromEmail: string;
-  subject: string;
-  body: string;
-}) {
+export async function draftFromGmailMessage(
+  input: {
+    workspace: WorkspaceRecord;
+    fromName: string;
+    fromEmail: string;
+    subject: string;
+    body: string;
+  },
+  options: { complete?: ChatComplete } = {},
+) {
   const kb = normalizeKnowledge(input.workspace.knowledge ?? emptyKnowledge("custom"));
-  const draft = draftEmailFromInbound({
-    kb,
-    fromName: input.fromName,
-    fromEmail: input.fromEmail,
-    subject: input.subject,
-    body: input.body,
-  });
+  const draft = await draftEmailFromInboundAi(
+    {
+      kb,
+      fromName: input.fromName,
+      fromEmail: input.fromEmail,
+      subject: input.subject,
+      body: input.body,
+    },
+    { complete: options.complete },
+  );
   return {
     ...draft,
     draftSubject: replySubjectFor(input.subject, input.body),
@@ -39,6 +46,7 @@ export async function ensureGmailReplyDraft(
     body: string;
     receivedAt?: Date | null;
     regenerate?: boolean;
+    complete?: ChatComplete;
   },
 ): Promise<GmailReplyDraftRecord> {
   const existing = await store.getGmailReplyDraft(workspace.id, input.gmailMessageId);
@@ -66,7 +74,7 @@ export async function ensureGmailReplyDraft(
       usedInternalKnowledge: existing.usedInternalKnowledge,
       sentAt: existing.sentAt?.toISOString(),
     };
-    const rebuilt = rebuildEmailDraft(current, kb);
+    const rebuilt = await rebuildEmailDraftAi(current, kb, { complete: input.complete });
     return store.updateGmailReplyDraft(workspace.id, input.gmailMessageId, {
       fromName: input.fromName,
       fromEmail: input.fromEmail,
@@ -76,21 +84,24 @@ export async function ensureGmailReplyDraft(
       gmailThreadId: input.gmailThreadId,
       rfcMessageId: input.rfcMessageId ?? existing.rfcMessageId,
       draftSubject: rebuilt.draftSubject,
+      operatorNote: rebuilt.operatorNote,
+      usedInternalKnowledge: rebuilt.usedInternalKnowledge,
       draftBody: rebuilt.draftBody,
       intent: rebuilt.intent,
       sources: rebuilt.sources,
-      operatorNote: rebuilt.operatorNote,
-      usedInternalKnowledge: rebuilt.usedInternalKnowledge,
       status: existing.status === "sent" ? "sent" : "draft",
     });
   }
-  const generated = draftFromGmailMessage({
-    workspace,
-    fromName: input.fromName,
-    fromEmail: input.fromEmail,
-    subject: input.subject,
-    body: input.body,
-  });
+  const generated = await draftFromGmailMessage(
+    {
+      workspace,
+      fromName: input.fromName,
+      fromEmail: input.fromEmail,
+      subject: input.subject,
+      body: input.body,
+    },
+    { complete: input.complete },
+  );
   return store.upsertGmailReplyDraft({
     workspaceId: workspace.id,
     gmailMessageId: input.gmailMessageId,

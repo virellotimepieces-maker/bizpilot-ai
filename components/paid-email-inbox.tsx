@@ -233,7 +233,7 @@ export function PaidEmailInbox() {
     if (payload.message) {
       setManual((prev) => prev.map((row) => (row.id === payload.message!.id ? payload.message! : row)));
     }
-    if (body.regenerate) toast.success("Draft regenerated from the current knowledge base");
+    if (body.regenerate) toast.success("Suggested reply regenerated");
     if (body.status === "sent") toast.success("Marked as sent by you — this did not send through Gmail");
   }
 
@@ -263,7 +263,7 @@ export function PaidEmailInbox() {
     }
     if (body.regenerate) {
       setEditing(false);
-      toast.success("Reply regenerated from Knowledge");
+      toast.success("Suggested reply regenerated");
     }
   }
 
@@ -329,7 +329,8 @@ export function PaidEmailInbox() {
           </p>
           <h1 className={GMAIL_PAGE_TITLE_CLASS}>Gmail inbox</h1>
           <p className={`mt-2 max-w-full text-xs leading-relaxed text-muted-foreground sm:max-w-2xl sm:text-sm md:text-base`}>
-            Connect Gmail to read received mail and generate a suggested reply from Knowledge. Replies
+            Connect Gmail to read received mail. BizPilot reads the customer’s email and writes a
+            suggested reply, using Knowledge as business context — not as text to paste. Replies
             send only after you confirm. They never go out on their own.
           </p>
         </div>
@@ -376,8 +377,9 @@ export function PaidEmailInbox() {
         <ShieldAlert />
         <AlertTitle>Human send required</AlertTitle>
         <AlertDescription className={GMAIL_WRAP_INLINE_CLASS}>
-          Opening a message writes a suggested reply from Knowledge. BizPilot will not send it until
-          you press Send reply and confirm.
+          Opening a message writes a suggested reply from the customer’s email. Knowledge supplies
+          business context; the AI does not paste the knowledge base into the reply. BizPilot will
+          not send it until you press Send reply and confirm.
         </AlertDescription>
       </Alert>
 
@@ -584,7 +586,8 @@ export function PaidEmailInbox() {
               <div className={`${GMAIL_CARD_CLASS} p-6 text-center sm:p-8`}>
                 <p className="font-heading text-lg sm:text-xl">Select a message</p>
                 <p className={`mx-auto mt-2 max-w-md ${HELPER_TEXT_CLASS}`}>
-                  Opening an email generates a suggested reply from the current Knowledge section.
+                  Opening an email writes a suggested reply from the customer’s message, using
+                  Knowledge as context.
                 </p>
               </div>
             )}
@@ -723,7 +726,8 @@ export function PaidEmailInbox() {
           <DialogHeader>
             <DialogTitle>Add email manually</DialogTitle>
             <DialogDescription>
-              Paste a received message to generate a Knowledge draft. This does not send mail.
+              Paste a received message to generate a suggested reply. Knowledge is used as business
+              context. This does not send mail.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">

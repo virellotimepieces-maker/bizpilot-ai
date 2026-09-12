@@ -149,8 +149,9 @@ function EditorBody({
           </p>
           <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Teach BizPilot your business</h1>
           <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
-            Changes here apply immediately to website chat and to new or regenerated email and social
-            drafts. Store-only fields stay hidden unless this is an online store.
+            Changes here become business context for website chat and for new or regenerated email
+            and social drafts. The AI answers the customer’s message; it does not paste this page
+            into the reply. Store-only fields stay hidden unless this is an online store.
           </p>
         </div>
         <Field label="Business type" className="lg:w-64">
@@ -234,7 +235,7 @@ function EditorBody({
                 </Field>
                 <Field
                   label="About the business"
-                  hint="Customers can see this in chat and email drafts. Write what you would say out loud — not internal rules like “never invent policies.”"
+                  hint="This is business context for chat and email AI. Write facts you would say to a customer — not internal rules like “never invent policies.”"
                 >
                   <Textarea
                     value={kb.description}

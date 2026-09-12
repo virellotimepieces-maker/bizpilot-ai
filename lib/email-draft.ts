@@ -1,3 +1,5 @@
+import { finalizeEmailReply, generateEmailReply, type ChatComplete } from "./ai/generate-email-reply";
+import type { EmailOrderContext } from "./ai/email-reply-prompt";
 import { customerEmailQuery, emailSubjectFor, generateReply } from "./reply-engine";
 import type { EmailMessage, EmailStatus, GeneratedReply, KnowledgeBase } from "./types";
 
@@ -59,6 +61,47 @@ export function draftEmailFromInbound(input: {
   };
 }
 
+export async function draftEmailFromInboundAi(
+  input: {
+    kb: KnowledgeBase;
+    fromName: string;
+    fromEmail: string;
+    subject: string;
+    body: string;
+    receivedAt?: string;
+  },
+  options: { complete?: ChatComplete; orderData?: EmailOrderContext | null } = {},
+): Promise<Omit<EmailMessage, "id">> {
+  const heuristic = draftEmailFromInbound(input);
+  try {
+    const draftBody = await generateEmailReply({
+      knowledge: input.kb,
+      fromName: input.fromName,
+      fromEmail: input.fromEmail,
+      subject: input.subject,
+      body: input.body,
+      orderData: options.orderData ?? null,
+      complete: options.complete,
+    });
+    return {
+      ...heuristic,
+      draftBody,
+      operatorNote:
+        "AI suggested this reply from the customer’s email, using Knowledge as business context. Review before sending. Email never auto-sends.",
+    };
+  } catch {
+    return {
+      ...heuristic,
+      draftBody: finalizeEmailReply(heuristic.draftBody, {
+        knowledge: input.kb,
+        fromName: input.fromName,
+        subject: input.subject,
+        body: input.body,
+      }),
+    };
+  }
+}
+
 export function rebuildEmailDraft(email: EmailMessage, knowledge: KnowledgeBase): EmailMessage {
   const locked = email.status === "sent" || email.status === "discarded";
   if (locked) return email;
@@ -70,5 +113,26 @@ export function rebuildEmailDraft(email: EmailMessage, knowledge: KnowledgeBase)
     body: email.body,
     receivedAt: email.receivedAt,
   });
+  return { ...email, ...next, sentAt: email.sentAt };
+}
+
+export async function rebuildEmailDraftAi(
+  email: EmailMessage,
+  knowledge: KnowledgeBase,
+  options: { complete?: ChatComplete; orderData?: EmailOrderContext | null } = {},
+): Promise<EmailMessage> {
+  const locked = email.status === "sent" || email.status === "discarded";
+  if (locked) return email;
+  const next = await draftEmailFromInboundAi(
+    {
+      kb: knowledge,
+      fromName: email.fromName,
+      fromEmail: email.fromEmail,
+      subject: email.subject,
+      body: email.body,
+      receivedAt: email.receivedAt,
+    },
+    options,
+  );
   return { ...email, ...next, sentAt: email.sentAt };
 }

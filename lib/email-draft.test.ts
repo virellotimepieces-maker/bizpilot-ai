@@ -46,7 +46,7 @@ describe("email drafts", () => {
     const kb = emptyKnowledge("custom");
     kb.name = "Virello Timepieces";
     kb.hours.days = kb.hours.days.map((day) =>
-      day.day === "mon" ? { ...day, closed: false, open: "09:00", close: "17:00" } : day,
+      day.day === "monday" ? { ...day, closed: false, open: "09:00", close: "17:00" } : day,
     );
     const draft = draftEmailFromInbound({
       kb,

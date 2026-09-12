@@ -57,7 +57,7 @@ export const ENV_DOCS = [
   },
   {
     name: "OPENAI_API_KEY",
-    why: "Server-side key used only for paid widget AI replies. Usage is counted after a successful model response.",
+    why: "Server-side key used for paid widget AI replies and Gmail suggested replies.",
   },
   {
     name: "OPENAI_MODEL",
