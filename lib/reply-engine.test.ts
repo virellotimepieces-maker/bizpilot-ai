@@ -8,6 +8,7 @@ import {
   formatOffering,
   generateReply,
   hasEmptyFieldLabels,
+  customerEmailQuery,
   thinInboundEmailAsk,
   unavailableKnowledgeMessage,
 } from "./reply-engine";
@@ -241,9 +242,9 @@ describe("email drafts stay customer-facing", () => {
     },
   });
 
-  it("does not paste the knowledge profile into a no-subject email", () => {
+  it("does not paste the knowledge profile into an empty no-subject email", () => {
     const reply = generateReply({
-      query: "Re: (no subject)\n",
+      query: customerEmailQuery("(no subject)", ""),
       kb: virello,
       channel: "email",
       customerName: "BOFOWO",
@@ -255,6 +256,29 @@ describe("email drafts stay customer-facing", () => {
     assert.doesNotMatch(reply.body, /Industry:/);
     assert.doesNotMatch(reply.body, /Modern watches for everyday style/);
     assert.equal(reply.requiresHuman, true);
+    assertNoEmptyLabels(reply.body);
+  });
+
+  it("answers the body of a no-subject email from published knowledge", () => {
+    const reply = generateReply({
+      query: customerEmailQuery("(no subject)", "When are you open on Monday?"),
+      kb: {
+        ...virello,
+        hours: {
+          ...virello.hours,
+          days: virello.hours.days.map((day) =>
+            day.day === "mon" ? { ...day, closed: false, open: "09:00", close: "17:00" } : day,
+          ),
+        },
+      },
+      channel: "email",
+      customerName: "BOFOWO",
+    });
+    assert.match(reply.body, /^Hi BOFOWO,/);
+    assert.match(reply.body, /monday/i);
+    assert.match(reply.body, /9 a\.m\./i);
+    assert.doesNotMatch(reply.body, /Could you share a bit more/i);
+    assert.doesNotMatch(reply.body, /Never invent/i);
     assertNoEmptyLabels(reply.body);
   });
 

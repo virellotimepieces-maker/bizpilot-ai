@@ -1,4 +1,4 @@
-import { emailSubjectFor, generateReply } from "./reply-engine";
+import { customerEmailQuery, emailSubjectFor, generateReply } from "./reply-engine";
 import type { EmailMessage, EmailStatus, GeneratedReply, KnowledgeBase } from "./types";
 
 export const EMAIL_STATUS_LABEL: Record<EmailStatus, string> = {
@@ -38,7 +38,7 @@ export function draftEmailFromInbound(input: {
   receivedAt?: string;
 }): Omit<EmailMessage, "id"> {
   const reply = generateReply({
-    query: `${input.subject}\n${input.body}`,
+    query: customerEmailQuery(input.subject, input.body),
     kb: input.kb,
     channel: "email",
     customerName: input.fromName,

@@ -89,6 +89,41 @@ describe("Gmail parse and MIME", () => {
     assert.match(htmlToText("<p>Hello&nbsp;<b>there</b></p>"), /Hello there/);
   });
 
+  it("reads an HTML-only no-subject email from nested multipart parts", () => {
+    const parsed = summarizeGmailMessage(
+      {
+        id: "m2",
+        threadId: "t2",
+        snippet: "When are you open on Monday?",
+        payload: {
+          mimeType: "multipart/alternative",
+          headers: [
+            { name: "From", value: "BOFOWO <bofowo@example.com>" },
+            { name: "Subject", value: "" },
+          ],
+          parts: [
+            {
+              mimeType: "text/plain",
+              body: { data: Buffer.from(" \n", "utf8").toString("base64url") },
+            },
+            {
+              mimeType: "text/html",
+              body: {
+                data: Buffer.from(
+                  "<div dir=\"auto\">When are you open on Monday?</div>",
+                  "utf8",
+                ).toString("base64url"),
+              },
+            },
+          ],
+        },
+      },
+      true,
+    );
+    assert.equal(parsed.subject, "(no subject)");
+    assert.match(parsed.body, /When are you open on Monday\?/);
+  });
+
   it("builds a threaded Gmail send payload", () => {
     const rfc = buildReplyRfc822({
       fromEmail: "owner@gmail.com",

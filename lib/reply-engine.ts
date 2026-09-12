@@ -85,7 +85,7 @@ const INTENT_PATTERNS: { intent: ReplyIntent; re: RegExp }[] = [
   },
   {
     intent: "hours",
-    re: /\b(hours|open|close[sd]?|opening|when are you|saturday|sunday|weekend|after hours)\b/i,
+    re: /\b(hours|open|close[sd]?|opening|when are you|saturday|sunday|weekend|after hours|oras|bukas|sarado)\b/i,
   },
   {
     intent: "contact",
@@ -93,7 +93,7 @@ const INTENT_PATTERNS: { intent: ReplyIntent; re: RegExp }[] = [
   },
   {
     intent: "store_shipping",
-    re: /\b(ship|shipping|delivery|deliver|alaska|hawaii|pickup|pick up)\b/i,
+    re: /\b(ship|shipping|delivery|deliver|alaska|hawaii|pickup|pick up|padala)\b/i,
   },
   {
     intent: "store_stock",
@@ -101,7 +101,7 @@ const INTENT_PATTERNS: { intent: ReplyIntent; re: RegExp }[] = [
   },
   {
     intent: "store_payment",
-    re: /\b(cod|cash on delivery|pay cash|payment methods?|shop pay|visa)\b/i,
+    re: /\b(cod|cash on delivery|pay cash|payment methods?|shop pay|visa|gcash|maya|bayad)\b/i,
   },
   {
     intent: "service_area",
@@ -117,7 +117,7 @@ const INTENT_PATTERNS: { intent: ReplyIntent; re: RegExp }[] = [
   },
   {
     intent: "pricing",
-    re: /\b(price|prices|cost|rate|how much|fee|charge)\b/i,
+    re: /\b(price|prices|cost|rate|how much|fee|charge|magkano|presyo)\b/i,
   },
   {
     intent: "availability",
@@ -125,7 +125,7 @@ const INTENT_PATTERNS: { intent: ReplyIntent; re: RegExp }[] = [
   },
   {
     intent: "policy",
-    re: /\b(return|refund|cancel|warranty|privacy|policy|no-show)\b/i,
+    re: /\b(return|refund|cancel|warranty|privacy|policy|no-show|palit)\b/i,
   },
 ];
 
@@ -196,10 +196,36 @@ function formatPublishedBusiness(kb: KnowledgeBase) {
   const lines = [
     kb.name.trim(),
     kb.tagline.trim(),
-    kb.industry.trim() ? `Industry: ${kb.industry.trim()}` : "",
     stripOperatorFacingText(kb.description.trim()),
   ].filter(filled);
   return lines.join("\n");
+}
+
+export function isPlaceholderSubject(subject: string) {
+  const trimmed = subject.replace(/^(?:\s*(?:re|fwd|fw):)+/gi, "").trim();
+  return !trimmed || /^\(no subject\)$/i.test(trimmed);
+}
+
+export function inboundCustomerText(body: string) {
+  const lines = body.replace(/\r\n/g, "\n").split("\n");
+  const out: string[] = [];
+  for (const line of lines) {
+    if (/^>/.test(line)) continue;
+    if (/^On .+ wrote:$/i.test(line.trim())) break;
+    if (/^-{2,}\s*Original Message\s*-{2,}/i.test(line)) break;
+    if (/^_{5,}/.test(line.trim()) && out.length) break;
+    out.push(line);
+  }
+  return out.join("\n").trim();
+}
+
+export function customerEmailQuery(subject: string, body: string) {
+  const bodyText = inboundCustomerText(body);
+  if (isPlaceholderSubject(subject)) return bodyText;
+  const subjectText = subject.replace(/^(?:\s*(?:re|fwd|fw):)+/gi, "").trim();
+  if (!bodyText) return subjectText;
+  if (bodyText.toLowerCase().includes(subjectText.toLowerCase())) return bodyText;
+  return `${subjectText}\n${bodyText}`;
 }
 
 function asksAboutTheBusiness(query: string) {
@@ -227,18 +253,10 @@ export function thinInboundEmailAsk() {
   return "Thanks for writing. Could you share a bit more about what you need help with — a product question, an order, shipping, or a return? We'll follow up from there.";
 }
 
-function shouldHoldEmailForDetails(
-  channel: ReplyChannel,
-  query: string,
-  intent: ReplyIntent,
-  sources: ReplySource[],
-) {
+function shouldHoldEmailForDetails(channel: ReplyChannel, query: string, intent: ReplyIntent) {
   if (channel !== "email") return false;
   if (UNSAFE.includes(intent)) return false;
-  if (isThinInboundEmail(query, intent)) return true;
-  if (asksAboutTheBusiness(query)) return false;
-  if (intent !== "unknown") return false;
-  return sources.length > 0 && sources.every((source) => source.kind === "business");
+  return isThinInboundEmail(query, intent);
 }
 
 export function unavailableKnowledgeMessage(kb: KnowledgeBase) {
@@ -734,7 +752,7 @@ export function generateReply(options: {
 
   const collected = collectSources(kb, query, intent, channel);
   const usedInternal = collected.usedInternal;
-  const holdEmail = shouldHoldEmailForDetails(channel, query, intent, collected.sources);
+  const holdEmail = shouldHoldEmailForDetails(channel, query, intent);
   const snippets = collected.snippets.filter(
     (snippet) => snippet.trim() && !hasEmptyFieldLabels(snippet),
   );

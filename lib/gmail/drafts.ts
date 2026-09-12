@@ -22,7 +22,7 @@ export function draftFromGmailMessage(input: {
   });
   return {
     ...draft,
-    draftSubject: replySubjectFor(input.subject),
+    draftSubject: replySubjectFor(input.subject, input.body),
   };
 }
 

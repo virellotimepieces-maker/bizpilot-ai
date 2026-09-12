@@ -1,3 +1,5 @@
+import { inboundCustomerText } from "@/lib/reply-engine";
+
 export type GmailPayloadPart = {
   mimeType?: string;
   filename?: string;
@@ -44,7 +46,7 @@ export function htmlToText(html: string) {
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
@@ -60,23 +62,34 @@ export function htmlToText(html: string) {
 
 function collectBodies(payload: GmailPayloadPart | undefined, acc: { mime: string; text: string }[]) {
   if (!payload) return;
-  if (payload.body?.data) {
-    const mime = payload.mimeType || "text/plain";
-    const text = decodeBase64Url(payload.body.data);
-    acc.push({ mime, text });
+  const mime = (payload.mimeType || (payload.body?.data ? "text/plain" : "")).toLowerCase();
+  const isAttachment = Boolean(payload.filename?.trim());
+  if (!isAttachment && payload.body?.data && (mime.startsWith("text/plain") || mime.startsWith("text/html"))) {
+    acc.push({ mime, text: decodeBase64Url(payload.body.data) });
   }
   for (const part of payload.parts ?? []) {
     collectBodies(part, acc);
   }
 }
 
+function longestBody(bodies: { mime: string; text: string }[], prefix: string) {
+  return bodies
+    .filter((row) => row.mime.startsWith(prefix) && row.text.trim())
+    .sort((a, b) => b.text.trim().length - a.text.trim().length)[0];
+}
+
 export function extractPlainBody(payload: GmailPayloadPart | undefined, snippet = "") {
   const bodies: { mime: string; text: string }[] = [];
   collectBodies(payload, bodies);
-  const plain = bodies.find((row) => row.mime.toLowerCase().startsWith("text/plain"));
-  if (plain?.text.trim()) return plain.text.trim();
-  const html = bodies.find((row) => row.mime.toLowerCase().startsWith("text/html"));
-  if (html?.text.trim()) return htmlToText(html.text);
+  const plain = longestBody(bodies, "text/plain");
+  const html = longestBody(bodies, "text/html");
+  const plainText = plain?.text.trim() ?? "";
+  const htmlText = html ? htmlToText(html.text) : "";
+  const plainQuestion = inboundCustomerText(plainText);
+  const htmlQuestion = inboundCustomerText(htmlText);
+  if (htmlQuestion.length > Math.max(plainQuestion.length * 1.5, 20)) return htmlText;
+  if (plainQuestion) return plainText;
+  if (htmlText) return htmlText;
   return snippet.trim();
 }
 

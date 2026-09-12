@@ -445,6 +445,9 @@ export function PaidEmailInbox() {
                     <p className={`mt-1 truncate text-sm ${row.unread ? "font-medium" : ""}`}>
                       {row.subject}
                     </p>
+                    {row.snippet ? (
+                      <p className="mt-1 truncate text-xs text-muted-foreground">{row.snippet}</p>
+                    ) : null}
                     <p className="mt-1 truncate text-xs text-muted-foreground">{formatMailDate(row.date)}</p>
                   </button>
                 ))}

@@ -1,4 +1,5 @@
 import { BillingError } from "@/lib/billing/types";
+import { isPlaceholderSubject, inboundCustomerText } from "@/lib/reply-engine";
 import { GMAIL_SEND_LOCK_MS } from "./config";
 
 export function assertSendConfirmed(confirm: unknown) {
@@ -19,7 +20,16 @@ export function assertCanSendDraft(draft: { status: string; sendLockAt?: Date | 
   }
 }
 
-export function replySubjectFor(originalSubject: string) {
+export function replySubjectFor(originalSubject: string, body = "") {
+  if (isPlaceholderSubject(originalSubject)) {
+    const first =
+      inboundCustomerText(body)
+        .split("\n")
+        .map((line) => line.trim())
+        .find(Boolean) ?? "";
+    const clipped = first.length > 72 ? `${first.slice(0, 69).trim()}...` : first;
+    return clipped ? `Re: ${clipped}` : "Re: (no subject)";
+  }
   const trimmed = originalSubject.trim() || "(no subject)";
   return /^re:/i.test(trimmed) ? trimmed : `Re: ${trimmed}`;
 }

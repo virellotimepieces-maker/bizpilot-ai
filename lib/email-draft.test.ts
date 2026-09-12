@@ -41,4 +41,23 @@ describe("email drafts", () => {
     assert.doesNotMatch(draft.draftBody, /Never invent/i);
     assert.doesNotMatch(draft.draftBody, /Industry:/);
   });
+
+  it("answers a no-subject email from the body, not the missing subject", () => {
+    const kb = emptyKnowledge("custom");
+    kb.name = "Virello Timepieces";
+    kb.hours.days = kb.hours.days.map((day) =>
+      day.day === "mon" ? { ...day, closed: false, open: "09:00", close: "17:00" } : day,
+    );
+    const draft = draftEmailFromInbound({
+      kb,
+      fromName: "BOFOWO",
+      fromEmail: "bofowo@example.com",
+      subject: "(no subject)",
+      body: "When are you open on Monday?",
+    });
+    assert.match(draft.draftBody, /monday/i);
+    assert.match(draft.draftBody, /9 a\.m\./i);
+    assert.doesNotMatch(draft.draftBody, /Could you share a bit more/i);
+    assert.doesNotMatch(draft.draftBody, /Never invent/i);
+  });
 });
