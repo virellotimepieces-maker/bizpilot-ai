@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { EMAIL_AI_HELPER_COPY } from "../ai/email-identity";
 import {
   GMAIL_ACTION_BUTTON_CLASS,
   GMAIL_ACTION_LABELS,
@@ -81,5 +82,16 @@ describe("paid Gmail email mobile layout", () => {
     for (const label of GMAIL_ACTION_LABELS) {
       assert.ok(source.includes(label), `missing ${label}`);
     }
+    assert.match(source, /aria-label="Regenerate suggested reply"/);
+    assert.match(source, /aria-label="Edit suggested reply"/);
+    assert.match(source, /aria-label="Send suggested reply"/);
+    assert.match(source, /htmlFor="gmail-draft-subject"/);
+    assert.match(source, /htmlFor="gmail-draft-body"/);
+    assert.match(source, /Replace your edited draft/);
+    assert.match(source, /EMAIL_AI_HELPER_COPY/);
+    assert.equal(
+      EMAIL_AI_HELPER_COPY,
+      "AI drafts a relevant reply from the incoming email, using your Knowledge as business or personal context. Review before sending. Email never auto-sends.",
+    );
   });
 });

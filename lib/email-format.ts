@@ -5,12 +5,6 @@ export function customerFirstName(name?: string) {
   return first || "there";
 }
 
-export function supportClosing(businessName?: string) {
-  const trimmed = businessName?.trim() || "Support";
-  if (/\bsupport$/i.test(trimmed)) return trimmed;
-  return `${trimmed} Support`;
-}
-
 export function unwrapEmailBody(body: string) {
   let text = body.trim();
   text = text.replace(/^```(?:[a-z]+)?\s*/i, "").replace(/\s*```$/i, "");
@@ -28,9 +22,14 @@ export function unwrapEmailBody(body: string) {
 
 export function formatFinishedEmail(input: {
   firstName: string;
-  businessName: string;
+  closing: string;
   body: string;
+  businessName?: string;
 }) {
   const inner = unwrapEmailBody(input.body);
-  return `Hi ${input.firstName},\n\n${inner}\n\nBest regards,\n${supportClosing(input.businessName)}`;
+  const closing = input.closing.trim() || input.businessName?.trim() || "";
+  if (!closing) {
+    return `Hi ${input.firstName},\n\n${inner}`;
+  }
+  return `Hi ${input.firstName},\n\n${inner}\n\nBest regards,\n${closing}`;
 }

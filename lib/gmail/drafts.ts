@@ -25,7 +25,7 @@ export async function draftFromGmailMessage(
       subject: input.subject,
       body: input.body,
     },
-    { complete: options.complete },
+    { complete: options.complete, workspaceId: input.workspace.id },
   );
   return {
     ...draft,
@@ -74,7 +74,10 @@ export async function ensureGmailReplyDraft(
       usedInternalKnowledge: existing.usedInternalKnowledge,
       sentAt: existing.sentAt?.toISOString(),
     };
-    const rebuilt = await rebuildEmailDraftAi(current, kb, { complete: input.complete });
+    const rebuilt = await rebuildEmailDraftAi(current, kb, {
+      complete: input.complete,
+      workspaceId: workspace.id,
+    });
     return store.updateGmailReplyDraft(workspace.id, input.gmailMessageId, {
       fromName: input.fromName,
       fromEmail: input.fromEmail,

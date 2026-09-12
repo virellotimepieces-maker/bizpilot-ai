@@ -1,4 +1,5 @@
-import { finalizeEmailReply, generateEmailReply, type ChatComplete } from "./ai/generate-email-reply";
+import { finalizeEmailReply, generateEmailDraft, type ChatComplete } from "./ai/generate-email-reply";
+import { BillingError } from "./billing/types";
 import type { EmailOrderContext } from "./ai/email-reply-prompt";
 import { customerEmailQuery, emailSubjectFor, generateReply } from "./reply-engine";
 import type { EmailMessage, EmailStatus, GeneratedReply, KnowledgeBase } from "./types";
@@ -70,11 +71,11 @@ export async function draftEmailFromInboundAi(
     body: string;
     receivedAt?: string;
   },
-  options: { complete?: ChatComplete; orderData?: EmailOrderContext | null } = {},
+  options: { complete?: ChatComplete; orderData?: EmailOrderContext | null; workspaceId?: string } = {},
 ): Promise<Omit<EmailMessage, "id">> {
   const heuristic = draftEmailFromInbound(input);
   try {
-    const draftBody = await generateEmailReply({
+    const draft = await generateEmailDraft({
       knowledge: input.kb,
       fromName: input.fromName,
       fromEmail: input.fromEmail,
@@ -82,14 +83,15 @@ export async function draftEmailFromInboundAi(
       body: input.body,
       orderData: options.orderData ?? null,
       complete: options.complete,
+      workspaceId: options.workspaceId,
     });
     return {
       ...heuristic,
-      draftBody,
-      operatorNote:
-        "AI suggested this reply from the customer’s email, using Knowledge as business context. Review before sending. Email never auto-sends.",
+      draftBody: draft.body,
+      operatorNote: draft.operatorNote,
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof BillingError && error.code === "limit") throw error;
     return {
       ...heuristic,
       draftBody: finalizeEmailReply(heuristic.draftBody, {
@@ -119,7 +121,7 @@ export function rebuildEmailDraft(email: EmailMessage, knowledge: KnowledgeBase)
 export async function rebuildEmailDraftAi(
   email: EmailMessage,
   knowledge: KnowledgeBase,
-  options: { complete?: ChatComplete; orderData?: EmailOrderContext | null } = {},
+  options: { complete?: ChatComplete; orderData?: EmailOrderContext | null; workspaceId?: string } = {},
 ): Promise<EmailMessage> {
   const locked = email.status === "sent" || email.status === "discarded";
   if (locked) return email;

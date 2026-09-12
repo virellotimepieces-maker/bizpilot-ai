@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { EMAIL_AI_HELPER_COPY } from "../ai/email-identity";
 import { MemoryBillingStore } from "../billing/memory-store";
 import { BillingError } from "../billing/types";
 import { emptyKnowledge } from "../empty-knowledge";
@@ -165,7 +166,7 @@ describe("Gmail send guards", () => {
 });
 
 describe("Gmail Google errors", () => {
-  it("maps a revoked refresh token without echoing Google bodies", async () => {
+  it("case 14: maps a revoked refresh token without echoing Google bodies", async () => {
     await assert.rejects(
       () =>
         refreshGoogleAccessToken(
@@ -229,6 +230,60 @@ describe("Gmail drafts and isolation", () => {
     await assert.rejects(() => store.claimGmailReplySend(workspace.id, "gm-1"));
   });
 
+  it("case 17: preserves manual edits until regenerate, and never changes the received email", async () => {
+    const store = new MemoryBillingStore();
+    const user = await store.createUser({
+      email: "owner2@example.com",
+      passwordHash: "hash",
+      name: "Owner",
+    });
+    const workspace = await store.createWorkspace({ ownerUserId: user.id, name: "Harbor Clinic" });
+    await store.saveKnowledge(workspace.id, {
+      ...emptyKnowledge("custom"),
+      name: "Harbor Clinic",
+      description: "Walk-in family practice.",
+    });
+    const created = await ensureGmailReplyDraft(store, workspace, {
+      gmailMessageId: "gm-edit",
+      gmailThreadId: "th-edit",
+      rfcMessageId: "<edit@mail.gmail.com>",
+      fromName: "Pat",
+      fromEmail: "pat@example.com",
+      subject: "Hours",
+      body: "When are you open on Monday?",
+    });
+    await store.updateGmailReplyDraft(workspace.id, "gm-edit", {
+      draftBody: "My manually edited draft",
+    });
+    const kept = await ensureGmailReplyDraft(store, workspace, {
+      gmailMessageId: "gm-edit",
+      gmailThreadId: "th-edit",
+      fromName: "Pat",
+      fromEmail: "pat@example.com",
+      subject: "Hours",
+      body: "When are you open on Monday?",
+    });
+    assert.equal(kept.draftBody, "My manually edited draft");
+    assert.equal(kept.body, created.body);
+    const regenerated = await ensureGmailReplyDraft(store, workspace, {
+      gmailMessageId: "gm-edit",
+      gmailThreadId: "th-edit",
+      rfcMessageId: "<edit@mail.gmail.com>",
+      fromName: "Pat",
+      fromEmail: "pat@example.com",
+      subject: "Hours",
+      body: "When are you open on Monday?",
+      regenerate: true,
+      complete: async () =>
+        "Thanks for writing. Please ask a person to confirm Monday hours before they are promised.",
+    });
+    assert.notEqual(regenerated.draftBody, "My manually edited draft");
+    assert.equal(regenerated.body, "When are you open on Monday?");
+    assert.equal(regenerated.fromEmail, "pat@example.com");
+    assert.equal(regenerated.gmailThreadId, "th-edit");
+    assert.notEqual(regenerated.status, "sent");
+  });
+
   it("never puts token fields on the public Gmail status payload", () => {
     const payload = publicGmailStatus({
       id: "c1",
@@ -290,6 +345,17 @@ describe("Gmail HTTP and browser sources", () => {
     assert.match(paid, /Send reply/);
     assert.match(paid, /Regenerate reply/);
     assert.match(paid, /confirm: true/);
+    assert.match(paid, /Reconnect Gmail/);
+    assert.match(paid, /code === "reconnect"/);
+    assert.match(paid, /Replace your edited draft/);
+    assert.match(paid, /aria-label="Regenerate suggested reply"/);
+    assert.match(paid, /aria-label="Edit suggested reply"/);
+    assert.match(paid, /aria-label="Send suggested reply"/);
+    assert.match(paid, /EMAIL_AI_HELPER_COPY/);
+    assert.equal(
+      EMAIL_AI_HELPER_COPY,
+      "AI drafts a relevant reply from the incoming email, using your Knowledge as business or personal context. Review before sending. Email never auto-sends.",
+    );
     assert.doesNotMatch(paid, /Paste a received email/);
   });
 

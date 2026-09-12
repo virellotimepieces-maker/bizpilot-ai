@@ -1,4 +1,5 @@
 import { customerFirstName, formatFinishedEmail } from "./email-format";
+import { classifyEmailConversation, emailClosingFor } from "./ai/email-identity";
 import { DAY_LABEL } from "./labels";
 import type {
   GeneratedReply,
@@ -708,10 +709,11 @@ function composeSafeAnswer(
   return unavailableKnowledgeMessage(kb);
 }
 
-function wrapEmail(kb: KnowledgeBase, customerName: string | undefined, body: string) {
+function wrapEmail(kb: KnowledgeBase, customerName: string | undefined, body: string, query = "") {
+  const kind = classifyEmailConversation("", query || body);
   return formatFinishedEmail({
     firstName: customerFirstName(customerName),
-    businessName: kb.name,
+    closing: emailClosingFor(kb, kind),
     body,
   });
 }
@@ -850,7 +852,7 @@ export function generateReply(options: {
   }
 
   if (channel === "email") {
-    body = wrapEmail(kb, customerName, body);
+      body = wrapEmail(kb, customerName, body, query);
   } else if (channel === "social") {
     body = wrapSocial(kb, customerName, body);
   } else if (intent === "emergency") {

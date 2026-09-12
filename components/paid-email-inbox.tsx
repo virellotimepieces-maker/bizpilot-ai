@@ -36,6 +36,7 @@ import {
   GMAIL_WRAP_INLINE_CLASS,
   GMAIL_WRAP_TEXT_CLASS,
 } from "@/lib/gmail/email-layout";
+import { EMAIL_AI_HELPER_COPY } from "@/lib/ai/email-identity";
 import { INTENT_LABEL } from "@/lib/intent-labels";
 import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS } from "@/lib/ui/type-scale";
 import type { EmailStatus, ReplySource } from "@/lib/types";
@@ -111,6 +112,8 @@ export function PaidEmailInbox() {
   const [sending, setSending] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirmSend, setConfirmSend] = useState(false);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+  const [draftDirty, setDraftDirty] = useState(false);
   const [gmailError, setGmailError] = useState("");
   const [sentBanner, setSentBanner] = useState(false);
   const [manual, setManual] = useState<PaidEmailMessage[]>([]);
@@ -168,6 +171,7 @@ export function PaidEmailInbox() {
     setSelectedId(id);
     setDetailLoading(true);
     setEditing(false);
+    setDraftDirty(false);
     setSentBanner(false);
     const response = await fetch(`/api/app/gmail/messages/${encodeURIComponent(id)}`);
     const payload = (await response.json()) as {
@@ -263,6 +267,7 @@ export function PaidEmailInbox() {
     }
     if (body.regenerate) {
       setEditing(false);
+      setDraftDirty(false);
       toast.success("Suggested reply regenerated");
     }
   }
@@ -329,9 +334,7 @@ export function PaidEmailInbox() {
           </p>
           <h1 className={GMAIL_PAGE_TITLE_CLASS}>Gmail inbox</h1>
           <p className={`mt-2 max-w-full text-xs leading-relaxed text-muted-foreground sm:max-w-2xl sm:text-sm md:text-base`}>
-            Connect Gmail to read received mail. BizPilot reads the customer’s email and writes a
-            suggested reply, using Knowledge as business context — not as text to paste. Replies
-            send only after you confirm. They never go out on their own.
+            {EMAIL_AI_HELPER_COPY}
           </p>
         </div>
         <div className={GMAIL_TOOLBAR_CLASS}>
@@ -377,9 +380,7 @@ export function PaidEmailInbox() {
         <ShieldAlert />
         <AlertTitle>Human send required</AlertTitle>
         <AlertDescription className={GMAIL_WRAP_INLINE_CLASS}>
-          Opening a message writes a suggested reply from the customer’s email. Knowledge supplies
-          business context; the AI does not paste the knowledge base into the reply. BizPilot will
-          not send it until you press Send reply and confirm.
+          {EMAIL_AI_HELPER_COPY}
         </AlertDescription>
       </Alert>
 
@@ -504,13 +505,16 @@ export function PaidEmailInbox() {
                     </p>
                   ) : null}
                   <div className={`mt-4 grid gap-3 ${GMAIL_CONTENT_BOX_CLASS}`}>
-                    <Field label="Subject" className={GMAIL_CONTENT_BOX_CLASS}>
+                    <Field label="Subject" htmlFor="gmail-draft-subject" className={GMAIL_CONTENT_BOX_CLASS}>
                       <Input
+                        id="gmail-draft-subject"
                         className={GMAIL_FIELD_CONTROL_CLASS}
                         value={detail.draft.draftSubject}
                         disabled={sent || !editing}
+                        aria-label="Reply subject"
                         onChange={(e) => {
                           const draftSubject = e.target.value;
+                          setDraftDirty(true);
                           setDetail((prev) =>
                             prev ? { ...prev, draft: { ...prev.draft, draftSubject } } : prev,
                           );
@@ -522,13 +526,16 @@ export function PaidEmailInbox() {
                         }
                       />
                     </Field>
-                    <Field label="Reply" className={GMAIL_CONTENT_BOX_CLASS}>
+                    <Field label="Reply" htmlFor="gmail-draft-body" className={GMAIL_CONTENT_BOX_CLASS}>
                       <Textarea
+                        id="gmail-draft-body"
                         className={`${GMAIL_FIELD_CONTROL_CLASS} ${GMAIL_WRAP_TEXT_CLASS} min-h-40 text-sm sm:min-h-64 sm:text-base`}
                         value={detail.draft.draftBody}
                         disabled={sent || !editing}
+                        aria-label="Suggested reply"
                         onChange={(e) => {
                           const draftBody = e.target.value;
+                          setDraftDirty(true);
                           setDetail((prev) =>
                             prev ? { ...prev, draft: { ...prev.draft, draftBody } } : prev,
                           );
@@ -547,7 +554,14 @@ export function PaidEmailInbox() {
                       variant="outline"
                       className={GMAIL_ACTION_BUTTON_CLASS}
                       disabled={sent || detailLoading}
-                      onClick={() => void patchGmail(detail.id, { regenerate: true })}
+                      aria-label="Regenerate suggested reply"
+                      onClick={() => {
+                        if (draftDirty) {
+                          setConfirmRegenerate(true);
+                          return;
+                        }
+                        void patchGmail(detail.id, { regenerate: true });
+                      }}
                     >
                       <RefreshCw className="size-4" />
                       Regenerate reply
@@ -556,6 +570,7 @@ export function PaidEmailInbox() {
                       variant="outline"
                       className={GMAIL_ACTION_BUTTON_CLASS}
                       disabled={sent}
+                      aria-label="Edit suggested reply"
                       onClick={() => setEditing(true)}
                     >
                       <Pencil className="size-4" />
@@ -564,6 +579,7 @@ export function PaidEmailInbox() {
                     <Button
                       variant="outline"
                       className={GMAIL_ACTION_BUTTON_CLASS}
+                      aria-label="Copy suggested reply"
                       onClick={async () => {
                         await navigator.clipboard.writeText(detail.draft.draftBody);
                         toast.success("Reply copied");
@@ -575,6 +591,7 @@ export function PaidEmailInbox() {
                     <Button
                       className={GMAIL_ACTION_BUTTON_CLASS}
                       disabled={sent || sending}
+                      aria-label="Send suggested reply"
                       onClick={() => setConfirmSend(true)}
                     >
                       Send reply
@@ -586,8 +603,7 @@ export function PaidEmailInbox() {
               <div className={`${GMAIL_CARD_CLASS} p-6 text-center sm:p-8`}>
                 <p className="font-heading text-lg sm:text-xl">Select a message</p>
                 <p className={`mx-auto mt-2 max-w-md ${HELPER_TEXT_CLASS}`}>
-                  Opening an email writes a suggested reply from the customer’s message, using
-                  Knowledge as context.
+                  {EMAIL_AI_HELPER_COPY}
                 </p>
               </div>
             )}
@@ -608,8 +624,7 @@ export function PaidEmailInbox() {
           <AccordionTrigger>Add email manually</AccordionTrigger>
           <AccordionContent>
             <p className={HELPER_TEXT_CLASS}>
-              Optional fallback if Gmail is unavailable. BizPilot still does not send these drafts
-              unless you copy them yourself.
+              Optional fallback if Gmail is unavailable. {EMAIL_AI_HELPER_COPY}
             </p>
             <div className="mt-3">
               <Button
@@ -667,6 +682,7 @@ export function PaidEmailInbox() {
                       <Button
                         variant="outline"
                         className={GMAIL_ACTION_BUTTON_CLASS}
+                        aria-label="Regenerate suggested reply"
                         onClick={() => void patchManual(selectedManual.id, { regenerate: true })}
                       >
                         Regenerate reply
@@ -697,6 +713,36 @@ export function PaidEmailInbox() {
         </AccordionItem>
       </Accordion>
 
+      <Dialog open={confirmRegenerate} onOpenChange={setConfirmRegenerate}>
+        <DialogContent className="w-[calc(100%-1.5rem)] max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Replace your edited draft?</DialogTitle>
+            <DialogDescription className={GMAIL_WRAP_INLINE_CLASS}>
+              Regenerating replaces only the suggested reply. The received email is not changed.
+              Your manual edits will be lost.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className={GMAIL_ACTION_BUTTON_CLASS}
+              onClick={() => setConfirmRegenerate(false)}
+            >
+              Keep edits
+            </Button>
+            <Button
+              className={GMAIL_ACTION_BUTTON_CLASS}
+              onClick={() => {
+                setConfirmRegenerate(false);
+                if (detail) void patchGmail(detail.id, { regenerate: true });
+              }}
+            >
+              Regenerate reply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={confirmSend} onOpenChange={setConfirmSend}>
         <DialogContent className="w-[calc(100%-1.5rem)] max-w-lg">
           <DialogHeader>
@@ -726,8 +772,7 @@ export function PaidEmailInbox() {
           <DialogHeader>
             <DialogTitle>Add email manually</DialogTitle>
             <DialogDescription>
-              Paste a received message to generate a suggested reply. Knowledge is used as business
-              context. This does not send mail.
+              Paste a received message to generate a suggested reply. {EMAIL_AI_HELPER_COPY}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">

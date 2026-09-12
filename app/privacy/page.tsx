@@ -46,11 +46,12 @@ export default function PrivacyPage() {
             <h2 className="font-heading text-xl">Email and social</h2>
             <p className="mt-2 text-muted-foreground">
               If you connect Gmail, we store encrypted OAuth tokens on the server for that workspace
-              and read inbox messages so the AI can suggest a reply from the customer’s email, using
-              your Knowledge as business context. A reply is sent through your Gmail account only
-              after you confirm. Disconnect Gmail removes the tokens and stored Gmail drafts. Manual
-              pasted emails stay in your workspace as drafts and are not sent. Social drafts are
-              never posted. There is no live connection to Instagram, Facebook, TikTok, or Messenger.
+              and read inbox messages so the AI can draft a relevant reply from the incoming email,
+              using your Knowledge as business or personal context. A reply is sent through your
+              Gmail account only after you confirm. Email never auto-sends. Disconnect Gmail removes
+              the tokens and stored Gmail drafts. Manual pasted emails stay in your workspace as
+              drafts and are not sent. Social drafts are never posted. There is no live connection
+              to Instagram, Facebook, TikTok, or Messenger.
             </p>
           </section>
           <section>
