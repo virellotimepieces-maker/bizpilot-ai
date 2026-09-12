@@ -300,6 +300,29 @@ describe("BizPilot Pro subscription", () => {
     const visible = await store.listSocialMessages(a.workspace.id, a.workspace.widgetKey);
     assert.equal(visible.length, 1);
     assert.equal(visible[0]?.id, socialA.id);
+    const emailA = await store.createEmailDraft({
+      workspaceId: a.workspace.id,
+      widgetKey: a.workspace.widgetKey,
+      fromName: "Pat",
+      fromEmail: "pat@example.com",
+      subject: "Hours",
+      body: "When are you open?",
+      status: "draft_ready",
+      draftSubject: "Re: Hours",
+      draftBody: "Nine to five.",
+      intent: "hours",
+      operatorNote: "Draft only.",
+      usedInternalKnowledge: false,
+    });
+    assert.equal((await store.listEmailDrafts(b.workspace.id, b.workspace.widgetKey)).length, 0);
+    assert.equal((await store.listEmailDrafts(a.workspace.id, b.workspace.widgetKey)).length, 0);
+    assert.equal(await store.getEmailDraft(emailA.id, b.workspace.id, b.workspace.widgetKey), null);
+    await assert.rejects(() =>
+      store.updateEmailDraft(emailA.id, b.workspace.id, b.workspace.widgetKey, { status: "sent" }),
+    );
+    const emailVisible = await store.listEmailDrafts(a.workspace.id, a.workspace.widgetKey);
+    assert.equal(emailVisible.length, 1);
+    assert.equal(emailVisible[0]?.id, emailA.id);
   });
 
   it("resets the 500-reply allowance when a new Stripe period starts", async () => {
@@ -400,20 +423,25 @@ describe("BizPilot Pro subscription", () => {
       now: start,
       generate: async () => "Counted.",
     });
-    assert.equal(last.usage.used, BIZPILOT_PRO.replyLimit);
-    assert.equal(last.usage.remaining, 0);
-    await assert.rejects(
-      () =>
-        service.generateCountedAiReply({
-          widgetKey: workspace.widgetKey,
-          visitorKey: "over",
-          question: "One more",
-          now: start,
-          generate: async () => "Should not count",
-        }),
-      (error: unknown) => error instanceof BillingError && error.code === "limit",
-    );
+    assert.equal(last.usage?.used, BIZPILOT_PRO.replyLimit);
+    assert.equal(last.usage?.remaining, 0);
+    const over = await service.generateCountedAiReply({
+      widgetKey: workspace.widgetKey,
+      visitorKey: "over",
+      question: "One more",
+      now: start,
+      generate: async () => "Should not count",
+    });
+    assert.equal(over.waitingOnHuman, true);
+    assert.equal(over.usage?.remaining, 0);
     assert.equal((await service.peekUsage(workspace.id, start)).period.repliesUsed, BIZPILOT_PRO.replyLimit);
+    const overThread = await store.getConversationForVisitor(workspace.id, "over");
+    assert.equal(overThread?.waitingOnHuman, true);
+    const overMessages = await store.listMessages(overThread!.id, workspace.id);
+    assert.equal(
+      overMessages.some((row) => row.role === "visitor" && row.content === "One more"),
+      true,
+    );
     const notes = await store.listNotifications(user.id, workspace.id);
     assert.equal(notes.filter((row) => row.type === "usage_limit").length, 1);
   });
@@ -511,5 +539,90 @@ describe("BizPilot Pro subscription", () => {
     );
     const subscription = await store.getSubscriptionByWorkspace(workspace.id);
     assert.equal(subscription?.status, "active");
+  });
+
+  it("pauses AI for a human reply without burning quota, and hides other visitors' threads", async () => {
+    const store = new MemoryBillingStore();
+    const a = await seedAccount(store, "Harbor");
+    const b = await seedAccount(store, "Inland");
+    const start = new Date("2026-09-01T00:00:00Z");
+    const end = new Date("2026-10-01T00:00:00Z");
+    for (const account of [a, b]) {
+      await applyStripeEvent(
+        store,
+        checkoutEvent(`evt_co_h_${account.workspace.id}`, account.user.id, account.workspace.id),
+      );
+      await applyStripeEvent(
+        store,
+        subscriptionEvent(`evt_sub_h_${account.workspace.id}`, "customer.subscription.updated", {
+          userId: account.user.id,
+          workspaceId: account.workspace.id,
+          status: "active",
+          start,
+          end,
+        }),
+      );
+    }
+    const service = new BillingService(store);
+    const first = await service.generateCountedAiReply({
+      widgetKey: a.workspace.widgetKey,
+      visitorKey: "visitor-a",
+      question: "Hours?",
+      now: start,
+      generate: async () => "Nine to five.",
+    });
+    assert.equal(first.usage?.used, 1);
+    await service.handoffToHuman(a.workspace.widgetKey, first.conversationId, start);
+    const paused = await service.generateCountedAiReply({
+      widgetKey: a.workspace.widgetKey,
+      visitorKey: "visitor-a",
+      conversationId: first.conversationId,
+      question: "Still there?",
+      now: start,
+      generate: async () => "Should not run",
+    });
+    assert.equal(paused.waitingOnHuman, true);
+    assert.equal(paused.usage, null);
+    assert.equal((await service.peekUsage(a.workspace.id, start)).period.repliesUsed, 1);
+    const reply = await service.sendOperatorReply({
+      workspaceId: a.workspace.id,
+      conversationId: first.conversationId,
+      content: "We open at nine.",
+    });
+    assert.equal(reply.message.role, "human");
+    await assert.rejects(
+      () =>
+        service.sendOperatorReply({
+          workspaceId: b.workspace.id,
+          conversationId: first.conversationId,
+          content: "Leaked reply",
+        }),
+      (error: unknown) => error instanceof BillingError && error.code === "not_found",
+    );
+    const leaked = await service.loadWidgetThread(
+      a.workspace.widgetKey,
+      "other-visitor",
+      first.conversationId,
+    );
+    assert.equal(leaked.conversation, null);
+    assert.equal(leaked.messages.length, 0);
+    const own = await service.loadWidgetThread(
+      a.workspace.widgetKey,
+      "visitor-a",
+      first.conversationId,
+    );
+    assert.equal(own.conversation?.id, first.conversationId);
+    assert.equal(own.messages.some((row) => row.role === "human"), true);
+    await service.resumeAi(a.workspace.id, first.conversationId);
+    const resumed = await service.generateCountedAiReply({
+      widgetKey: a.workspace.widgetKey,
+      visitorKey: "visitor-a",
+      conversationId: first.conversationId,
+      question: "Thanks",
+      now: start,
+      generate: async () => "You're welcome.",
+    });
+    assert.equal(resumed.waitingOnHuman, false);
+    assert.equal((await service.peekUsage(a.workspace.id, start)).period.repliesUsed, 2);
   });
 });

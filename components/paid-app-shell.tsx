@@ -6,8 +6,9 @@ import { TAB_ITEM_CLASS, TAB_ROW_CLASS, TOUCH_TARGET_CLASS } from "@/lib/ui/type
 import {
   BookOpen,
   CreditCard,
+  Inbox,
   LayoutDashboard,
-  MessageSquare,
+  Mail,
   Puzzle,
   Share2,
   UserRound,
@@ -18,7 +19,8 @@ import { usePathname } from "next/navigation";
 const NAV = [
   { href: "/app", label: "Overview", short: "Overview", icon: LayoutDashboard },
   { href: "/app/knowledge", label: "Knowledge", short: "Knowledge", icon: BookOpen },
-  { href: "/app/inbox", label: "Inbox", short: "Inbox", icon: MessageSquare },
+  { href: "/app/inbox", label: "Inbox", short: "Inbox", icon: Inbox },
+  { href: "/app/email", label: "Email drafts", short: "Email", icon: Mail },
   { href: "/app/social", label: "Social drafts", short: "Social", icon: Share2 },
   { href: "/app/widget", label: "Website widget", short: "Widget", icon: Puzzle },
   { href: "/billing", label: "Billing", short: "Billing", icon: CreditCard },

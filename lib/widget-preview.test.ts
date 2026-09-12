@@ -178,7 +178,7 @@ describe("live widget preview access and usage", () => {
         return "We repair commercial HVAC systems in the East Bay.";
       },
     });
-    assert.equal(first.usage.used, 1);
+    assert.equal(first.usage?.used, 1);
     assert.equal((await service.peekUsage(workspace.id, start)).period.repliesUsed, 1);
   });
 });

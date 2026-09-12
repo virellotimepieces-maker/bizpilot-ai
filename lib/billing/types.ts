@@ -68,7 +68,7 @@ export interface NotificationRecord {
   id: string;
   userId: string;
   workspaceId: string;
-  type: "usage_limit" | "payment_failed" | "canceled" | "activated" | "website_conflict" | "website_sync_error";
+  type: "usage_limit" | "payment_failed" | "canceled" | "activated" | "website_conflict" | "website_sync_error" | "human_needed";
   message: string;
   createdAt: Date;
   readAt: Date | null;
@@ -86,11 +86,31 @@ export interface MessageRecord {
   id: string;
   workspaceId: string;
   conversationId: string;
-  role: "visitor" | "assistant" | "system";
+  role: "visitor" | "assistant" | "system" | "human";
   content: string;
   usageCounted: boolean;
   sources?: WebsiteReplySource[] | null;
   createdAt: Date;
+}
+
+export interface EmailDraftRecord {
+  id: string;
+  workspaceId: string;
+  widgetKey: string;
+  fromName: string;
+  fromEmail: string;
+  subject: string;
+  body: string;
+  status: string;
+  draftSubject: string;
+  draftBody: string;
+  intent: string;
+  sources: ReplySource[] | null;
+  operatorNote: string;
+  usedInternalKnowledge: boolean;
+  sentAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface SocialMessageRecord {

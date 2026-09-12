@@ -33,6 +33,7 @@ model Workspace {
   websiteSource WebsiteSource?
   websitePages  WebsitePage[]
   socialMessages SocialMessage[]
+  emailDrafts    EmailDraft[]
 }
 
 model Membership {
@@ -186,6 +187,30 @@ model SocialMessage {
   operatorNote          String
   usedInternalKnowledge Boolean   @default(false)
   postedAt              DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, widgetKey])
+}
+
+model EmailDraft {
+  id                    String    @id @default(cuid())
+  workspaceId           String
+  widgetKey             String
+  fromName              String
+  fromEmail             String
+  subject               String
+  body                  String
+  status                String
+  draftSubject          String
+  draftBody             String
+  intent                String
+  sources               Json?
+  operatorNote          String
+  usedInternalKnowledge Boolean   @default(false)
+  sentAt                DateTime?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

@@ -7,9 +7,35 @@ import { jsonError } from "@/lib/http";
 
 function cors(response: NextResponse) {
   response.headers.set("Access-Control-Allow-Origin", "*");
-  response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   return response;
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const widgetKey = request.nextUrl.searchParams.get("widgetKey")?.trim() ?? "";
+    const visitorKey = request.nextUrl.searchParams.get("visitorKey")?.trim() ?? "";
+    const conversationId = request.nextUrl.searchParams.get("conversationId")?.trim() || undefined;
+    if (!widgetKey || !visitorKey) {
+      throw new BillingError("Missing widget or visitor key.", "invalid");
+    }
+    const store = getBillingStore();
+    const thread = await new BillingService(store).loadWidgetThread(
+      widgetKey,
+      visitorKey,
+      conversationId,
+    );
+    return cors(
+      NextResponse.json({
+        conversationId: thread.conversation?.id ?? null,
+        waitingOnHuman: thread.conversation?.waitingOnHuman ?? false,
+        messages: thread.messages,
+      }),
+    );
+  } catch (error) {
+    return cors(jsonError(error, "Could not load the conversation."));
+  }
 }
 
 export async function OPTIONS() {
@@ -33,7 +59,10 @@ export async function POST(request: NextRequest) {
     const store = getBillingStore();
     const service = new BillingService(store);
     if (body.handoff && body.conversationId) {
-      const conversation = await service.handoffToHuman(widgetKey, body.conversationId);
+      const visitorKey = body.visitorKey?.trim() || "anonymous";
+      const thread = await service.loadWidgetThread(widgetKey, visitorKey, body.conversationId);
+      if (!thread.conversation) throw new BillingError("Conversation not found.", "not_found");
+      const conversation = await service.handoffToHuman(widgetKey, thread.conversation.id);
       return cors(
         NextResponse.json({
           conversationId: conversation.id,
@@ -54,7 +83,7 @@ export async function POST(request: NextRequest) {
         question,
         generate: generateCustomerReply,
       });
-      return cors(NextResponse.json(result));
+      return cors(NextResponse.json({ ...result, waitingOnHuman: result.waitingOnHuman ?? false }));
     } catch (error) {
       if (error instanceof BillingError && error.code === "limit") {
         const workspace = await store.getWorkspaceByWidgetKey(widgetKey);

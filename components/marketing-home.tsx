@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Check } from "lucide-react";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 const FEATURES = [
@@ -69,6 +70,7 @@ export function MarketingHome() {
           </CardContent>
         </Card>
       </main>
+      <SiteFooter />
     </div>
   );
 }

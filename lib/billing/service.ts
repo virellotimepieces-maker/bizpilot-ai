@@ -97,7 +97,97 @@ export class BillingService {
     ) => Promise<string>;
   }) {
     const now = options.now ?? new Date();
-    const gate = await this.assertWidgetCanReply(options.widgetKey, now);
+    const workspace = await this.store.getWorkspaceByWidgetKey(options.widgetKey);
+    if (!workspace) throw new BillingError("Unknown website widget.", "not_found");
+    const subscription = await this.store.getSubscriptionByWorkspace(workspace.id);
+    if (!hasPaidDashboardAccess(subscription, now)) {
+      throw new BillingError("This business’s BizPilot Pro subscription is not active.", "inactive");
+    }
+
+    if (options.conversationId) {
+      const existing = await this.store.getConversationForVisitor(
+        workspace.id,
+        options.visitorKey,
+        options.conversationId,
+      );
+      if (!existing) throw new BillingError("Conversation not found.", "not_found");
+    }
+
+    const thread =
+      (await this.store.getConversationForVisitor(
+        workspace.id,
+        options.visitorKey,
+        options.conversationId,
+      )) ??
+      (await this.store.createConversation({
+        workspaceId: workspace.id,
+        visitorKey: options.visitorKey,
+      }));
+
+    if (thread.waitingOnHuman) {
+      await this.store.addMessage({
+        workspaceId: workspace.id,
+        conversationId: thread.id,
+        role: "visitor",
+        content: options.question,
+        usageCounted: false,
+      });
+      const handoff =
+        workspace.knowledge?.escalation.handoffMessage ||
+        "A teammate is on this chat and will reply here. AI replies are paused.";
+      await this.store.addMessage({
+        workspaceId: workspace.id,
+        conversationId: thread.id,
+        role: "system",
+        content: handoff,
+        usageCounted: false,
+      });
+      return {
+        conversationId: thread.id,
+        answer: handoff,
+        waitingOnHuman: true,
+        sources: [],
+        usage: null,
+      };
+    }
+
+    let gate: Awaited<ReturnType<BillingService["assertWidgetCanReply"]>>;
+    try {
+      gate = await this.assertWidgetCanReply(options.widgetKey, now);
+    } catch (error) {
+      if (error instanceof BillingError && error.code === "limit") {
+        await this.store.addMessage({
+          workspaceId: workspace.id,
+          conversationId: thread.id,
+          role: "visitor",
+          content: options.question,
+          usageCounted: false,
+        });
+        await this.store.setConversationWaiting(thread.id, workspace.id, true);
+        await this.notifyLimit(workspace.id, subscription!.userId);
+        await this.notifyHumanNeeded(workspace.id, subscription!.userId);
+        const handoff =
+          workspace.knowledge?.escalation.handoffMessage ||
+          "I want to make sure you get a precise answer. I’m looping in a teammate who can take it from here.";
+        const answer = `This business has used its monthly AI reply allowance. ${handoff}`;
+        await this.store.addMessage({
+          workspaceId: workspace.id,
+          conversationId: thread.id,
+          role: "system",
+          content: answer,
+          usageCounted: false,
+        });
+        return {
+          conversationId: thread.id,
+          answer,
+          waitingOnHuman: true,
+          sources: [],
+          usage: { used: BIZPILOT_PRO.replyLimit, limit: BIZPILOT_PRO.replyLimit, remaining: 0 },
+        };
+      }
+      throw error;
+    }
+
     const pages = await this.store.listWebsitePages(gate.workspace.id, gate.workspace.widgetKey);
     const periodStartMs = gate.period.periodStart.getTime();
     const reserved = await this.store.reserveAiReply(gate.workspace.id, periodStartMs);
@@ -109,21 +199,9 @@ export class BillingService {
       );
     }
 
-    const conversation =
-      options.conversationId
-        ? await this.store.getConversation(options.conversationId, gate.workspace.id)
-        : await this.store.createConversation({
-            workspaceId: gate.workspace.id,
-            visitorKey: options.visitorKey,
-          });
-    if (!conversation) {
-      await this.store.releaseReservedAiReply(gate.workspace.id, periodStartMs);
-      throw new BillingError("Conversation not found.", "not_found");
-    }
-
     await this.store.addMessage({
       workspaceId: gate.workspace.id,
-      conversationId: conversation.id,
+      conversationId: thread.id,
       role: "visitor",
       content: options.question,
       usageCounted: false,
@@ -157,7 +235,7 @@ export class BillingService {
 
     await this.store.addMessage({
       workspaceId: gate.workspace.id,
-      conversationId: conversation.id,
+      conversationId: thread.id,
       role: "assistant",
       content: answer,
       usageCounted: true,
@@ -169,8 +247,9 @@ export class BillingService {
     }
 
     return {
-      conversationId: conversation.id,
+      conversationId: thread.id,
       answer,
+      waitingOnHuman: false,
       sources,
       usage: {
         used: committed.repliesUsed,
@@ -195,7 +274,75 @@ export class BillingService {
       content: "A teammate has been asked to take over this conversation.",
       usageCounted: false,
     });
+    await this.notifyHumanNeeded(workspace.id, subscription!.userId);
     return conversation;
+  }
+
+  async sendOperatorReply(input: {
+    workspaceId: string;
+    conversationId: string;
+    content: string;
+  }) {
+    const conversation = await this.store.getConversation(input.conversationId, input.workspaceId);
+    if (!conversation) throw new BillingError("Conversation not found.", "not_found");
+    const trimmed = input.content.trim();
+    if (!trimmed) throw new BillingError("Reply is required.", "invalid");
+    if (!conversation.waitingOnHuman) {
+      await this.store.setConversationWaiting(conversation.id, input.workspaceId, true);
+    }
+    const message = await this.store.addMessage({
+      workspaceId: input.workspaceId,
+      conversationId: conversation.id,
+      role: "human",
+      content: trimmed,
+      usageCounted: false,
+    });
+    return { conversation: { ...conversation, waitingOnHuman: true }, message };
+  }
+
+  async resumeAi(workspaceId: string, conversationId: string) {
+    const conversation = await this.store.getConversation(conversationId, workspaceId);
+    if (!conversation) throw new BillingError("Conversation not found.", "not_found");
+    const updated = await this.store.setConversationWaiting(conversationId, workspaceId, false);
+    await this.store.addMessage({
+      workspaceId,
+      conversationId,
+      role: "system",
+      content: "AI replies are on again for this conversation.",
+      usageCounted: false,
+    });
+    return updated;
+  }
+
+  async loadWidgetThread(widgetKey: string, visitorKey: string, conversationId?: string) {
+    const workspace = await this.store.getWorkspaceByWidgetKey(widgetKey);
+    if (!workspace) throw new BillingError("Unknown website widget.", "not_found");
+    const subscription = await this.store.getSubscriptionByWorkspace(workspace.id);
+    if (!hasPaidDashboardAccess(subscription)) {
+      throw new BillingError("This business’s BizPilot Pro subscription is not active.", "inactive");
+    }
+    const conversation = await this.store.getConversationForVisitor(
+      workspace.id,
+      visitorKey,
+      conversationId,
+    );
+    if (!conversation) {
+      return { conversation: null, messages: [] as Awaited<ReturnType<BillingStore["listMessages"]>> };
+    }
+    const messages = await this.store.listMessages(conversation.id, workspace.id);
+    return { conversation, messages };
+  }
+
+  private async notifyHumanNeeded(workspaceId: string, userId: string) {
+    const existing = await this.store.listNotifications(userId, workspaceId);
+    if (existing.some((row) => row.type === "human_needed" && !row.readAt)) return;
+    await this.store.addNotification({
+      userId,
+      workspaceId,
+      type: "human_needed",
+      message:
+        "A website visitor asked for a person. Open Inbox to reply in the widget. AI is paused on that conversation until you resume it.",
+    });
   }
 
   private async notifyLimit(workspaceId: string, userId: string) {

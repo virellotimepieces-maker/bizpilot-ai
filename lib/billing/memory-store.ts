@@ -8,6 +8,7 @@ import type {
   MembershipRecord,
   MessageRecord,
   NotificationRecord,
+  EmailDraftRecord,
   SocialMessageRecord,
   StripeEventRecord,
   SubscriptionRecord,
@@ -34,6 +35,7 @@ export class MemoryBillingStore implements BillingStore {
   conversations = new Map<string, ConversationRecord>();
   messages: MessageRecord[] = [];
   socialMessages: SocialMessageRecord[] = [];
+  emailDrafts: EmailDraftRecord[] = [];
   private locks = new Map<string, Promise<void>>();
 
   private async withLock<T>(key: string, fn: () => Promise<T> | T): Promise<T> {
@@ -78,6 +80,14 @@ export class MemoryBillingStore implements BillingStore {
 
   async findUserById(id: string) {
     return this.users.get(id) ?? null;
+  }
+
+  async updateUserPassword(id: string, passwordHash: string) {
+    const user = this.users.get(id);
+    if (!user) throw new Error("user_missing");
+    const next = { ...user, passwordHash };
+    this.users.set(id, next);
+    return next;
   }
 
   async createWorkspace(input: { ownerUserId: string; name: string }) {
@@ -305,10 +315,33 @@ export class MemoryBillingStore implements BillingStore {
     return row;
   }
 
+  async getConversationForVisitor(
+    workspaceId: string,
+    visitorKey: string,
+    conversationId?: string,
+  ) {
+    if (conversationId) {
+      const row = await this.getConversation(conversationId, workspaceId);
+      if (!row || row.visitorKey !== visitorKey) return null;
+      return row;
+    }
+    return (
+      [...this.conversations.values()]
+        .filter((row) => row.workspaceId === workspaceId && row.visitorKey === visitorKey)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null
+    );
+  }
+
   async listConversations(workspaceId: string) {
     return [...this.conversations.values()]
       .filter((row) => row.workspaceId === workspaceId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async countWaitingConversations(workspaceId: string) {
+    return [...this.conversations.values()].filter(
+      (row) => row.workspaceId === workspaceId && row.waitingOnHuman,
+    ).length;
   }
 
   async setConversationWaiting(id: string, workspaceId: string, waiting: boolean) {
@@ -500,6 +533,91 @@ export class MemoryBillingStore implements BillingStore {
     if (patch.draftBody !== undefined) row.draftBody = patch.draftBody;
     if (patch.status !== undefined) row.status = patch.status;
     if (patch.postedAt !== undefined) row.postedAt = patch.postedAt;
+    if (patch.operatorNote !== undefined) row.operatorNote = patch.operatorNote;
+    if (patch.intent !== undefined) row.intent = patch.intent;
+    if (patch.sources !== undefined) row.sources = patch.sources;
+    if (patch.usedInternalKnowledge !== undefined) {
+      row.usedInternalKnowledge = patch.usedInternalKnowledge;
+    }
+    row.updatedAt = new Date();
+    return row;
+  }
+
+  async listEmailDrafts(workspaceId: string, widgetKey: string) {
+    return this.emailDrafts
+      .filter((row) => row.workspaceId === workspaceId && row.widgetKey === widgetKey)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getEmailDraft(id: string, workspaceId: string, widgetKey: string) {
+    const row = this.emailDrafts.find((item) => item.id === id);
+    if (!row || row.workspaceId !== workspaceId || row.widgetKey !== widgetKey) return null;
+    return row;
+  }
+
+  async createEmailDraft(input: {
+    workspaceId: string;
+    widgetKey: string;
+    fromName: string;
+    fromEmail: string;
+    subject: string;
+    body: string;
+    status: string;
+    draftSubject: string;
+    draftBody: string;
+    intent: string;
+    sources?: ReplySource[] | null;
+    operatorNote: string;
+    usedInternalKnowledge: boolean;
+  }) {
+    const now = new Date();
+    const row: EmailDraftRecord = {
+      id: randomUUID(),
+      workspaceId: input.workspaceId,
+      widgetKey: input.widgetKey,
+      fromName: input.fromName,
+      fromEmail: input.fromEmail,
+      subject: input.subject,
+      body: input.body,
+      status: input.status,
+      draftSubject: input.draftSubject,
+      draftBody: input.draftBody,
+      intent: input.intent,
+      sources: input.sources ?? null,
+      operatorNote: input.operatorNote,
+      usedInternalKnowledge: input.usedInternalKnowledge,
+      sentAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.emailDrafts.push(row);
+    return row;
+  }
+
+  async updateEmailDraft(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+    patch: Partial<
+      Pick<
+        EmailDraftRecord,
+        | "draftBody"
+        | "draftSubject"
+        | "status"
+        | "sentAt"
+        | "operatorNote"
+        | "intent"
+        | "sources"
+        | "usedInternalKnowledge"
+      >
+    >,
+  ) {
+    const row = await this.getEmailDraft(id, workspaceId, widgetKey);
+    if (!row) throw new Error("email_missing");
+    if (patch.draftBody !== undefined) row.draftBody = patch.draftBody;
+    if (patch.draftSubject !== undefined) row.draftSubject = patch.draftSubject;
+    if (patch.status !== undefined) row.status = patch.status;
+    if (patch.sentAt !== undefined) row.sentAt = patch.sentAt;
     if (patch.operatorNote !== undefined) row.operatorNote = patch.operatorNote;
     if (patch.intent !== undefined) row.intent = patch.intent;
     if (patch.sources !== undefined) row.sources = patch.sources;

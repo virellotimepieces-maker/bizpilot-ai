@@ -6,6 +6,7 @@ import type {
   MembershipRole,
   MessageRecord,
   NotificationRecord,
+  EmailDraftRecord,
   SocialMessageRecord,
   StripeEventRecord,
   SubscriptionRecord,
@@ -38,6 +39,7 @@ export interface BillingStore {
   createUser(input: CreateUserInput): Promise<UserRecord>;
   findUserByEmail(email: string): Promise<UserRecord | null>;
   findUserById(id: string): Promise<UserRecord | null>;
+  updateUserPassword(id: string, passwordHash: string): Promise<UserRecord>;
 
   createWorkspace(input: { ownerUserId: string; name: string }): Promise<WorkspaceRecord>;
   getWorkspace(id: string): Promise<WorkspaceRecord | null>;
@@ -88,7 +90,13 @@ export interface BillingStore {
     visitorKey: string;
   }): Promise<ConversationRecord>;
   getConversation(id: string, workspaceId: string): Promise<ConversationRecord | null>;
+  getConversationForVisitor(
+    workspaceId: string,
+    visitorKey: string,
+    conversationId?: string,
+  ): Promise<ConversationRecord | null>;
   listConversations(workspaceId: string): Promise<ConversationRecord[]>;
+  countWaitingConversations(workspaceId: string): Promise<number>;
   setConversationWaiting(id: string, workspaceId: string, waiting: boolean): Promise<ConversationRecord>;
   addMessage(input: {
     workspaceId: string;
@@ -151,4 +159,44 @@ export interface BillingStore {
       >
     >,
   ): Promise<SocialMessageRecord>;
+
+  listEmailDrafts(workspaceId: string, widgetKey: string): Promise<EmailDraftRecord[]>;
+  getEmailDraft(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+  ): Promise<EmailDraftRecord | null>;
+  createEmailDraft(input: {
+    workspaceId: string;
+    widgetKey: string;
+    fromName: string;
+    fromEmail: string;
+    subject: string;
+    body: string;
+    status: string;
+    draftSubject: string;
+    draftBody: string;
+    intent: string;
+    sources?: ReplySource[] | null;
+    operatorNote: string;
+    usedInternalKnowledge: boolean;
+  }): Promise<EmailDraftRecord>;
+  updateEmailDraft(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+    patch: Partial<
+      Pick<
+        EmailDraftRecord,
+        | "draftBody"
+        | "draftSubject"
+        | "status"
+        | "sentAt"
+        | "operatorNote"
+        | "intent"
+        | "sources"
+        | "usedInternalKnowledge"
+      >
+    >,
+  ): Promise<EmailDraftRecord>;
 }

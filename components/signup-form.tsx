@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { PasswordInput } from "@/components/password-input";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -132,9 +133,21 @@ export function SignupForm() {
                 Sign in
               </Link>
             </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Creating an account means you agree to the{" "}
+              <Link className="underline" href="/terms">
+                Terms
+              </Link>{" "}
+              and{" "}
+              <Link className="underline" href="/privacy">
+                Privacy Policy
+              </Link>
+              .
+            </p>
           </CardContent>
         </Card>
       </main>
+      <SiteFooter />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/field";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -72,9 +73,17 @@ export function LoginForm() {
                 Create an account
               </Link>
             </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              There is no password-reset email. After you sign in, change the password on{" "}
+              <Link className="underline" href="/account">
+                Account
+              </Link>
+              .
+            </p>
           </CardContent>
         </Card>
       </main>
+      <SiteFooter />
     </div>
   );
 }

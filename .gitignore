@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local widget playground — not part of the product
+/app/widget-sandbox/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

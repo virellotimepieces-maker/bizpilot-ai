@@ -13,8 +13,8 @@ Customer support for one business at a time, billed as **BizPilot Pro**.
 - One business workspace
 - One installed website widget
 - 500 AI-generated customer replies per billing month
-- Knowledge base, conversation inbox, email drafts, and social drafts (copy and post yourself)
-- Instagram, Facebook, TikTok, and Messenger are not live-connected — there is no auto-post
+- Knowledge base, website inbox (you can reply in the widget; AI pauses until you resume it), email drafts, and social drafts
+- Email and social are drafts you send or post yourself — no SMTP send, no live Meta/TikTok, no auto-post
 - Cancel anytime
 - No automatic overage charges
 - When the 500-reply limit is reached, AI replies stop and the owner is notified
@@ -66,8 +66,12 @@ Open [http://localhost:43127](http://localhost:43127).
 - `/demo` local demo desk (no billing, no AI)
 - `/demo/social` paste Instagram, Facebook, TikTok, or Messenger messages into drafts (never auto-posted)
 - `/signup` and `/login` paid accounts (need `DATABASE_URL` + `AUTH_SECRET`)
+- `/privacy` and `/terms`
 - `/billing` Stripe Checkout and Customer Portal
 - `/app` paid dashboard (blocked unless the subscription is active)
+- `/app/inbox` website widget conversations — send a reply into the live chat
+- `/app/email` paste a received email, copy the draft, mark it sent yourself
+- `/account` change password while signed in (no reset email)
 
 On Knowledge, paid workspaces can verify a public domain and click **Sync website**. Domain verification follows HTTPS redirects to the live homepage, then matches the workspace widget script by origin and pathname (query parameters such as `?v=` are ignored). Sync reads `sitemap.xml` recursively (Shopify product, collection, page, and blog sitemaps, including gzip and query-string child sitemaps), always crawls public `/policies/*` URLs, skips cart/checkout/account/search/admin/preview URLs, and answers only from that subscriber’s indexed pages. A sync that indexes 0 pages is reported as a failure. Verified sites re-sync daily via `/api/cron/website-sync`.
 

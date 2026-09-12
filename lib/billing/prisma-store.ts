@@ -11,6 +11,7 @@ import type {
   MembershipRecord,
   MessageRecord,
   NotificationRecord,
+  EmailDraftRecord,
   SocialMessageRecord,
   StripeEventRecord,
   SubscriptionRecord,
@@ -117,6 +118,31 @@ function mapSocialMessage(row: {
   };
 }
 
+function mapEmailDraft(row: {
+  id: string;
+  workspaceId: string;
+  widgetKey: string;
+  fromName: string;
+  fromEmail: string;
+  subject: string;
+  body: string;
+  status: string;
+  draftSubject: string;
+  draftBody: string;
+  intent: string;
+  sources: unknown;
+  operatorNote: string;
+  usedInternalKnowledge: boolean;
+  sentAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): EmailDraftRecord {
+  return {
+    ...row,
+    sources: asReplySources(row.sources),
+  };
+}
+
 function asSources(value: unknown): MessageRecord["sources"] {
   if (!Array.isArray(value)) return null;
   return value.filter((row): row is NonNullable<MessageRecord["sources"]>[number] => {
@@ -216,6 +242,14 @@ export class PrismaBillingStore implements BillingStore {
   async findUserById(id: string) {
     const row = await this.prisma().user.findUnique({ where: { id } });
     return row ? mapUser(row) : null;
+  }
+
+  async updateUserPassword(id: string, passwordHash: string) {
+    const row = await this.prisma().user.update({
+      where: { id },
+      data: { passwordHash },
+    });
+    return mapUser(row);
   }
 
   async createWorkspace(input: { ownerUserId: string; name: string }) {
@@ -458,12 +492,36 @@ export class PrismaBillingStore implements BillingStore {
     return row as ConversationRecord | null;
   }
 
+  async getConversationForVisitor(
+    workspaceId: string,
+    visitorKey: string,
+    conversationId?: string,
+  ) {
+    if (conversationId) {
+      const row = await this.prisma().conversation.findFirst({
+        where: { id: conversationId, workspaceId, visitorKey },
+      });
+      return row as ConversationRecord | null;
+    }
+    const row = await this.prisma().conversation.findFirst({
+      where: { workspaceId, visitorKey },
+      orderBy: { createdAt: "desc" },
+    });
+    return row as ConversationRecord | null;
+  }
+
   async listConversations(workspaceId: string) {
     const rows = await this.prisma().conversation.findMany({
       where: { workspaceId },
       orderBy: { createdAt: "desc" },
     });
     return rows as ConversationRecord[];
+  }
+
+  async countWaitingConversations(workspaceId: string) {
+    return this.prisma().conversation.count({
+      where: { workspaceId, waitingOnHuman: true },
+    });
   }
 
   async setConversationWaiting(id: string, workspaceId: string, waiting: boolean) {
@@ -701,5 +759,98 @@ export class PrismaBillingStore implements BillingStore {
       },
     });
     return mapSocialMessage(row);
+  }
+
+  async listEmailDrafts(workspaceId: string, widgetKey: string) {
+    const rows = await this.prisma().emailDraft.findMany({
+      where: { workspaceId, widgetKey },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map(mapEmailDraft);
+  }
+
+  async getEmailDraft(id: string, workspaceId: string, widgetKey: string) {
+    const row = await this.prisma().emailDraft.findFirst({
+      where: { id, workspaceId, widgetKey },
+    });
+    return row ? mapEmailDraft(row) : null;
+  }
+
+  async createEmailDraft(input: {
+    workspaceId: string;
+    widgetKey: string;
+    fromName: string;
+    fromEmail: string;
+    subject: string;
+    body: string;
+    status: string;
+    draftSubject: string;
+    draftBody: string;
+    intent: string;
+    sources?: ReplySource[] | null;
+    operatorNote: string;
+    usedInternalKnowledge: boolean;
+  }) {
+    const row = await this.prisma().emailDraft.create({
+      data: {
+        workspaceId: input.workspaceId,
+        widgetKey: input.widgetKey,
+        fromName: input.fromName,
+        fromEmail: input.fromEmail,
+        subject: input.subject,
+        body: input.body,
+        status: input.status,
+        draftSubject: input.draftSubject,
+        draftBody: input.draftBody,
+        intent: input.intent,
+        sources:
+          input.sources === undefined || input.sources === null
+            ? undefined
+            : (input.sources as unknown as Prisma.InputJsonValue),
+        operatorNote: input.operatorNote,
+        usedInternalKnowledge: input.usedInternalKnowledge,
+      },
+    });
+    return mapEmailDraft(row);
+  }
+
+  async updateEmailDraft(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+    patch: Partial<
+      Pick<
+        EmailDraftRecord,
+        | "draftBody"
+        | "draftSubject"
+        | "status"
+        | "sentAt"
+        | "operatorNote"
+        | "intent"
+        | "sources"
+        | "usedInternalKnowledge"
+      >
+    >,
+  ) {
+    const existing = await this.getEmailDraft(id, workspaceId, widgetKey);
+    if (!existing) throw new Error("email_missing");
+    const row = await this.prisma().emailDraft.update({
+      where: { id },
+      data: {
+        ...(patch.draftBody !== undefined ? { draftBody: patch.draftBody } : {}),
+        ...(patch.draftSubject !== undefined ? { draftSubject: patch.draftSubject } : {}),
+        ...(patch.status !== undefined ? { status: patch.status } : {}),
+        ...(patch.sentAt !== undefined ? { sentAt: patch.sentAt } : {}),
+        ...(patch.operatorNote !== undefined ? { operatorNote: patch.operatorNote } : {}),
+        ...(patch.intent !== undefined ? { intent: patch.intent } : {}),
+        ...(patch.sources !== undefined
+          ? { sources: (patch.sources ?? Prisma.JsonNull) as unknown as Prisma.InputJsonValue }
+          : {}),
+        ...(patch.usedInternalKnowledge !== undefined
+          ? { usedInternalKnowledge: patch.usedInternalKnowledge }
+          : {}),
+      },
+    });
+    return mapEmailDraft(row);
   }
 }

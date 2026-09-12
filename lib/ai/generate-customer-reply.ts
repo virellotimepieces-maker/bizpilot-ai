@@ -1,56 +1,9 @@
+import { knowledgePrompt, WIDGET_SYSTEM_RULES } from "@/lib/ai/knowledge-prompt";
 import { BillingError } from "@/lib/billing/types";
 import type { KnowledgeBase } from "@/lib/types";
 import { groundedWebsiteAnswer, websitePagesPrompt, WEBSITE_NO_SOURCE_ANSWER } from "@/lib/website/answer";
 import { retrieveRelevantPages } from "@/lib/website/retrieve";
 import type { WebsitePageRecord } from "@/lib/website/types";
-
-function knowledgePrompt(knowledge: KnowledgeBase | null) {
-  if (!knowledge) {
-    return "The business has not published a knowledge base yet. Do not invent offerings, prices, or policies.";
-  }
-  return [
-    `Business name: ${knowledge.name || "(untitled)"}`,
-    knowledge.tagline && `Tagline: ${knowledge.tagline}`,
-    knowledge.industry && `Industry: ${knowledge.industry}`,
-    knowledge.description && `About the business:\n${knowledge.description}`,
-    knowledge.pricingNotes && `Prices or rates:\n${knowledge.pricingNotes}`,
-    knowledge.offerings
-      ?.filter((row) => row.name.trim())
-      .map(
-        (row) =>
-          `- ${row.name}: ${row.summary} ${row.price ? `Price ${row.price}.` : ""} ${row.availability ? `Availability ${row.availability}.` : ""}`,
-      )
-      .join("\n"),
-    knowledge.policies
-      ?.filter((row) => row.title.trim())
-      .map((row) => `- ${row.title}: ${row.summary}`)
-      .join("\n"),
-    knowledge.faqs
-      ?.filter((row) => row.question.trim())
-      .map((row) => `Q: ${row.question}\nA: ${row.answer}`)
-      .join("\n"),
-    knowledge.documents
-      ?.filter((row) => row.visibility === "public" && row.body.trim())
-      .map((row) => `${row.title}:\n${row.body}`)
-      .join("\n"),
-    knowledge.contact &&
-      `Contact: ${[
-        knowledge.contact.phone,
-        knowledge.contact.email,
-        knowledge.contact.address,
-        knowledge.contact.instagram && `Instagram ${knowledge.contact.instagram}`,
-        knowledge.contact.facebook && `Facebook ${knowledge.contact.facebook}`,
-        knowledge.contact.tiktok && `TikTok ${knowledge.contact.tiktok}`,
-        knowledge.contact.messenger && `Messenger ${knowledge.contact.messenger}`,
-      ]
-        .filter(Boolean)
-        .join(" · ")}`,
-    knowledge.escalation?.handoffMessage &&
-      `When you cannot answer, offer this handoff: ${knowledge.escalation.handoffMessage}`,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-}
 
 export async function generateCustomerReply(
   knowledge: KnowledgeBase | null,
@@ -99,7 +52,7 @@ export async function generateCustomerReply(
       messages: [
         {
           role: "system",
-          content: `You are the website chat assistant for one BizPilot subscriber. Answer only from that subscriber's indexed website pages and published knowledge below. If those sources do not contain the answer, say the information is unavailable and offer a human teammate. Never invent prices, policies, or capabilities. Never use another business's content.\n\nIndexed website pages (include facts only from these URLs):\n${websitePagesPrompt(relevant)}\n\nPublished knowledge:\n${knowledgePrompt(knowledge)}`,
+          content: `${WIDGET_SYSTEM_RULES}\n\nIndexed website pages (include facts only from these URLs):\n${websitePagesPrompt(relevant)}\n\nPublished knowledge:\n${knowledgePrompt(knowledge)}`,
         },
         { role: "user", content: question },
       ],

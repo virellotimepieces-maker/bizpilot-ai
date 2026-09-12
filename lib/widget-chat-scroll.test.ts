@@ -63,6 +63,9 @@ describe("widget chat auto-scroll", () => {
     assert.match(chat, /overscroll-contain/);
     assert.match(chat, /pinToBottomRef\.current = true/);
     assert.match(chat, /ResizeObserver/);
+    assert.match(chat, /Talk to a person/);
+    assert.match(chat, /role === "human"/);
+    assert.match(chat, /setInterval\(\(\) => \{\s*void syncThread\(\);/);
     assert.doesNotMatch(chat, /window\.scrollTo|document\.documentElement\.scroll/);
   });
 });

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { EMAIL_STATUS_LABEL } from "@/lib/email-draft";
 import { INTENT_LABEL } from "@/lib/intent-labels";
 import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS, PAGE_TITLE_CLASS } from "@/lib/ui/type-scale";
 import type { EmailMessage, EmailStatus } from "@/lib/types";
@@ -23,14 +24,6 @@ import { useWorkspace } from "@/lib/workspace-store";
 import { MailPlus, RefreshCw, Send, ShieldAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-
-const STATUS_LABEL: Record<EmailStatus, string> = {
-  draft_ready: "Draft ready",
-  needs_review: "Needs review",
-  escalated: "Escalated",
-  sent: "Sent",
-  discarded: "Discarded",
-};
 
 export function EmailInbox() {
   return (
@@ -226,7 +219,7 @@ function StatusBadge({ status }: { status: EmailStatus }) {
         : status === "discarded"
           ? "outline"
           : "default";
-  return <Badge variant={variant}>{STATUS_LABEL[status]}</Badge>;
+  return <Badge variant={variant}>{EMAIL_STATUS_LABEL[status]}</Badge>;
 }
 
 function EmailDetail({

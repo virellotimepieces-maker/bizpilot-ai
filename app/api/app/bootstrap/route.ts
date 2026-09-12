@@ -4,6 +4,7 @@ import { getBillingStore } from "@/lib/billing/factory";
 import { BillingService, hasPaidDashboardAccess } from "@/lib/billing/service";
 import { BillingError } from "@/lib/billing/types";
 import { jsonError } from "@/lib/http";
+import { workspaceSetup } from "@/lib/desk-setup";
 import { BIZPILOT_PRO } from "@/lib/plan";
 import { missingPaidEnv } from "@/lib/env";
 
@@ -27,12 +28,27 @@ export async function GET() {
     const notifications = workspace
       ? await store.listNotifications(userId, workspace.id)
       : [];
+    const website = workspace ? await store.getWebsiteSource(workspace.id) : null;
+    const pages = workspace
+      ? await store.listWebsitePages(workspace.id, workspace.widgetKey)
+      : [];
+    const waitingOnHuman = workspace
+      ? await store.countWaitingConversations(workspace.id)
+      : 0;
+    const setup = workspaceSetup({
+      knowledge: workspace?.knowledge ?? null,
+      websiteVerified: Boolean(website?.verifiedAt),
+      websitePageCount: pages.length,
+      waitingOnHuman,
+    });
     return NextResponse.json({
       user: { id: user.id, email: user.email, name: user.name },
       workspace,
       subscription,
       usage,
       notifications,
+      setup,
+      waitingOnHuman,
       plan: BIZPILOT_PRO,
       paidAccess: hasPaidDashboardAccess(subscription),
       missingEnv: missingPaidEnv(),
