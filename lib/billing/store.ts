@@ -7,6 +7,8 @@ import type {
   MessageRecord,
   NotificationRecord,
   EmailDraftRecord,
+  GmailConnectionRecord,
+  GmailReplyDraftRecord,
   SocialMessageRecord,
   StripeEventRecord,
   SubscriptionRecord,
@@ -199,4 +201,81 @@ export interface BillingStore {
       >
     >,
   ): Promise<EmailDraftRecord>;
+
+  getGmailConnection(workspaceId: string): Promise<GmailConnectionRecord | null>;
+  upsertGmailConnection(input: {
+    workspaceId: string;
+    googleEmail: string;
+    googleSub?: string | null;
+    encryptedRefreshToken: string;
+    encryptedAccessToken: string;
+    accessTokenExpiresAt: Date;
+    scopes: string;
+    status: string;
+  }): Promise<GmailConnectionRecord>;
+  updateGmailConnection(
+    workspaceId: string,
+    patch: Partial<
+      Pick<
+        GmailConnectionRecord,
+        | "googleEmail"
+        | "googleSub"
+        | "encryptedRefreshToken"
+        | "encryptedAccessToken"
+        | "accessTokenExpiresAt"
+        | "scopes"
+        | "status"
+      >
+    >,
+  ): Promise<GmailConnectionRecord>;
+  deleteGmailConnection(workspaceId: string): Promise<void>;
+  getGmailReplyDraft(workspaceId: string, gmailMessageId: string): Promise<GmailReplyDraftRecord | null>;
+  upsertGmailReplyDraft(input: {
+    workspaceId: string;
+    gmailMessageId: string;
+    gmailThreadId: string;
+    rfcMessageId?: string | null;
+    fromName: string;
+    fromEmail: string;
+    subject: string;
+    body: string;
+    receivedAt?: Date | null;
+    draftSubject: string;
+    draftBody: string;
+    intent: string;
+    sources?: ReplySource[] | null;
+    operatorNote: string;
+    usedInternalKnowledge: boolean;
+    status: string;
+  }): Promise<GmailReplyDraftRecord>;
+  updateGmailReplyDraft(
+    workspaceId: string,
+    gmailMessageId: string,
+    patch: Partial<
+      Pick<
+        GmailReplyDraftRecord,
+        | "draftSubject"
+        | "draftBody"
+        | "intent"
+        | "sources"
+        | "operatorNote"
+        | "usedInternalKnowledge"
+        | "status"
+        | "sentAt"
+        | "sendLockAt"
+        | "rfcMessageId"
+        | "gmailThreadId"
+        | "fromName"
+        | "fromEmail"
+        | "subject"
+        | "body"
+        | "receivedAt"
+      >
+    >,
+  ): Promise<GmailReplyDraftRecord>;
+  claimGmailReplySend(
+    workspaceId: string,
+    gmailMessageId: string,
+    now?: Date,
+  ): Promise<GmailReplyDraftRecord>;
 }

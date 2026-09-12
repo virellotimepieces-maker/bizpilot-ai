@@ -35,11 +35,11 @@ export default function TermsPage() {
             </p>
           </section>
           <section>
-            <h2 className="font-heading text-xl">Drafts, not auto-send</h2>
+            <h2 className="font-heading text-xl">Drafts and Gmail send</h2>
             <p className="mt-2 text-muted-foreground">
-              Email drafts and social drafts are never sent or posted by BizPilot. Copy them and
-              send or post them yourself. There is no Meta or TikTok connection and no SMTP send
-              path in this product.
+              Suggested email replies are never sent automatically. If you connect Gmail, a reply
+              goes out through that Gmail account only after you press Send reply and confirm.
+              Social drafts are never posted by BizPilot. There is no Meta or TikTok connection.
             </p>
           </section>
           <section>

@@ -41,11 +41,14 @@ export async function POST(request: NextRequest) {
     if (!body.body?.trim()) {
       throw new BillingError("Message is required.", "invalid");
     }
+    if (!body.fromEmail?.trim()) {
+      throw new BillingError("Sender email is required.", "invalid");
+    }
     const kb = normalizeKnowledge(workspace.knowledge ?? emptyKnowledge("custom"));
     const draft = draftEmailFromInbound({
       kb,
-      fromName: body.fromName?.trim() || "Customer",
-      fromEmail: body.fromEmail?.trim() || "customer@example.com",
+      fromName: body.fromName?.trim() || body.fromEmail.trim(),
+      fromEmail: body.fromEmail.trim(),
       subject: body.subject?.trim() || "(no subject)",
       body: body.body.trim(),
     });

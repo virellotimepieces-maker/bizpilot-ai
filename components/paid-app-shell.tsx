@@ -20,7 +20,7 @@ const NAV = [
   { href: "/app", label: "Overview", short: "Overview", icon: LayoutDashboard },
   { href: "/app/knowledge", label: "Knowledge", short: "Knowledge", icon: BookOpen },
   { href: "/app/inbox", label: "Inbox", short: "Inbox", icon: Inbox },
-  { href: "/app/email", label: "Email drafts", short: "Email", icon: Mail },
+  { href: "/app/email", label: "Email", short: "Email", icon: Mail },
   { href: "/app/social", label: "Social drafts", short: "Social", icon: Share2 },
   { href: "/app/widget", label: "Website widget", short: "Widget", icon: Puzzle },
   { href: "/billing", label: "Billing", short: "Billing", icon: CreditCard },

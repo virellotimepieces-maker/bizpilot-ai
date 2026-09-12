@@ -99,9 +99,10 @@ export function PaidInbox() {
         <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
           Reply here and the visitor sees it in the widget. Website chat answers safe questions
           (hours, published prices, contact) on its own. Complaints, legal, medical, emergencies,
-          and “Talk to a person” pause AI until you resume it. Email and social stay drafts —{" "}
+          and “Talk to a person” pause AI until you resume it. Email replies send through Gmail
+          only after you confirm. Social stays a draft —{" "}
           <Link href="/app/email" className="underline underline-offset-2">
-            Email drafts
+            Email
           </Link>{" "}
           and{" "}
           <Link href="/app/social" className="underline underline-offset-2">

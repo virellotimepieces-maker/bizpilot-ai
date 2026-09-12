@@ -12,6 +12,8 @@ import type {
   MessageRecord,
   NotificationRecord,
   EmailDraftRecord,
+  GmailConnectionRecord,
+  GmailReplyDraftRecord,
   SocialMessageRecord,
   StripeEventRecord,
   SubscriptionRecord,
@@ -137,6 +139,51 @@ function mapEmailDraft(row: {
   createdAt: Date;
   updatedAt: Date;
 }): EmailDraftRecord {
+  return {
+    ...row,
+    sources: asReplySources(row.sources),
+  };
+}
+
+function mapGmailConnection(row: {
+  id: string;
+  workspaceId: string;
+  googleEmail: string;
+  googleSub: string | null;
+  encryptedRefreshToken: string;
+  encryptedAccessToken: string;
+  accessTokenExpiresAt: Date;
+  scopes: string;
+  status: string;
+  connectedAt: Date;
+  updatedAt: Date;
+}): GmailConnectionRecord {
+  return row;
+}
+
+function mapGmailReplyDraft(row: {
+  id: string;
+  workspaceId: string;
+  gmailMessageId: string;
+  gmailThreadId: string;
+  rfcMessageId: string | null;
+  fromName: string;
+  fromEmail: string;
+  subject: string;
+  body: string;
+  receivedAt: Date | null;
+  draftSubject: string;
+  draftBody: string;
+  intent: string;
+  sources: unknown;
+  operatorNote: string;
+  usedInternalKnowledge: boolean;
+  status: string;
+  sentAt: Date | null;
+  sendLockAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): GmailReplyDraftRecord {
   return {
     ...row,
     sources: asReplySources(row.sources),
@@ -852,5 +899,236 @@ export class PrismaBillingStore implements BillingStore {
       },
     });
     return mapEmailDraft(row);
+  }
+
+  async getGmailConnection(workspaceId: string) {
+    const row = await this.prisma().gmailConnection.findUnique({ where: { workspaceId } });
+    return row ? mapGmailConnection(row) : null;
+  }
+
+  async upsertGmailConnection(input: {
+    workspaceId: string;
+    googleEmail: string;
+    googleSub?: string | null;
+    encryptedRefreshToken: string;
+    encryptedAccessToken: string;
+    accessTokenExpiresAt: Date;
+    scopes: string;
+    status: string;
+  }) {
+    const row = await this.prisma().gmailConnection.upsert({
+      where: { workspaceId: input.workspaceId },
+      create: {
+        workspaceId: input.workspaceId,
+        googleEmail: input.googleEmail,
+        googleSub: input.googleSub ?? null,
+        encryptedRefreshToken: input.encryptedRefreshToken,
+        encryptedAccessToken: input.encryptedAccessToken,
+        accessTokenExpiresAt: input.accessTokenExpiresAt,
+        scopes: input.scopes,
+        status: input.status,
+      },
+      update: {
+        googleEmail: input.googleEmail,
+        googleSub: input.googleSub ?? null,
+        encryptedRefreshToken: input.encryptedRefreshToken,
+        encryptedAccessToken: input.encryptedAccessToken,
+        accessTokenExpiresAt: input.accessTokenExpiresAt,
+        scopes: input.scopes,
+        status: input.status,
+      },
+    });
+    return mapGmailConnection(row);
+  }
+
+  async updateGmailConnection(
+    workspaceId: string,
+    patch: Partial<
+      Pick<
+        GmailConnectionRecord,
+        | "googleEmail"
+        | "googleSub"
+        | "encryptedRefreshToken"
+        | "encryptedAccessToken"
+        | "accessTokenExpiresAt"
+        | "scopes"
+        | "status"
+      >
+    >,
+  ) {
+    const existing = await this.getGmailConnection(workspaceId);
+    if (!existing) throw new Error("gmail_missing");
+    const row = await this.prisma().gmailConnection.update({
+      where: { workspaceId },
+      data: {
+        ...(patch.googleEmail !== undefined ? { googleEmail: patch.googleEmail } : {}),
+        ...(patch.googleSub !== undefined ? { googleSub: patch.googleSub } : {}),
+        ...(patch.encryptedRefreshToken !== undefined
+          ? { encryptedRefreshToken: patch.encryptedRefreshToken }
+          : {}),
+        ...(patch.encryptedAccessToken !== undefined
+          ? { encryptedAccessToken: patch.encryptedAccessToken }
+          : {}),
+        ...(patch.accessTokenExpiresAt !== undefined
+          ? { accessTokenExpiresAt: patch.accessTokenExpiresAt }
+          : {}),
+        ...(patch.scopes !== undefined ? { scopes: patch.scopes } : {}),
+        ...(patch.status !== undefined ? { status: patch.status } : {}),
+      },
+    });
+    return mapGmailConnection(row);
+  }
+
+  async deleteGmailConnection(workspaceId: string) {
+    await this.prisma().gmailReplyDraft.deleteMany({ where: { workspaceId } });
+    await this.prisma().gmailConnection.deleteMany({ where: { workspaceId } });
+  }
+
+  async getGmailReplyDraft(workspaceId: string, gmailMessageId: string) {
+    const row = await this.prisma().gmailReplyDraft.findUnique({
+      where: { workspaceId_gmailMessageId: { workspaceId, gmailMessageId } },
+    });
+    return row ? mapGmailReplyDraft(row) : null;
+  }
+
+  async upsertGmailReplyDraft(input: {
+    workspaceId: string;
+    gmailMessageId: string;
+    gmailThreadId: string;
+    rfcMessageId?: string | null;
+    fromName: string;
+    fromEmail: string;
+    subject: string;
+    body: string;
+    receivedAt?: Date | null;
+    draftSubject: string;
+    draftBody: string;
+    intent: string;
+    sources?: ReplySource[] | null;
+    operatorNote: string;
+    usedInternalKnowledge: boolean;
+    status: string;
+  }) {
+    const existing = await this.getGmailReplyDraft(input.workspaceId, input.gmailMessageId);
+    const sources =
+      input.sources === undefined || input.sources === null
+        ? Prisma.JsonNull
+        : (input.sources as unknown as Prisma.InputJsonValue);
+    if (existing) {
+      const row = await this.prisma().gmailReplyDraft.update({
+        where: { id: existing.id },
+        data: {
+          gmailThreadId: input.gmailThreadId,
+          rfcMessageId: input.rfcMessageId ?? existing.rfcMessageId,
+          fromName: input.fromName,
+          fromEmail: input.fromEmail,
+          subject: input.subject,
+          body: input.body,
+          receivedAt: input.receivedAt ?? existing.receivedAt,
+          ...(existing.status === "sent"
+            ? {}
+            : {
+                draftSubject: input.draftSubject,
+                draftBody: input.draftBody,
+                intent: input.intent,
+                sources,
+                operatorNote: input.operatorNote,
+                usedInternalKnowledge: input.usedInternalKnowledge,
+                status: input.status,
+              }),
+        },
+      });
+      return mapGmailReplyDraft(row);
+    }
+    const row = await this.prisma().gmailReplyDraft.create({
+      data: {
+        workspaceId: input.workspaceId,
+        gmailMessageId: input.gmailMessageId,
+        gmailThreadId: input.gmailThreadId,
+        rfcMessageId: input.rfcMessageId ?? null,
+        fromName: input.fromName,
+        fromEmail: input.fromEmail,
+        subject: input.subject,
+        body: input.body,
+        receivedAt: input.receivedAt ?? null,
+        draftSubject: input.draftSubject,
+        draftBody: input.draftBody,
+        intent: input.intent,
+        sources: input.sources === undefined || input.sources === null ? undefined : sources,
+        operatorNote: input.operatorNote,
+        usedInternalKnowledge: input.usedInternalKnowledge,
+        status: input.status,
+      },
+    });
+    return mapGmailReplyDraft(row);
+  }
+
+  async updateGmailReplyDraft(
+    workspaceId: string,
+    gmailMessageId: string,
+    patch: Partial<
+      Pick<
+        GmailReplyDraftRecord,
+        | "draftSubject"
+        | "draftBody"
+        | "intent"
+        | "sources"
+        | "operatorNote"
+        | "usedInternalKnowledge"
+        | "status"
+        | "sentAt"
+        | "sendLockAt"
+        | "rfcMessageId"
+        | "gmailThreadId"
+        | "fromName"
+        | "fromEmail"
+        | "subject"
+        | "body"
+        | "receivedAt"
+      >
+    >,
+  ) {
+    const existing = await this.getGmailReplyDraft(workspaceId, gmailMessageId);
+    if (!existing) throw new Error("gmail_draft_missing");
+    const row = await this.prisma().gmailReplyDraft.update({
+      where: { id: existing.id },
+      data: {
+        ...(patch.draftSubject !== undefined ? { draftSubject: patch.draftSubject } : {}),
+        ...(patch.draftBody !== undefined ? { draftBody: patch.draftBody } : {}),
+        ...(patch.intent !== undefined ? { intent: patch.intent } : {}),
+        ...(patch.sources !== undefined
+          ? { sources: (patch.sources ?? Prisma.JsonNull) as unknown as Prisma.InputJsonValue }
+          : {}),
+        ...(patch.operatorNote !== undefined ? { operatorNote: patch.operatorNote } : {}),
+        ...(patch.usedInternalKnowledge !== undefined
+          ? { usedInternalKnowledge: patch.usedInternalKnowledge }
+          : {}),
+        ...(patch.status !== undefined ? { status: patch.status } : {}),
+        ...(patch.sentAt !== undefined ? { sentAt: patch.sentAt } : {}),
+        ...(patch.sendLockAt !== undefined ? { sendLockAt: patch.sendLockAt } : {}),
+        ...(patch.rfcMessageId !== undefined ? { rfcMessageId: patch.rfcMessageId } : {}),
+        ...(patch.gmailThreadId !== undefined ? { gmailThreadId: patch.gmailThreadId } : {}),
+        ...(patch.fromName !== undefined ? { fromName: patch.fromName } : {}),
+        ...(patch.fromEmail !== undefined ? { fromEmail: patch.fromEmail } : {}),
+        ...(patch.subject !== undefined ? { subject: patch.subject } : {}),
+        ...(patch.body !== undefined ? { body: patch.body } : {}),
+        ...(patch.receivedAt !== undefined ? { receivedAt: patch.receivedAt } : {}),
+      },
+    });
+    return mapGmailReplyDraft(row);
+  }
+
+  async claimGmailReplySend(workspaceId: string, gmailMessageId: string, now = new Date()) {
+    const existing = await this.getGmailReplyDraft(workspaceId, gmailMessageId);
+    if (!existing) throw new Error("gmail_draft_missing");
+    if (existing.status === "sent") throw new Error("gmail_already_sent");
+    if (existing.sendLockAt && now.getTime() - existing.sendLockAt.getTime() < 120_000) {
+      throw new Error("gmail_send_in_progress");
+    }
+    const row = await this.prisma().gmailReplyDraft.update({
+      where: { id: existing.id },
+      data: { sendLockAt: now },
+    });
+    return mapGmailReplyDraft(row);
   }
 }

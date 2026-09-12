@@ -21,8 +21,8 @@ export default function PrivacyPage() {
             <p className="mt-2 text-muted-foreground">
               BizPilot AI is a paid customer-support desk for one business workspace. If you create
               an account we store your name, email, password hash, workspace knowledge, website
-              widget conversations, email drafts, and social drafts. Demo mode at /demo stays in
-              your browser and is not this account.
+              widget conversations, optional Gmail inbox data for that workspace, email drafts, and
+              social drafts. Demo mode at /demo stays in your browser and is not this account.
             </p>
           </section>
           <section>
@@ -43,17 +43,21 @@ export default function PrivacyPage() {
             </p>
           </section>
           <section>
-            <h2 className="font-heading text-xl">Email and social drafts</h2>
+            <h2 className="font-heading text-xl">Email and social</h2>
             <p className="mt-2 text-muted-foreground">
-              Inbound messages you paste here stay in your workspace as drafts. BizPilot does not
-              send email and does not post to Instagram, Facebook, TikTok, or Messenger. There is
-              no live connection to those networks.
+              If you connect Gmail, we store encrypted OAuth tokens on the server for that workspace
+              and read inbox messages to suggest replies from your Knowledge. A reply is sent through
+              your Gmail account only after you confirm. Disconnect Gmail removes the tokens and
+              stored Gmail drafts. Manual pasted emails stay in your workspace as drafts and are not
+              sent. Social drafts are never posted. There is no live connection to Instagram,
+              Facebook, TikTok, or Messenger.
             </p>
           </section>
           <section>
             <h2 className="font-heading text-xl">Cookies</h2>
             <p className="mt-2 text-muted-foreground">
-              A signed-in session cookie keeps you logged in. The website widget stores a visitor
+              A signed-in session cookie keeps you logged in. Connect Gmail uses a short-lived
+              httpOnly cookie during Google authorization. The website widget stores a visitor
               key in session storage on the customer’s browser so the same chat can continue.
             </p>
           </section>

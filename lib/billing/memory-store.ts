@@ -9,6 +9,8 @@ import type {
   MessageRecord,
   NotificationRecord,
   EmailDraftRecord,
+  GmailConnectionRecord,
+  GmailReplyDraftRecord,
   SocialMessageRecord,
   StripeEventRecord,
   SubscriptionRecord,
@@ -36,6 +38,8 @@ export class MemoryBillingStore implements BillingStore {
   messages: MessageRecord[] = [];
   socialMessages: SocialMessageRecord[] = [];
   emailDrafts: EmailDraftRecord[] = [];
+  gmailConnections = new Map<string, GmailConnectionRecord>();
+  gmailReplyDrafts: GmailReplyDraftRecord[] = [];
   private locks = new Map<string, Promise<void>>();
 
   private async withLock<T>(key: string, fn: () => Promise<T> | T): Promise<T> {
@@ -625,6 +629,206 @@ export class MemoryBillingStore implements BillingStore {
       row.usedInternalKnowledge = patch.usedInternalKnowledge;
     }
     row.updatedAt = new Date();
+    return row;
+  }
+
+  async getGmailConnection(workspaceId: string) {
+    return this.gmailConnections.get(workspaceId) ?? null;
+  }
+
+  async upsertGmailConnection(input: {
+    workspaceId: string;
+    googleEmail: string;
+    googleSub?: string | null;
+    encryptedRefreshToken: string;
+    encryptedAccessToken: string;
+    accessTokenExpiresAt: Date;
+    scopes: string;
+    status: string;
+  }) {
+    const now = new Date();
+    const existing = this.gmailConnections.get(input.workspaceId);
+    const row: GmailConnectionRecord = {
+      id: existing?.id ?? randomUUID(),
+      workspaceId: input.workspaceId,
+      googleEmail: input.googleEmail,
+      googleSub: input.googleSub ?? null,
+      encryptedRefreshToken: input.encryptedRefreshToken,
+      encryptedAccessToken: input.encryptedAccessToken,
+      accessTokenExpiresAt: input.accessTokenExpiresAt,
+      scopes: input.scopes,
+      status: input.status,
+      connectedAt: existing?.connectedAt ?? now,
+      updatedAt: now,
+    };
+    this.gmailConnections.set(input.workspaceId, row);
+    return row;
+  }
+
+  async updateGmailConnection(
+    workspaceId: string,
+    patch: Partial<
+      Pick<
+        GmailConnectionRecord,
+        | "googleEmail"
+        | "googleSub"
+        | "encryptedRefreshToken"
+        | "encryptedAccessToken"
+        | "accessTokenExpiresAt"
+        | "scopes"
+        | "status"
+      >
+    >,
+  ) {
+    const row = this.gmailConnections.get(workspaceId);
+    if (!row) throw new Error("gmail_missing");
+    if (patch.googleEmail !== undefined) row.googleEmail = patch.googleEmail;
+    if (patch.googleSub !== undefined) row.googleSub = patch.googleSub;
+    if (patch.encryptedRefreshToken !== undefined) row.encryptedRefreshToken = patch.encryptedRefreshToken;
+    if (patch.encryptedAccessToken !== undefined) row.encryptedAccessToken = patch.encryptedAccessToken;
+    if (patch.accessTokenExpiresAt !== undefined) row.accessTokenExpiresAt = patch.accessTokenExpiresAt;
+    if (patch.scopes !== undefined) row.scopes = patch.scopes;
+    if (patch.status !== undefined) row.status = patch.status;
+    row.updatedAt = new Date();
+    return row;
+  }
+
+  async deleteGmailConnection(workspaceId: string) {
+    this.gmailConnections.delete(workspaceId);
+    this.gmailReplyDrafts = this.gmailReplyDrafts.filter((row) => row.workspaceId !== workspaceId);
+  }
+
+  async getGmailReplyDraft(workspaceId: string, gmailMessageId: string) {
+    return (
+      this.gmailReplyDrafts.find(
+        (row) => row.workspaceId === workspaceId && row.gmailMessageId === gmailMessageId,
+      ) ?? null
+    );
+  }
+
+  async upsertGmailReplyDraft(input: {
+    workspaceId: string;
+    gmailMessageId: string;
+    gmailThreadId: string;
+    rfcMessageId?: string | null;
+    fromName: string;
+    fromEmail: string;
+    subject: string;
+    body: string;
+    receivedAt?: Date | null;
+    draftSubject: string;
+    draftBody: string;
+    intent: string;
+    sources?: ReplySource[] | null;
+    operatorNote: string;
+    usedInternalKnowledge: boolean;
+    status: string;
+  }) {
+    const now = new Date();
+    const existing = await this.getGmailReplyDraft(input.workspaceId, input.gmailMessageId);
+    if (existing) {
+      existing.gmailThreadId = input.gmailThreadId;
+      existing.rfcMessageId = input.rfcMessageId ?? existing.rfcMessageId;
+      existing.fromName = input.fromName;
+      existing.fromEmail = input.fromEmail;
+      existing.subject = input.subject;
+      existing.body = input.body;
+      existing.receivedAt = input.receivedAt ?? existing.receivedAt;
+      if (existing.status !== "sent") {
+        existing.draftSubject = input.draftSubject;
+        existing.draftBody = input.draftBody;
+        existing.intent = input.intent;
+        existing.sources = input.sources ?? existing.sources;
+        existing.operatorNote = input.operatorNote;
+        existing.usedInternalKnowledge = input.usedInternalKnowledge;
+        existing.status = input.status;
+      }
+      existing.updatedAt = now;
+      return existing;
+    }
+    const row: GmailReplyDraftRecord = {
+      id: randomUUID(),
+      workspaceId: input.workspaceId,
+      gmailMessageId: input.gmailMessageId,
+      gmailThreadId: input.gmailThreadId,
+      rfcMessageId: input.rfcMessageId ?? null,
+      fromName: input.fromName,
+      fromEmail: input.fromEmail,
+      subject: input.subject,
+      body: input.body,
+      receivedAt: input.receivedAt ?? null,
+      draftSubject: input.draftSubject,
+      draftBody: input.draftBody,
+      intent: input.intent,
+      sources: input.sources ?? null,
+      operatorNote: input.operatorNote,
+      usedInternalKnowledge: input.usedInternalKnowledge,
+      status: input.status,
+      sentAt: null,
+      sendLockAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.gmailReplyDrafts.push(row);
+    return row;
+  }
+
+  async updateGmailReplyDraft(
+    workspaceId: string,
+    gmailMessageId: string,
+    patch: Partial<
+      Pick<
+        GmailReplyDraftRecord,
+        | "draftSubject"
+        | "draftBody"
+        | "intent"
+        | "sources"
+        | "operatorNote"
+        | "usedInternalKnowledge"
+        | "status"
+        | "sentAt"
+        | "sendLockAt"
+        | "rfcMessageId"
+        | "gmailThreadId"
+        | "fromName"
+        | "fromEmail"
+        | "subject"
+        | "body"
+        | "receivedAt"
+      >
+    >,
+  ) {
+    const row = await this.getGmailReplyDraft(workspaceId, gmailMessageId);
+    if (!row) throw new Error("gmail_draft_missing");
+    if (patch.draftSubject !== undefined) row.draftSubject = patch.draftSubject;
+    if (patch.draftBody !== undefined) row.draftBody = patch.draftBody;
+    if (patch.intent !== undefined) row.intent = patch.intent;
+    if (patch.sources !== undefined) row.sources = patch.sources;
+    if (patch.operatorNote !== undefined) row.operatorNote = patch.operatorNote;
+    if (patch.usedInternalKnowledge !== undefined) row.usedInternalKnowledge = patch.usedInternalKnowledge;
+    if (patch.status !== undefined) row.status = patch.status;
+    if (patch.sentAt !== undefined) row.sentAt = patch.sentAt;
+    if (patch.sendLockAt !== undefined) row.sendLockAt = patch.sendLockAt;
+    if (patch.rfcMessageId !== undefined) row.rfcMessageId = patch.rfcMessageId;
+    if (patch.gmailThreadId !== undefined) row.gmailThreadId = patch.gmailThreadId;
+    if (patch.fromName !== undefined) row.fromName = patch.fromName;
+    if (patch.fromEmail !== undefined) row.fromEmail = patch.fromEmail;
+    if (patch.subject !== undefined) row.subject = patch.subject;
+    if (patch.body !== undefined) row.body = patch.body;
+    if (patch.receivedAt !== undefined) row.receivedAt = patch.receivedAt;
+    row.updatedAt = new Date();
+    return row;
+  }
+
+  async claimGmailReplySend(workspaceId: string, gmailMessageId: string, now = new Date()) {
+    const row = await this.getGmailReplyDraft(workspaceId, gmailMessageId);
+    if (!row) throw new Error("gmail_draft_missing");
+    if (row.status === "sent") throw new Error("gmail_already_sent");
+    if (row.sendLockAt && now.getTime() - row.sendLockAt.getTime() < 120_000) {
+      throw new Error("gmail_send_in_progress");
+    }
+    row.sendLockAt = now;
+    row.updatedAt = now;
     return row;
   }
 }

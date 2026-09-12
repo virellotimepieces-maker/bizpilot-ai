@@ -8,7 +8,7 @@
     "start": "next start --port 43127",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/assert-legacy-brand.mjs && tsx --test lib/reply-engine.test.ts lib/social.test.ts lib/email-draft.test.ts lib/desk-setup.test.ts lib/chat-auto.test.ts lib/ai/knowledge-prompt.test.ts lib/billing/billing.test.ts lib/hours-display.test.ts lib/knowledge-save-state.test.ts lib/hours-editor.test.ts lib/widget-preview.test.ts lib/widget-install-guides.test.ts lib/widget-embed-script.test.ts lib/widget-chat-scroll.test.ts lib/website/website.test.ts lib/website/isolation.test.ts lib/website/verify.test.ts lib/website/sitemap.test.ts lib/ui/type-scale.test.ts",
+    "test": "node scripts/assert-legacy-brand.mjs && tsx --test lib/reply-engine.test.ts lib/social.test.ts lib/email-draft.test.ts lib/desk-setup.test.ts lib/chat-auto.test.ts lib/ai/knowledge-prompt.test.ts lib/billing/billing.test.ts lib/hours-display.test.ts lib/knowledge-save-state.test.ts lib/hours-editor.test.ts lib/widget-preview.test.ts lib/widget-install-guides.test.ts lib/widget-embed-script.test.ts lib/widget-chat-scroll.test.ts lib/website/website.test.ts lib/website/isolation.test.ts lib/website/verify.test.ts lib/website/sitemap.test.ts lib/ui/type-scale.test.ts lib/gmail/gmail.test.ts",
     "postinstall": "prisma generate --schema=prisma/schema.prisma",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push"

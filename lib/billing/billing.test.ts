@@ -324,6 +324,36 @@ describe("BizPilot Pro subscription", () => {
     const emailVisible = await store.listEmailDrafts(a.workspace.id, a.workspace.widgetKey);
     assert.equal(emailVisible.length, 1);
     assert.equal(emailVisible[0]?.id, emailA.id);
+    await store.upsertGmailConnection({
+      workspaceId: a.workspace.id,
+      googleEmail: "owner-a@gmail.com",
+      encryptedRefreshToken: "ciphertext-refresh",
+      encryptedAccessToken: "ciphertext-access",
+      accessTokenExpiresAt: new Date("2026-09-12T12:00:00Z"),
+      scopes: "gmail.readonly gmail.send",
+      status: "connected",
+    });
+    assert.equal(await store.getGmailConnection(b.workspace.id), null);
+    await store.upsertGmailReplyDraft({
+      workspaceId: a.workspace.id,
+      gmailMessageId: "msg_a",
+      gmailThreadId: "thread_a",
+      fromName: "Pat",
+      fromEmail: "pat@example.com",
+      subject: "Hours",
+      body: "When are you open?",
+      draftSubject: "Re: Hours",
+      draftBody: "Nine to five.",
+      intent: "hours",
+      operatorNote: "Draft only.",
+      usedInternalKnowledge: false,
+      status: "draft",
+    });
+    assert.equal(await store.getGmailReplyDraft(b.workspace.id, "msg_a"), null);
+    await assert.rejects(() => store.claimGmailReplySend(b.workspace.id, "msg_a"));
+    await store.deleteGmailConnection(a.workspace.id);
+    assert.equal(await store.getGmailConnection(a.workspace.id), null);
+    assert.equal(await store.getGmailReplyDraft(a.workspace.id, "msg_a"), null);
   });
 
   it("resets the 500-reply allowance when a new Stripe period starts", async () => {

@@ -93,6 +93,44 @@ export interface MessageRecord {
   createdAt: Date;
 }
 
+export interface GmailConnectionRecord {
+  id: string;
+  workspaceId: string;
+  googleEmail: string;
+  googleSub: string | null;
+  encryptedRefreshToken: string;
+  encryptedAccessToken: string;
+  accessTokenExpiresAt: Date;
+  scopes: string;
+  status: string;
+  connectedAt: Date;
+  updatedAt: Date;
+}
+
+export interface GmailReplyDraftRecord {
+  id: string;
+  workspaceId: string;
+  gmailMessageId: string;
+  gmailThreadId: string;
+  rfcMessageId: string | null;
+  fromName: string;
+  fromEmail: string;
+  subject: string;
+  body: string;
+  receivedAt: Date | null;
+  draftSubject: string;
+  draftBody: string;
+  intent: string;
+  sources: ReplySource[] | null;
+  operatorNote: string;
+  usedInternalKnowledge: boolean;
+  status: string;
+  sentAt: Date | null;
+  sendLockAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface EmailDraftRecord {
   id: string;
   workspaceId: string;
@@ -156,7 +194,8 @@ export class BillingError extends Error {
       | "limit"
       | "conflict"
       | "invalid"
-      | "misconfigured",
+      | "misconfigured"
+      | "reconnect",
   ) {
     super(message);
     this.name = "BillingError";

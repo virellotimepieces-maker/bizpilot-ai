@@ -358,7 +358,8 @@ function EditorBody({
                   <div>
                     <Label>Website chat may auto-answer safe questions</Label>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Email and social drafts are never sent or posted automatically, even when this is on.
+                      Email replies send through connected Gmail only after you confirm. Social
+                      drafts are never posted automatically, even when this is on.
                     </p>
                   </div>
                   <Switch

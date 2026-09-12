@@ -34,6 +34,8 @@ model Workspace {
   websitePages  WebsitePage[]
   socialMessages SocialMessage[]
   emailDrafts    EmailDraft[]
+  gmailConnection GmailConnection?
+  gmailReplyDrafts GmailReplyDraft[]
 }
 
 model Membership {
@@ -217,4 +219,47 @@ model EmailDraft {
 
   @@index([workspaceId, createdAt])
   @@index([workspaceId, widgetKey])
+}
+
+model GmailConnection {
+  id                    String    @id @default(cuid())
+  workspaceId           String    @unique
+  googleEmail           String
+  googleSub             String?
+  encryptedRefreshToken String
+  encryptedAccessToken  String
+  accessTokenExpiresAt  DateTime
+  scopes                String
+  status                String
+  connectedAt           DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model GmailReplyDraft {
+  id                    String    @id @default(cuid())
+  workspaceId           String
+  gmailMessageId        String
+  gmailThreadId         String
+  rfcMessageId          String?
+  fromName              String
+  fromEmail             String
+  subject               String
+  body                  String
+  receivedAt            DateTime?
+  draftSubject          String
+  draftBody             String
+  intent                String
+  sources               Json?
+  operatorNote          String
+  usedInternalKnowledge Boolean   @default(false)
+  status                String
+  sentAt                DateTime?
+  sendLockAt            DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, gmailMessageId])
+  @@index([workspaceId, createdAt])
 }

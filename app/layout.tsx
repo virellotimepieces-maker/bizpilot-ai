@@ -21,7 +21,7 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "BizPilot AI",
   description:
-    "BizPilot AI customer support for any business. One knowledge base powers website chat, email drafts, and social drafts you post yourself.",
+    "BizPilot AI customer support for any business. One knowledge base powers website chat, a Gmail inbox with replies you confirm, and social drafts you post yourself.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

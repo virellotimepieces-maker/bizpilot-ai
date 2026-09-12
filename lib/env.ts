@@ -67,4 +67,12 @@ export const ENV_DOCS = [
     name: "CRON_SECRET",
     why: "Optional. Bearer token for GET /api/cron/website-sync if you invoke it outside Vercel Cron.",
   },
+  {
+    name: "GOOGLE_CLIENT_ID",
+    why: "Optional. Google OAuth client ID for Connect Gmail on the paid Email page.",
+  },
+  {
+    name: "GOOGLE_CLIENT_SECRET",
+    why: "Optional. Google OAuth client secret. Server-only. Never expose it in the browser.",
+  },
 ] as const;

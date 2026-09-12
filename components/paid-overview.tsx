@@ -120,7 +120,7 @@ export function PaidOverview() {
           <CardContent className="grid gap-2 text-sm">
             <p>{data.subscription?.status}</p>
             <Button size="sm" variant="outline" render={<Link href="/app/email" />}>
-              Email drafts
+              Email
             </Button>
             <Button size="sm" variant="outline" render={<Link href="/app/social" />}>
               Social drafts

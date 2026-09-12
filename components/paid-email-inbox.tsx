@@ -3,6 +3,12 @@
 import { Field } from "@/components/field";
 import { SourcePills } from "@/components/source-pills";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,9 +25,45 @@ import { EMAIL_STATUS_LABEL } from "@/lib/email-draft";
 import { INTENT_LABEL } from "@/lib/intent-labels";
 import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS, PAGE_TITLE_CLASS } from "@/lib/ui/type-scale";
 import type { EmailStatus, ReplySource } from "@/lib/types";
-import { Copy, MailPlus, RefreshCw, ShieldAlert } from "lucide-react";
+import { Copy, Link2Off, MailPlus, Pencil, RefreshCw, ShieldAlert, Unplug } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+
+type GmailStatus = {
+  configured: boolean;
+  connected: boolean;
+  needsReconnect: boolean;
+  googleEmail: string | null;
+};
+
+type GmailListItem = {
+  id: string;
+  threadId: string;
+  fromName: string;
+  fromEmail: string;
+  subject: string;
+  snippet: string;
+  date: string;
+  unread: boolean;
+  replyStatus?: "sent" | "none";
+};
+
+type GmailDraft = {
+  draftSubject: string;
+  draftBody: string;
+  intent: keyof typeof INTENT_LABEL;
+  sources: ReplySource[] | null;
+  operatorNote: string;
+  usedInternalKnowledge: boolean;
+  status: "draft" | "sent" | string;
+  sentAt: string | null;
+};
+
+type GmailDetail = GmailListItem & {
+  body: string;
+  rfcMessageId: string | null;
+  draft: GmailDraft;
+};
 
 type PaidEmailMessage = {
   id: string;
@@ -39,42 +81,128 @@ type PaidEmailMessage = {
   createdAt: string;
 };
 
+function formatMailDate(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
 export function PaidEmailInbox() {
-  const [messages, setMessages] = useState<PaidEmailMessage[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [gmail, setGmail] = useState<GmailStatus | null>(null);
+  const [inbox, setInbox] = useState<GmailListItem[]>([]);
+  const [detail, setDetail] = useState<GmailDetail | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [composeOpen, setComposeOpen] = useState(false);
+  const [inboxLoading, setInboxLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [confirmSend, setConfirmSend] = useState(false);
+  const [gmailError, setGmailError] = useState("");
+  const [sentBanner, setSentBanner] = useState(false);
+  const [manual, setManual] = useState<PaidEmailMessage[]>([]);
+  const [manualOpen, setManualOpen] = useState(false);
   const [incoming, setIncoming] = useState({
     fromName: "",
     fromEmail: "",
     subject: "",
     body: "",
   });
+  const [manualSelectedId, setManualSelectedId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const loadManual = useCallback(async () => {
     const response = await fetch("/api/app/email");
     const payload = (await response.json()) as { messages?: PaidEmailMessage[]; error?: string };
+    if (response.ok) {
+      setManual(payload.messages ?? []);
+    }
+  }, []);
+
+  const loadStatus = useCallback(async () => {
+    const response = await fetch("/api/app/gmail");
+    const payload = (await response.json()) as GmailStatus & { error?: string; code?: string };
     if (!response.ok) {
-      setError(payload.error || "Could not load email drafts.");
-      setLoading(false);
+      setGmailError(payload.error || "Could not load Gmail status.");
+      return null;
+    }
+    setGmailError("");
+    setGmail(payload);
+    return payload;
+  }, []);
+
+  const loadInbox = useCallback(async () => {
+    setInboxLoading(true);
+    setGmailError("");
+    const response = await fetch("/api/app/gmail/messages");
+    const payload = (await response.json()) as {
+      messages?: GmailListItem[];
+      error?: string;
+      code?: string;
+    };
+    setInboxLoading(false);
+    if (!response.ok) {
+      setInbox([]);
+      setGmailError(payload.error || "Could not load Gmail messages.");
+      if (payload.code === "reconnect") {
+        setGmail((prev) => (prev ? { ...prev, connected: false, needsReconnect: true } : prev));
+      }
       return;
     }
-    setError("");
-    setMessages(payload.messages ?? []);
-    setLoading(false);
+    setInbox(payload.messages ?? []);
+  }, []);
+
+  const openMessage = useCallback(async (id: string) => {
+    setSelectedId(id);
+    setDetailLoading(true);
+    setEditing(false);
+    setSentBanner(false);
+    const response = await fetch(`/api/app/gmail/messages/${encodeURIComponent(id)}`);
+    const payload = (await response.json()) as {
+      message?: GmailDetail;
+      error?: string;
+      code?: string;
+    };
+    setDetailLoading(false);
+    if (!response.ok) {
+      toast.error(payload.error || "Could not open this email.");
+      if (payload.code === "reconnect") {
+        setGmail((prev) => (prev ? { ...prev, connected: false, needsReconnect: true } : prev));
+      }
+      return;
+    }
+    if (payload.message) {
+      setDetail(payload.message);
+      setSentBanner(payload.message.draft.status === "sent");
+    }
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void (async () => {
+      await loadManual();
+      const status = await loadStatus();
+      if (status?.connected) {
+        await loadInbox();
+      }
+    })();
+  }, [loadInbox, loadManual, loadStatus]);
 
-  const selected = useMemo(
-    () => messages.find((row) => row.id === selectedId) ?? messages[0] ?? null,
-    [messages, selectedId],
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const flag = params.get("gmail");
+    if (!flag) return;
+    if (flag === "connected") toast.success("Gmail connected");
+    else if (flag === "denied") toast.error("Gmail access was not granted");
+    else if (flag === "misconfigured") toast.error("Gmail is not configured on this server");
+    else if (flag === "signin") toast.error("Sign in to connect Gmail");
+    else toast.error("Could not connect Gmail");
+    window.history.replaceState({}, "", "/app/email");
+  }, []);
+
+  const selectedManual = useMemo(
+    () => manual.find((row) => row.id === manualSelectedId) ?? manual[0] ?? null,
+    [manual, manualSelectedId],
   );
 
-  async function patch(
+  async function patchManual(
     id: string,
     body: { draftBody?: string; draftSubject?: string; status?: EmailStatus; regenerate?: boolean },
   ) {
@@ -89,195 +217,453 @@ export function PaidEmailInbox() {
       return;
     }
     if (payload.message) {
-      setMessages((prev) => prev.map((row) => (row.id === payload.message!.id ? payload.message! : row)));
+      setManual((prev) => prev.map((row) => (row.id === payload.message!.id ? payload.message! : row)));
     }
     if (body.regenerate) toast.success("Draft regenerated from the current knowledge base");
-    if (body.status === "sent") toast.success("Marked as sent by you — BizPilot did not send the email");
-    if (body.status === "escalated") toast.message("Kept in the human queue");
-    if (body.status === "discarded") toast.message("Draft discarded");
+    if (body.status === "sent") toast.success("Marked as sent by you — this did not send through Gmail");
   }
 
-  if (error && !messages.length && !loading) {
-    return <p className="text-sm text-destructive md:text-base">{error}</p>;
+  async function patchGmail(
+    id: string,
+    body: { draftBody?: string; draftSubject?: string; regenerate?: boolean },
+  ) {
+    const response = await fetch(`/api/app/gmail/messages/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const payload = (await response.json()) as { message?: GmailDetail; error?: string };
+    if (!response.ok) {
+      toast.error(payload.error || "Could not update the suggested reply");
+      return;
+    }
+    if (payload.message) {
+      setDetail(payload.message);
+      setInbox((prev) =>
+        prev.map((row) =>
+          row.id === payload.message!.id
+            ? { ...row, replyStatus: payload.message!.draft.status === "sent" ? "sent" : row.replyStatus }
+            : row,
+        ),
+      );
+    }
+    if (body.regenerate) {
+      setEditing(false);
+      toast.success("Reply regenerated from Knowledge");
+    }
   }
+
+  async function sendGmail() {
+    if (!detail) return;
+    setSending(true);
+    const response = await fetch(`/api/app/gmail/messages/${encodeURIComponent(detail.id)}/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm: true }),
+    });
+    const payload = (await response.json()) as {
+      message?: GmailDetail;
+      error?: string;
+      code?: string;
+    };
+    setSending(false);
+    setConfirmSend(false);
+    if (!response.ok) {
+      toast.error(payload.error || "Could not send the reply");
+      if (payload.code === "reconnect") {
+        setGmail((prev) => (prev ? { ...prev, connected: false, needsReconnect: true } : prev));
+      }
+      return;
+    }
+    if (payload.message) {
+      setDetail(payload.message);
+      setInbox((prev) =>
+        prev.map((row) =>
+          row.id === payload.message!.id ? { ...row, replyStatus: "sent" } : row,
+        ),
+      );
+    }
+    setSentBanner(true);
+    setEditing(false);
+    toast.success("Reply sent successfully");
+  }
+
+  async function disconnectGmail() {
+    const response = await fetch("/api/app/gmail", { method: "DELETE" });
+    const payload = (await response.json()) as GmailStatus & { error?: string };
+    if (!response.ok) {
+      toast.error(payload.error || "Could not disconnect Gmail");
+      return;
+    }
+    setGmail(payload);
+    setInbox([]);
+    setDetail(null);
+    setSelectedId(null);
+    setSentBanner(false);
+    toast.success("Gmail disconnected");
+  }
+
+  const connected = Boolean(gmail?.connected);
+  const sent = detail?.draft.status === "sent";
 
   return (
     <div className={PAGE_SHELL_CLASS}>
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">
-            Email support
-          </p>
-          <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Drafts you send yourself</h1>
+          <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">Email support</p>
+          <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Gmail inbox</h1>
           <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
-            Paste a received email. BizPilot writes a draft from your knowledge. Copy it, send it
-            from your mailbox, then mark it sent here. There is no SMTP connection and no auto-send.
+            Connect Gmail to read received mail and generate a suggested reply from Knowledge. Replies
+            send only after you confirm. They never go out on their own.
           </p>
         </div>
-        <Button variant="outline" onClick={() => setComposeOpen(true)}>
-          <MailPlus className="size-4" />
-          Paste a received email
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {connected ? (
+            <>
+              <Button variant="outline" onClick={() => void loadInbox()} disabled={inboxLoading}>
+                <RefreshCw className="size-4" />
+                Refresh Inbox
+              </Button>
+              <Button variant="outline" onClick={() => void disconnectGmail()}>
+                <Unplug className="size-4" />
+                Disconnect Gmail
+              </Button>
+            </>
+          ) : gmail?.configured === false ? (
+            <Button disabled>Connect Gmail</Button>
+          ) : (
+            <Button render={<a href="/api/app/gmail/connect" />}>Connect Gmail</Button>
+          )}
+        </div>
       </div>
+
+      {gmail?.googleEmail ? (
+        <p className={HELPER_TEXT_CLASS}>
+          {connected ? "Connected as" : "Last connected as"} {gmail.googleEmail}
+        </p>
+      ) : null}
 
       <Alert>
         <ShieldAlert />
         <AlertTitle>Human send required</AlertTitle>
         <AlertDescription>
-          Website chat may answer safe questions on its own. Email cannot. BizPilot never sends
-          mail for you.
+          Opening a message writes a suggested reply from Knowledge. BizPilot will not send it until
+          you press Send reply and confirm.
         </AlertDescription>
       </Alert>
 
-      {loading ? (
-        <p className={HELPER_TEXT_CLASS}>Loading email drafts…</p>
-      ) : messages.length === 0 ? (
-        <div className="rounded-2xl border bg-card p-8 text-center">
-          <p className="font-heading text-xl">No mail yet</p>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Paste an inbound email to watch a draft appear from the current knowledge base.
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-[minmax(16rem,0.9fr)_minmax(0,1.4fr)]">
-          <div className="rounded-2xl border bg-card shadow-sm">
-            <div className="border-b px-4 py-3 text-sm font-medium">Inbox</div>
-            <div className="max-h-[70vh] overflow-y-auto">
-              {messages.map((row) => (
-                <button
-                  key={row.id}
-                  type="button"
-                  onClick={() => setSelectedId(row.id)}
-                  className={`block w-full border-b px-4 py-3 text-left last:border-b-0 ${
-                    selected?.id === row.id ? "bg-muted/70" : "hover:bg-muted/40"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-medium">{row.fromName}</p>
-                    <StatusBadge status={row.status} />
-                  </div>
-                  <p className="mt-1 truncate text-sm">{row.subject}</p>
-                </button>
-              ))}
-            </div>
+      {gmail?.configured === false ? (
+        <Alert>
+          <Link2Off />
+          <AlertTitle>Gmail is not configured</AlertTitle>
+          <AlertDescription>
+            Add Google OAuth credentials on the server, then Connect Gmail will appear. Manual email
+            drafts still work below.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {gmail?.needsReconnect ? (
+        <Alert>
+          <ShieldAlert />
+          <AlertTitle>Reconnect Gmail</AlertTitle>
+          <AlertDescription>
+            Access was revoked or expired. Connect Gmail again to load the inbox. Nothing is sent
+            while disconnected.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {gmailError ? <p className="text-sm text-destructive md:text-base">{gmailError}</p> : null}
+
+      {!gmail && !gmailError ? <p className={HELPER_TEXT_CLASS}>Loading Gmail status…</p> : null}
+
+      {connected ? (
+        inboxLoading && inbox.length === 0 ? (
+          <p className={HELPER_TEXT_CLASS}>Loading Gmail messages…</p>
+        ) : inbox.length === 0 ? (
+          <div className="rounded-2xl border bg-card p-8 text-center">
+            <p className="font-heading text-xl">Inbox is empty</p>
+            <p className={`mx-auto mt-2 max-w-md ${HELPER_TEXT_CLASS}`}>
+              Refresh after new mail arrives in this Gmail account.
+            </p>
           </div>
-          {selected ? (
-            <div className="grid gap-4">
-              <div className="rounded-2xl border bg-card p-4 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-medium">{selected.fromName}</p>
-                    <p className="text-xs text-muted-foreground">{selected.fromEmail}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <StatusBadge status={selected.status} />
-                    <Badge variant="outline">{INTENT_LABEL[selected.intent]}</Badge>
-                  </div>
-                </div>
-                <h2 className="mt-3 font-heading text-xl">{selected.subject}</h2>
-                <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed">{selected.body}</p>
-              </div>
-              <div className="rounded-2xl border bg-card p-4 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h3 className="font-heading text-lg">Editable draft</h3>
-                    <p className="text-sm text-muted-foreground">{selected.operatorNote}</p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={selected.status === "sent" || selected.status === "discarded"}
-                    onClick={() => void patch(selected.id, { regenerate: true })}
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-[minmax(16rem,0.9fr)_minmax(0,1.4fr)]">
+            <div className="rounded-2xl border bg-card shadow-sm">
+              <div className="border-b px-4 py-3 text-sm font-medium">Inbox</div>
+              <div className="max-h-[70vh] overflow-y-auto">
+                {inbox.map((row) => (
+                  <button
+                    key={row.id}
+                    type="button"
+                    onClick={() => void openMessage(row.id)}
+                    className={`block w-full border-b px-4 py-3 text-left last:border-b-0 ${
+                      selectedId === row.id ? "bg-muted/70" : "hover:bg-muted/40"
+                    }`}
                   >
-                    <RefreshCw className="size-4" />
-                    Regenerate from knowledge
-                  </Button>
-                </div>
-                <div className="mt-3">
-                  <SourcePills sources={selected.sources ?? []} />
-                </div>
-                {selected.usedInternalKnowledge ? (
-                  <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                    This draft touched an internal document. Review before you send it.
-                  </p>
-                ) : null}
-                <div className="mt-4 grid gap-3">
-                  <Field label="Subject">
-                    <Input
-                      value={selected.draftSubject}
-                      disabled={selected.status === "sent" || selected.status === "discarded"}
-                      onChange={(e) => {
-                        const draftSubject = e.target.value;
-                        setMessages((prev) =>
-                          prev.map((row) =>
-                            row.id === selected.id ? { ...row, draftSubject } : row,
-                          ),
-                        );
-                      }}
-                      onBlur={() => void patch(selected.id, { draftSubject: selected.draftSubject })}
-                    />
-                  </Field>
-                  <Field label="Reply">
-                    <Textarea
-                      value={selected.draftBody}
-                      disabled={selected.status === "sent" || selected.status === "discarded"}
-                      onChange={(e) => {
-                        const draftBody = e.target.value;
-                        setMessages((prev) =>
-                          prev.map((row) => (row.id === selected.id ? { ...row, draftBody } : row)),
-                        );
-                      }}
-                      onBlur={() => void patch(selected.id, { draftBody: selected.draftBody })}
-                      rows={12}
-                    />
-                  </Field>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(
-                        `Subject: ${selected.draftSubject}\n\n${selected.draftBody}`,
-                      );
-                      toast.success("Draft copied — send it from your mailbox yourself");
-                    }}
-                  >
-                    <Copy className="size-4" />
-                    Copy draft
-                  </Button>
-                  <Button
-                    variant="outline"
-                    disabled={selected.status === "sent" || selected.status === "discarded"}
-                    onClick={() => void patch(selected.id, { status: "sent" })}
-                  >
-                    Mark as sent
-                  </Button>
-                  <Button
-                    variant="outline"
-                    disabled={selected.status === "sent" || selected.status === "discarded"}
-                    onClick={() => void patch(selected.id, { status: "escalated" })}
-                  >
-                    Keep with a human
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    disabled={selected.status === "sent" || selected.status === "discarded"}
-                    onClick={() => void patch(selected.id, { status: "discarded" })}
-                  >
-                    Discard draft
-                  </Button>
-                </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className={`truncate text-sm ${row.unread ? "font-semibold" : "font-medium"}`}>
+                        {row.fromName}
+                      </p>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {row.unread ? <Badge>Unread</Badge> : <Badge variant="outline">Read</Badge>}
+                        {row.replyStatus === "sent" ? <Badge variant="secondary">Replied</Badge> : null}
+                      </div>
+                    </div>
+                    <p className={`mt-1 truncate text-sm ${row.unread ? "font-medium" : ""}`}>
+                      {row.subject}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">{formatMailDate(row.date)}</p>
+                  </button>
+                ))}
               </div>
             </div>
-          ) : null}
+            {detailLoading && !detail ? (
+              <p className={HELPER_TEXT_CLASS}>Loading message and suggested reply…</p>
+            ) : detail ? (
+              <div className="grid gap-4">
+                {sentBanner ? (
+                  <Alert>
+                    <AlertTitle>Reply sent successfully</AlertTitle>
+                    <AlertDescription>
+                      The reply was sent from {gmail?.googleEmail} in the original Gmail thread.
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+                <div className="rounded-2xl border bg-card p-4 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium">{detail.fromName}</p>
+                      <p className="text-xs text-muted-foreground">{detail.fromEmail}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {detail.unread ? <Badge>Unread</Badge> : <Badge variant="outline">Read</Badge>}
+                      <Badge variant="outline">{formatMailDate(detail.date)}</Badge>
+                    </div>
+                  </div>
+                  <h2 className="mt-3 font-heading text-xl">{detail.subject}</h2>
+                  <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed">{detail.body}</p>
+                </div>
+                <div className="rounded-2xl border bg-card p-4 shadow-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="font-heading text-lg">Suggested reply</h3>
+                      <p className="text-sm text-muted-foreground">{detail.draft.operatorNote}</p>
+                    </div>
+                    <Badge variant="outline">
+                      {INTENT_LABEL[detail.draft.intent] ?? detail.draft.intent}
+                    </Badge>
+                  </div>
+                  <div className="mt-3">
+                    <SourcePills sources={detail.draft.sources ?? []} />
+                  </div>
+                  {detail.draft.usedInternalKnowledge ? (
+                    <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                      This draft touched an internal document. Review before you send it.
+                    </p>
+                  ) : null}
+                  <div className="mt-4 grid gap-3">
+                    <Field label="Subject">
+                      <Input
+                        value={detail.draft.draftSubject}
+                        disabled={sent || !editing}
+                        onChange={(e) => {
+                          const draftSubject = e.target.value;
+                          setDetail((prev) =>
+                            prev ? { ...prev, draft: { ...prev.draft, draftSubject } } : prev,
+                          );
+                        }}
+                        onBlur={() =>
+                          editing
+                            ? void patchGmail(detail.id, { draftSubject: detail.draft.draftSubject })
+                            : undefined
+                        }
+                      />
+                    </Field>
+                    <Field label="Reply">
+                      <Textarea
+                        value={detail.draft.draftBody}
+                        disabled={sent || !editing}
+                        onChange={(e) => {
+                          const draftBody = e.target.value;
+                          setDetail((prev) =>
+                            prev ? { ...prev, draft: { ...prev.draft, draftBody } } : prev,
+                          );
+                        }}
+                        onBlur={() =>
+                          editing
+                            ? void patchGmail(detail.id, { draftBody: detail.draft.draftBody })
+                            : undefined
+                        }
+                        rows={12}
+                      />
+                    </Field>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      disabled={sent || detailLoading}
+                      onClick={() => void patchGmail(detail.id, { regenerate: true })}
+                    >
+                      <RefreshCw className="size-4" />
+                      Regenerate reply
+                    </Button>
+                    <Button variant="outline" disabled={sent} onClick={() => setEditing(true)}>
+                      <Pencil className="size-4" />
+                      Edit reply
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(detail.draft.draftBody);
+                        toast.success("Reply copied");
+                      }}
+                    >
+                      <Copy className="size-4" />
+                      Copy reply
+                    </Button>
+                    <Button disabled={sent || sending} onClick={() => setConfirmSend(true)}>
+                      Send reply
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border bg-card p-8 text-center">
+                <p className="font-heading text-xl">Select a message</p>
+                <p className={`mx-auto mt-2 max-w-md ${HELPER_TEXT_CLASS}`}>
+                  Opening an email generates a suggested reply from the current Knowledge section.
+                </p>
+              </div>
+            )}
+          </div>
+        )
+      ) : (
+        <div className="rounded-2xl border bg-card p-8 text-center">
+          <p className="font-heading text-xl">Connect Gmail to load received mail</p>
+          <p className={`mx-auto mt-2 max-w-md ${HELPER_TEXT_CLASS}`}>
+            After you authorize BizPilot, messages from this Gmail inbox appear here with sender,
+            subject, and read status.
+          </p>
         </div>
       )}
 
-      <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
+      <Accordion className="rounded-2xl border bg-card px-4">
+        <AccordionItem value="manual">
+          <AccordionTrigger>Add email manually</AccordionTrigger>
+          <AccordionContent>
+            <p className={HELPER_TEXT_CLASS}>
+              Optional fallback if Gmail is unavailable. BizPilot still does not send these drafts
+              unless you copy them yourself.
+            </p>
+            <div className="mt-3">
+              <Button variant="outline" onClick={() => setManualOpen(true)}>
+                <MailPlus className="size-4" />
+                Add email manually
+              </Button>
+            </div>
+            {manual.length ? (
+              <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,1.2fr)]">
+                <div className="rounded-xl border">
+                  {manual.map((row) => (
+                    <button
+                      key={row.id}
+                      type="button"
+                      onClick={() => setManualSelectedId(row.id)}
+                      className={`block w-full border-b px-3 py-2 text-left last:border-b-0 ${
+                        selectedManual?.id === row.id ? "bg-muted/70" : "hover:bg-muted/40"
+                      }`}
+                    >
+                      <p className="truncate text-sm font-medium">{row.fromName}</p>
+                      <p className="truncate text-xs text-muted-foreground">{row.subject}</p>
+                    </button>
+                  ))}
+                </div>
+                {selectedManual ? (
+                  <div className="grid gap-3">
+                    <p className="text-sm">
+                      {selectedManual.fromName} &lt;{selectedManual.fromEmail}&gt;
+                    </p>
+                    <Badge variant="outline">{EMAIL_STATUS_LABEL[selectedManual.status]}</Badge>
+                    <Textarea
+                      value={selectedManual.draftBody}
+                      disabled={
+                        selectedManual.status === "sent" || selectedManual.status === "discarded"
+                      }
+                      onChange={(e) => {
+                        const draftBody = e.target.value;
+                        setManual((prev) =>
+                          prev.map((row) =>
+                            row.id === selectedManual.id ? { ...row, draftBody } : row,
+                          ),
+                        );
+                      }}
+                      onBlur={() =>
+                        void patchManual(selectedManual.id, { draftBody: selectedManual.draftBody })
+                      }
+                      rows={8}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void patchManual(selectedManual.id, { regenerate: true })}
+                      >
+                        Regenerate reply
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(selectedManual.draftBody);
+                          toast.success("Reply copied");
+                        }}
+                      >
+                        Copy reply
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void patchManual(selectedManual.id, { status: "sent" })}
+                      >
+                        Mark as sent
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+
+      <Dialog open={confirmSend} onOpenChange={setConfirmSend}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Paste a received email</DialogTitle>
+            <DialogTitle>Send this reply?</DialogTitle>
             <DialogDescription>
-              BizPilot will write a draft from your knowledge. It still will not send mail.
+              This sends from {gmail?.googleEmail} to {detail?.fromEmail} and stays in the original
+              Gmail conversation. It will not send unless you confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmSend(false)}>
+              Cancel
+            </Button>
+            <Button disabled={sending} onClick={() => void sendGmail()}>
+              {sending ? "Sending…" : "Confirm send"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add email manually</DialogTitle>
+            <DialogDescription>
+              Paste a received message to generate a Knowledge draft. This does not send mail.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
@@ -311,17 +697,17 @@ export function PaidEmailInbox() {
           <DialogFooter>
             <Button
               onClick={async () => {
-                if (!incoming.body.trim()) {
-                  toast.error("Message is required");
+                if (!incoming.body.trim() || !incoming.fromEmail.trim()) {
+                  toast.error("Sender email and message are required");
                   return;
                 }
                 const response = await fetch("/api/app/email", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    fromName: incoming.fromName || "Customer",
-                    fromEmail: incoming.fromEmail || "customer@example.com",
-                    subject: incoming.subject || "(no subject)",
+                    fromName: incoming.fromName,
+                    fromEmail: incoming.fromEmail,
+                    subject: incoming.subject,
                     body: incoming.body,
                   }),
                 });
@@ -334,12 +720,12 @@ export function PaidEmailInbox() {
                   return;
                 }
                 if (payload.message) {
-                  setMessages((prev) => [payload.message!, ...prev]);
-                  setSelectedId(payload.message.id);
+                  setManual((prev) => [payload.message!, ...prev]);
+                  setManualSelectedId(payload.message.id);
                 }
-                setComposeOpen(false);
+                setManualOpen(false);
                 setIncoming({ fromName: "", fromEmail: "", subject: "", body: "" });
-                toast.success("Draft created — copy and send it yourself");
+                toast.success("Manual draft created");
               }}
             >
               Create draft
@@ -349,16 +735,4 @@ export function PaidEmailInbox() {
       </Dialog>
     </div>
   );
-}
-
-function StatusBadge({ status }: { status: EmailStatus }) {
-  const variant =
-    status === "sent"
-      ? "secondary"
-      : status === "escalated" || status === "needs_review"
-        ? "destructive"
-        : status === "discarded"
-          ? "outline"
-          : "default";
-  return <Badge variant={variant}>{EMAIL_STATUS_LABEL[status]}</Badge>;
 }

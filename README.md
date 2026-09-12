@@ -13,8 +13,8 @@ Customer support for one business at a time, billed as **BizPilot Pro**.
 - One business workspace
 - One installed website widget
 - 500 AI-generated customer replies per billing month
-- Knowledge base, website inbox (you can reply in the widget; AI pauses until you resume it), email drafts, and social drafts
-- Website chat answers **safe published questions directly**. Complaints, legal, medical, emergencies, and “Talk to a person” pause AI and wait for Inbox. Email and social never auto-send.
+- Knowledge base, website inbox (you can reply in the widget; AI pauses until you resume it), Gmail inbox with confirmed sends, and social drafts
+- Website chat answers **safe published questions directly**. Complaints, legal, medical, emergencies, and “Talk to a person” pause AI and wait for Inbox. Email replies send through Gmail only after you confirm. Social never auto-posts.
 - Cancel anytime
 - No automatic overage charges
 - When the 500-reply limit is reached, AI replies stop and the owner is notified
@@ -37,6 +37,8 @@ Copy `.env.example` to `.env.local`. Use a **new** database and **new** Stripe k
 | `OPENAI_API_KEY` | Paid widget AI replies |
 | `OPENAI_MODEL` | Optional, defaults to `gpt-4o-mini` |
 | `CRON_SECRET` | Optional. Protects `/api/cron/website-sync` if you call it yourself. Vercel Cron is also accepted. |
+| `GOOGLE_CLIENT_ID` | Optional. Google OAuth client ID for Connect Gmail. |
+| `GOOGLE_CLIENT_SECRET` | Optional. Google OAuth client secret. Server-only. |
 
 After `DATABASE_URL` is set on Vercel Production, `npm run build` runs `prisma migrate deploy` against that Neon database only.
 
@@ -52,6 +54,28 @@ Point Stripe webhooks to `https://YOUR_DOMAIN/api/stripe/webhook` for:
 - `customer.subscription.deleted`
 - `invoice.paid`
 - `invoice.payment_failed`
+
+## Gmail inbox (optional)
+
+Paid Email at `/app/email` can connect a Gmail account. Tokens are encrypted with `AUTH_SECRET` and stored only on the server. Suggested replies come from Knowledge. **Send reply** asks for confirmation and never sends on its own.
+
+OAuth callback URL:
+
+```
+{APP_URL}/api/app/gmail/callback
+```
+
+Google Cloud Console:
+
+1. Create or select a Google Cloud project.
+2. Enable **Gmail API**.
+3. Configure the OAuth consent screen. Add scopes `openid`, `https://www.googleapis.com/auth/userinfo.email`, `https://www.googleapis.com/auth/gmail.readonly`, and `https://www.googleapis.com/auth/gmail.send` only.
+4. Credentials → Create credentials → OAuth client ID → **Web application**.
+5. Authorized JavaScript origins: your `APP_URL` (no path).
+6. Authorized redirect URIs: `{APP_URL}/api/app/gmail/callback`.
+7. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in Vercel (Production and Preview). Keep `APP_URL` and `AUTH_SECRET` set.
+
+Without those Google variables, Connect Gmail shows a configuration message. Manual “Add email manually” still works. Demo `/demo/inbox` stays browser-only and does not use Gmail.
 
 ## Run locally
 
@@ -70,7 +94,7 @@ Open [http://localhost:43127](http://localhost:43127).
 - `/billing` Stripe Checkout and Customer Portal. After Checkout, the page waits for the webhook to unlock `/app`. If a payment failed, update the card in Customer Portal — do not start a second subscription.
 - `/app` paid dashboard (blocked unless the subscription is active)
 - `/app/inbox` website widget conversations — send a reply into the live chat
-- `/app/email` paste a received email, copy the draft, mark it sent yourself
+- `/app/email` Connect Gmail inbox, suggested replies from Knowledge, send only after confirm. Optional “Add email manually” fallback.
 - `/account` change password while signed in (no reset email)
 
 On Knowledge, paid workspaces can verify a public domain and click **Sync website**. Domain verification follows HTTPS redirects to the live homepage, then matches the workspace widget script by origin and pathname (query parameters such as `?v=` are ignored). Sync reads `sitemap.xml` recursively (Shopify product, collection, page, and blog sitemaps, including gzip and query-string child sitemaps), always crawls public `/policies/*` URLs, skips cart/checkout/account/search/admin/preview URLs, and answers only from that subscriber’s indexed pages. A sync that indexes 0 pages is reported as a failure. Verified sites re-sync daily via `/api/cron/website-sync`.
