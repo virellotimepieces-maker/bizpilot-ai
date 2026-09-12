@@ -14,7 +14,7 @@ import { nid } from "./id";
 import { presetById } from "./presets";
 import { emptyChat, buildInboxFromPreset, buildSocialInboxFromPreset, rebuildEmailDraft } from "./sample-traffic";
 import { generateReply } from "./reply-engine";
-import { draftSocialFromInbound, rebuildSocialDraft } from "./social";
+import { draftSocialFromInbound, rebuildSocialDraft, type SocialComposeInput } from "./social";
 import type {
   BusinessType,
   ChatMessage,
@@ -62,13 +62,7 @@ interface WorkspaceContextValue {
   updateSocial: (id: string, patch: Partial<SocialMessage>) => void;
   setSocialStatus: (id: string, status: SocialStatus) => void;
   regenerateSocialDraft: (id: string) => void;
-  simulateIncomingSocial: (input: {
-    platform: SocialMessage["platform"];
-    fromName: string;
-    handle: string;
-    body: string;
-    conversationUrl?: string;
-  }) => void;
+  simulateIncomingSocial: (input: Omit<SocialComposeInput, "kb">) => void;
   sendVisitorMessage: (text: string) => void;
   resetChat: () => void;
   resetWorkspace: () => void;
@@ -294,24 +288,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const simulateIncomingSocial = useCallback(
-    (input: {
-      platform: SocialMessage["platform"];
-      fromName: string;
-      handle: string;
-      body: string;
-      conversationUrl?: string;
-    }) => {
+    (input: Omit<SocialComposeInput, "kb">) => {
       setState((prev) => {
         if (!prev.knowledge) return prev;
         const message: SocialMessage = {
           id: nid("soc"),
           ...draftSocialFromInbound({
             kb: prev.knowledge,
-            platform: input.platform,
-            fromName: input.fromName,
-            handle: input.handle,
-            body: input.body,
-            conversationUrl: input.conversationUrl,
+            ...input,
           }),
         };
         return { ...prev, socials: [message, ...prev.socials] };

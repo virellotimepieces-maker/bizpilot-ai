@@ -5,7 +5,16 @@ import { BillingService } from "@/lib/billing/service";
 import { BillingError } from "@/lib/billing/types";
 import { emptyKnowledge, normalizeKnowledge } from "@/lib/empty-knowledge";
 import { jsonError } from "@/lib/http";
-import { draftSocialFromInbound, isSocialPlatform, isSocialStatus, rebuildSocialDraft } from "@/lib/social";
+import {
+  draftSocialFromInboundAi,
+  isSocialGoal,
+  isSocialHashtagMode,
+  isSocialMode,
+  isSocialPlatform,
+  isSocialStatus,
+  isSocialTone,
+  rebuildSocialDraftAi,
+} from "@/lib/social";
 import type { SocialMessage } from "@/lib/types";
 
 async function paidContext() {
@@ -33,26 +42,56 @@ export async function POST(request: NextRequest) {
   try {
     const { store, workspace } = await paidContext();
     const body = (await request.json()) as {
+      mode?: string;
       platform?: string;
       fromName?: string;
       handle?: string;
       body?: string;
       conversationUrl?: string;
+      tone?: string;
+      goal?: string;
+      hashtags?: string;
+      customHashtags?: string;
+      cta?: string;
+      link?: string;
+      language?: string;
     };
     if (!body.platform || !isSocialPlatform(body.platform)) {
       throw new BillingError("Choose Instagram, Facebook, TikTok, or Messenger.", "invalid");
     }
+    const mode = body.mode && isSocialMode(body.mode) ? body.mode : "reply";
     if (!body.body?.trim()) {
-      throw new BillingError("Message is required.", "invalid");
+      throw new BillingError(
+        mode === "post" ? "Post instructions are required." : "Received message is required.",
+        "invalid",
+      );
+    }
+    if (body.tone !== undefined && body.tone !== "" && !isSocialTone(body.tone)) {
+      throw new BillingError("Choose a valid tone.", "invalid");
+    }
+    if (body.goal !== undefined && body.goal !== "" && !isSocialGoal(body.goal)) {
+      throw new BillingError("Choose a valid goal.", "invalid");
+    }
+    if (body.hashtags !== undefined && body.hashtags !== "" && !isSocialHashtagMode(body.hashtags)) {
+      throw new BillingError("Choose None, Suggested, or Custom hashtags.", "invalid");
     }
     const kb = normalizeKnowledge(workspace.knowledge ?? emptyKnowledge("custom"));
-    const draft = draftSocialFromInbound({
+    const draft = await draftSocialFromInboundAi({
       kb,
       platform: body.platform,
-      fromName: body.fromName?.trim() || "Customer",
-      handle: body.handle?.trim() || "@customer",
+      fromName: body.fromName?.trim() || undefined,
+      handle: body.handle?.trim() || undefined,
       body: body.body.trim(),
-      conversationUrl: body.conversationUrl?.trim() || undefined,
+      conversationUrl: body.conversationUrl?.trim() || body.link?.trim() || undefined,
+      mode,
+      tone: body.tone && isSocialTone(body.tone) ? body.tone : "friendly",
+      goal: body.goal && isSocialGoal(body.goal) ? body.goal : undefined,
+      hashtags: body.hashtags && isSocialHashtagMode(body.hashtags) ? body.hashtags : "none",
+      customHashtags: body.customHashtags?.trim() || undefined,
+      cta: body.cta?.trim() || undefined,
+      link: body.link?.trim() || undefined,
+      language: body.language?.trim() || undefined,
+      workspaceId: workspace.id,
     });
     const message = await store.createSocialMessage({
       workspaceId: workspace.id,
@@ -114,7 +153,7 @@ export async function PATCH(request: NextRequest) {
         usedInternalKnowledge: existing.usedInternalKnowledge,
         postedAt: existing.postedAt?.toISOString(),
       };
-      const rebuilt = rebuildSocialDraft(current, kb);
+      const rebuilt = await rebuildSocialDraftAi(current, kb, { workspaceId: workspace.id });
       const message = await store.updateSocialMessage(existing.id, workspace.id, workspace.widgetKey, {
         draftBody: rebuilt.draftBody,
         status: rebuilt.status,

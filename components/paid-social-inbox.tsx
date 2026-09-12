@@ -24,14 +24,43 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { INTENT_LABEL } from "@/lib/intent-labels";
 import {
+  SOCIAL_AI_HELPER_COPY,
+  SOCIAL_CUSTOMER_FIELD_LABEL,
+  SOCIAL_GOAL_LABEL,
+  SOCIAL_GOALS,
+  SOCIAL_HASHTAG_LABEL,
+  SOCIAL_HASHTAG_MODES,
+  SOCIAL_MODE_LABEL,
+  SOCIAL_NEVER_POST,
   SOCIAL_PLATFORM_LABEL,
   SOCIAL_PLATFORMS,
   SOCIAL_STATUS_LABEL,
+  SOCIAL_TONE_LABEL,
+  SOCIAL_TONES,
+  readSocialDraftMeta,
+  socialListSubtitle,
+  socialListTitle,
+  type SocialHashtagMode,
+  type SocialMode,
+  type SocialPostGoal,
+  type SocialTone,
 } from "@/lib/social";
-import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS, PAGE_TITLE_CLASS } from "@/lib/ui/type-scale";
+import {
+  SOCIAL_ACTION_BUTTON_CLASS,
+  SOCIAL_ACTION_ROW_CLASS,
+  SOCIAL_CARD_CLASS,
+  SOCIAL_CONTENT_BOX_CLASS,
+  SOCIAL_FIELD_CONTROL_CLASS,
+  SOCIAL_PAGE_TITLE_CLASS,
+  SOCIAL_PANE_GRID_CLASS,
+  SOCIAL_TOOLBAR_CLASS,
+  SOCIAL_WRAP_INLINE_CLASS,
+  SOCIAL_WRAP_TEXT_CLASS,
+} from "@/lib/social-layout";
+import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS } from "@/lib/ui/type-scale";
 import type { ReplySource, SocialPlatform, SocialStatus } from "@/lib/types";
-import { Copy, RefreshCw, Share2, ShieldAlert } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Copy, RefreshCw, ShieldAlert } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 type PaidSocialMessage = {
@@ -50,36 +79,56 @@ type PaidSocialMessage = {
   createdAt: string;
 };
 
+const emptyForm = {
+  mode: "reply" as SocialMode,
+  platform: "instagram" as SocialPlatform,
+  fromName: "",
+  body: "",
+  conversationUrl: "",
+  tone: "friendly" as SocialTone,
+  goal: "awareness" as SocialPostGoal,
+  hashtags: "none" as SocialHashtagMode,
+  customHashtags: "",
+  cta: "",
+  link: "",
+  language: "",
+};
+
 export function PaidSocialInbox() {
   const [messages, setMessages] = useState<PaidSocialMessage[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [incoming, setIncoming] = useState({
-    platform: "instagram" as SocialPlatform,
-    fromName: "",
-    handle: "",
-    body: "",
-    conversationUrl: "",
-  });
-
-  const load = useCallback(async () => {
-    const response = await fetch("/api/app/social");
-    const payload = (await response.json()) as { messages?: PaidSocialMessage[]; error?: string };
-    if (!response.ok) {
-      setError(payload.error || "Could not load social drafts.");
-      setLoading(false);
-      return;
-    }
-    setError("");
-    setMessages(payload.messages ?? []);
-    setLoading(false);
-  }, []);
+  const [form, setForm] = useState(emptyForm);
+  const [draftDirty, setDraftDirty] = useState(false);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    const controller = new AbortController();
+    fetch("/api/app/social", { signal: controller.signal })
+      .then(async (response) => {
+        const payload = (await response.json()) as { messages?: PaidSocialMessage[]; error?: string };
+        return { ok: response.ok, payload };
+      })
+      .then(({ ok, payload }) => {
+        if (!ok) {
+          setError(payload.error || "Could not load social drafts.");
+          setLoading(false);
+          return;
+        }
+        setError("");
+        setMessages(payload.messages ?? []);
+        setLoading(false);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setError("Could not load social drafts.");
+        setLoading(false);
+      });
+    return () => controller.abort();
+  }, []);
 
   const selected = useMemo(
     () => messages.find((row) => row.id === selectedId) ?? messages[0] ?? null,
@@ -100,131 +149,406 @@ export function PaidSocialInbox() {
     if (payload.message) {
       setMessages((prev) => prev.map((row) => (row.id === payload.message!.id ? payload.message! : row)));
     }
-    if (body.regenerate) toast.success("Draft regenerated from the current knowledge base");
-    if (body.status === "posted") toast.success("Marked as posted by you");
+    if (body.regenerate) {
+      setDraftDirty(false);
+      toast.success("Draft regenerated. Nothing was posted.");
+    }
+    if (body.status === "posted") toast.success("Marked as posted by you. BizPilot did not post it.");
     if (body.status === "escalated") toast.message("Kept in the human queue");
     if (body.status === "discarded") toast.message("Draft discarded");
   }
 
-  if (error && !messages.length && !loading) {
-    return <p className="text-sm text-destructive md:text-base">{error}</p>;
+  async function generateDraft() {
+    if (generating) return;
+    if (!form.body.trim()) {
+      const message =
+        form.mode === "post" ? "Post instructions are required." : "Received message is required.";
+      setGenerateError(message);
+      toast.error(message);
+      return;
+    }
+    setGenerating(true);
+    setGenerateError("");
+    try {
+      const response = await fetch("/api/app/social", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: form.mode,
+          platform: form.platform,
+          fromName: form.fromName.trim() || undefined,
+          handle: form.fromName.trim() || undefined,
+          body: form.body,
+          conversationUrl: form.mode === "reply" ? form.conversationUrl.trim() || undefined : form.link.trim() || undefined,
+          tone: form.tone,
+          goal: form.mode === "post" ? form.goal : undefined,
+          hashtags: form.mode === "post" ? form.hashtags : "none",
+          customHashtags: form.mode === "post" && form.hashtags === "custom" ? form.customHashtags : undefined,
+          cta: form.cta.trim() || undefined,
+          link: form.link.trim() || undefined,
+          language: form.language.trim() || undefined,
+        }),
+      });
+      const payload = (await response.json()) as { message?: PaidSocialMessage; error?: string };
+      if (!response.ok) {
+        const message = payload.error || "Could not create a draft";
+        setGenerateError(message);
+        toast.error(message);
+        return;
+      }
+      if (payload.message) {
+        setMessages((prev) => [payload.message!, ...prev]);
+        setSelectedId(payload.message.id);
+        setDraftDirty(false);
+        toast.success("Draft ready. Review and copy it — BizPilot never posts automatically.");
+      }
+    } catch {
+      setGenerateError("Could not create a draft. Try again.");
+      toast.error("Could not create a draft. Try again.");
+    } finally {
+      setGenerating(false);
+    }
   }
+
+  function requestRegenerate() {
+    if (!selected) return;
+    if (draftDirty) {
+      setConfirmRegenerate(true);
+      return;
+    }
+    void patch(selected.id, { regenerate: true });
+  }
+
+  if (error && !messages.length && !loading) {
+    return (
+      <p className={`text-sm text-destructive md:text-base ${SOCIAL_WRAP_TEXT_CLASS}`} role="alert">
+        {error}
+      </p>
+    );
+  }
+
+  const locked = selected?.status === "posted" || selected?.status === "discarded";
+  const generateLabel = form.mode === "post" ? "Generate post" : "Generate reply";
 
   return (
     <div className={PAGE_SHELL_CLASS}>
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">
-            Social support
-          </p>
-          <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Drafts you post yourself</h1>
-          <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
-            Paste an Instagram, Facebook, TikTok, or Messenger message. BizPilot writes a draft from
-            your knowledge. Copy it, post it in the social app, then mark it posted here. There is
-            no live Meta or TikTok connection.
-          </p>
-        </div>
-        <Button variant="outline" onClick={() => setComposeOpen(true)}>
-          <Share2 className="size-4" />
-          Paste a received message
-        </Button>
+      <div className={SOCIAL_CONTENT_BOX_CLASS}>
+        <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">Social drafts</p>
+        <h1 className={SOCIAL_PAGE_TITLE_CLASS}>Drafts you post yourself</h1>
+        <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS} ${SOCIAL_WRAP_TEXT_CLASS}`}>
+          {SOCIAL_AI_HELPER_COPY}
+        </p>
       </div>
 
-      <Alert>
+      <Alert className={SOCIAL_CONTENT_BOX_CLASS}>
         <ShieldAlert />
-        <AlertTitle>Human posting required</AlertTitle>
-        <AlertDescription>
-          BizPilot never posts to social networks. Website chat may answer safe questions on its
-          own. Social stays a draft until you copy it.
-        </AlertDescription>
+        <AlertTitle>Draft only</AlertTitle>
+        <AlertDescription className={SOCIAL_WRAP_INLINE_CLASS}>{SOCIAL_NEVER_POST}</AlertDescription>
       </Alert>
+
+      <div className={SOCIAL_CARD_CLASS}>
+        <div role="tablist" aria-label="Social draft mode" className={SOCIAL_TOOLBAR_CLASS}>
+          {(["reply", "post"] as const).map((mode) => (
+            <Button
+              key={mode}
+              type="button"
+              role="tab"
+              aria-selected={form.mode === mode}
+              variant={form.mode === mode ? "default" : "outline"}
+              className={SOCIAL_ACTION_BUTTON_CLASS}
+              onClick={() => setForm((prev) => ({ ...prev, mode }))}
+            >
+              {SOCIAL_MODE_LABEL[mode]}
+            </Button>
+          ))}
+        </div>
+
+        <div className={`mt-4 grid gap-3 ${SOCIAL_CONTENT_BOX_CLASS}`}>
+          <Field label="Platform" htmlFor="social-platform">
+            <Select
+              value={form.platform}
+              onValueChange={(value) =>
+                setForm((prev) => ({ ...prev, platform: value as SocialPlatform }))
+              }
+            >
+              <SelectTrigger id="social-platform" className={`w-full ${SOCIAL_FIELD_CONTROL_CLASS}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SOCIAL_PLATFORMS.map((platform) => (
+                  <SelectItem key={platform} value={platform}>
+                    {SOCIAL_PLATFORM_LABEL[platform]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          {form.mode === "reply" ? (
+            <>
+              <Field label={SOCIAL_CUSTOMER_FIELD_LABEL} htmlFor="social-customer">
+                <Input
+                  id="social-customer"
+                  className={SOCIAL_FIELD_CONTROL_CLASS}
+                  value={form.fromName}
+                  onChange={(e) => setForm((prev) => ({ ...prev, fromName: e.target.value }))}
+                  autoComplete="off"
+                />
+              </Field>
+              <Field label="Conversation link (optional)" htmlFor="social-conversation-link">
+                <Input
+                  id="social-conversation-link"
+                  className={SOCIAL_FIELD_CONTROL_CLASS}
+                  value={form.conversationUrl}
+                  onChange={(e) => setForm((prev) => ({ ...prev, conversationUrl: e.target.value }))}
+                  inputMode="url"
+                />
+              </Field>
+              <Field label="Received message" htmlFor="social-received-message">
+                <Textarea
+                  id="social-received-message"
+                  className={`${SOCIAL_FIELD_CONTROL_CLASS} ${SOCIAL_WRAP_TEXT_CLASS} min-h-28`}
+                  value={form.body}
+                  onChange={(e) => setForm((prev) => ({ ...prev, body: e.target.value }))}
+                  rows={5}
+                />
+              </Field>
+            </>
+          ) : (
+            <>
+              <Field
+                label="Topic, product, service, promotion, announcement, or post instructions"
+                htmlFor="social-post-instructions"
+              >
+                <Textarea
+                  id="social-post-instructions"
+                  className={`${SOCIAL_FIELD_CONTROL_CLASS} ${SOCIAL_WRAP_TEXT_CLASS} min-h-28`}
+                  value={form.body}
+                  onChange={(e) => setForm((prev) => ({ ...prev, body: e.target.value }))}
+                  rows={5}
+                />
+              </Field>
+              <Field label="Optional link" htmlFor="social-post-link">
+                <Input
+                  id="social-post-link"
+                  className={SOCIAL_FIELD_CONTROL_CLASS}
+                  value={form.link}
+                  onChange={(e) => setForm((prev) => ({ ...prev, link: e.target.value }))}
+                  inputMode="url"
+                />
+              </Field>
+              <Field label="Goal" htmlFor="social-goal">
+                <Select
+                  value={form.goal}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, goal: value as SocialPostGoal }))
+                  }
+                >
+                  <SelectTrigger id="social-goal" className={`w-full ${SOCIAL_FIELD_CONTROL_CLASS}`}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SOCIAL_GOALS.map((goal) => (
+                      <SelectItem key={goal} value={goal}>
+                        {SOCIAL_GOAL_LABEL[goal]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Hashtags" htmlFor="social-hashtags">
+                <Select
+                  value={form.hashtags}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, hashtags: value as SocialHashtagMode }))
+                  }
+                >
+                  <SelectTrigger id="social-hashtags" className={`w-full ${SOCIAL_FIELD_CONTROL_CLASS}`}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SOCIAL_HASHTAG_MODES.map((mode) => (
+                      <SelectItem key={mode} value={mode}>
+                        {SOCIAL_HASHTAG_LABEL[mode]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              {form.hashtags === "custom" ? (
+                <Field label="Custom hashtags" htmlFor="social-custom-hashtags">
+                  <Input
+                    id="social-custom-hashtags"
+                    className={SOCIAL_FIELD_CONTROL_CLASS}
+                    value={form.customHashtags}
+                    onChange={(e) => setForm((prev) => ({ ...prev, customHashtags: e.target.value }))}
+                  />
+                </Field>
+              ) : null}
+              <Field label="Language (optional)" htmlFor="social-language">
+                <Input
+                  id="social-language"
+                  className={SOCIAL_FIELD_CONTROL_CLASS}
+                  value={form.language}
+                  onChange={(e) => setForm((prev) => ({ ...prev, language: e.target.value }))}
+                  placeholder="Same as your instructions"
+                />
+              </Field>
+            </>
+          )}
+
+          <Field label={form.mode === "post" ? "Tone" : "Reply tone"} htmlFor="social-tone">
+            <Select
+              value={form.tone}
+              onValueChange={(value) => setForm((prev) => ({ ...prev, tone: value as SocialTone }))}
+            >
+              <SelectTrigger id="social-tone" className={`w-full ${SOCIAL_FIELD_CONTROL_CLASS}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SOCIAL_TONES.map((tone) => (
+                  <SelectItem key={tone} value={tone}>
+                    {SOCIAL_TONE_LABEL[tone]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Optional call to action" htmlFor="social-cta">
+            <Input
+              id="social-cta"
+              className={SOCIAL_FIELD_CONTROL_CLASS}
+              value={form.cta}
+              onChange={(e) => setForm((prev) => ({ ...prev, cta: e.target.value }))}
+            />
+          </Field>
+        </div>
+
+        {generateError ? (
+          <p className={`mt-3 text-sm text-destructive ${SOCIAL_WRAP_TEXT_CLASS}`} role="alert">
+            {generateError}
+          </p>
+        ) : null}
+        {generating ? (
+          <p className={`mt-3 ${HELPER_TEXT_CLASS}`} aria-live="polite">
+            Generating draft…
+          </p>
+        ) : null}
+
+        <div className={SOCIAL_ACTION_ROW_CLASS}>
+          <Button
+            className={SOCIAL_ACTION_BUTTON_CLASS}
+            disabled={generating}
+            aria-busy={generating}
+            onClick={() => void generateDraft()}
+          >
+            {generating ? "Generating…" : generateLabel}
+          </Button>
+        </div>
+      </div>
 
       {loading ? (
         <p className={HELPER_TEXT_CLASS}>Loading social drafts…</p>
       ) : messages.length === 0 ? (
-        <div className="rounded-2xl border bg-card p-8 text-center">
-          <p className="font-heading text-xl">No social messages yet</p>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Paste a DM or comment to watch a draft appear from the current knowledge base.
+        <div className={`${SOCIAL_CARD_CLASS} text-center`}>
+          <p className="font-heading text-xl">No social drafts yet</p>
+          <p className={`mx-auto mt-2 max-w-md text-sm text-muted-foreground ${SOCIAL_WRAP_TEXT_CLASS}`}>
+            Generate a reply or post to see an editable draft here. Copy it into Instagram, Facebook,
+            TikTok, or Messenger yourself.
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[minmax(16rem,0.9fr)_minmax(0,1.4fr)]">
-          <div className="rounded-2xl border bg-card shadow-sm">
+        <div className={SOCIAL_PANE_GRID_CLASS}>
+          <div className={`${SOCIAL_CONTENT_BOX_CLASS} overflow-x-hidden rounded-2xl border bg-card shadow-sm`}>
             <div className="border-b px-4 py-3 text-sm font-medium">Inbox</div>
             <div className="max-h-[70vh] overflow-y-auto">
               {messages.map((row) => (
                 <button
                   key={row.id}
                   type="button"
-                  onClick={() => setSelectedId(row.id)}
-                  className={`block w-full border-b px-4 py-3 text-left last:border-b-0 ${
+                  onClick={() => {
+                    setSelectedId(row.id);
+                    setDraftDirty(false);
+                  }}
+                  className={`block w-full min-w-0 border-b px-4 py-3 text-left last:border-b-0 ${
                     selected?.id === row.id ? "bg-muted/70" : "hover:bg-muted/40"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-medium">{row.fromName}</p>
+                  <div className="flex min-w-0 items-center justify-between gap-2">
+                    <p className={`truncate text-sm font-medium ${SOCIAL_WRAP_INLINE_CLASS}`}>
+                      {socialListTitle(row)}
+                    </p>
                     <StatusBadge status={row.status} />
                   </div>
-                  <p className="mt-1 truncate text-sm">
-                    {SOCIAL_PLATFORM_LABEL[row.platform]} · {row.handle}
+                  <p className={`mt-1 truncate text-sm ${SOCIAL_WRAP_INLINE_CLASS}`}>
+                    {socialListSubtitle(row)}
                   </p>
                 </button>
               ))}
             </div>
           </div>
           {selected ? (
-            <div className="grid gap-4">
-              <div className="rounded-2xl border bg-card p-4 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-medium">{selected.fromName}</p>
-                    <p className="text-xs text-muted-foreground">{selected.handle}</p>
+            <div className={`grid gap-4 ${SOCIAL_CONTENT_BOX_CLASS}`}>
+              <div className={SOCIAL_CARD_CLASS}>
+                <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0 max-w-full">
+                    <p className={`text-sm font-medium ${SOCIAL_WRAP_INLINE_CLASS}`}>
+                      {socialListTitle(selected)}
+                    </p>
+                    <p className={`text-xs text-muted-foreground ${SOCIAL_WRAP_INLINE_CLASS}`}>
+                      {readSocialDraftMeta(selected.handle).displayHandle ||
+                        (readSocialDraftMeta(selected.handle).mode === "post" ? "Create post" : "")}
+                    </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex min-w-0 flex-wrap gap-2">
                     <StatusBadge status={selected.status} />
                     <Badge variant="outline">{SOCIAL_PLATFORM_LABEL[selected.platform]}</Badge>
-                    <Badge variant="outline">{INTENT_LABEL[selected.intent]}</Badge>
+                    <Badge variant="outline">{INTENT_LABEL[selected.intent] ?? selected.intent}</Badge>
                   </div>
                 </div>
                 {selected.conversationUrl ? (
-                  <p className="mt-2 truncate text-xs text-muted-foreground">
+                  <p className={`mt-2 text-xs text-muted-foreground ${SOCIAL_WRAP_INLINE_CLASS}`}>
                     {selected.conversationUrl}
                   </p>
                 ) : null}
-                <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed">{selected.body}</p>
+                <p className={`mt-4 text-sm leading-relaxed ${SOCIAL_WRAP_TEXT_CLASS}`}>{selected.body}</p>
               </div>
-              <div className="rounded-2xl border bg-card p-4 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h3 className="font-heading text-lg">Editable draft</h3>
-                    <p className="text-sm text-muted-foreground">{selected.operatorNote}</p>
+              <div className={SOCIAL_CARD_CLASS}>
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <h3 className="font-heading text-base sm:text-lg">Editable draft</h3>
+                    <p className={`text-sm text-muted-foreground ${SOCIAL_WRAP_INLINE_CLASS}`}>
+                      {selected.operatorNote}
+                    </p>
                   </div>
                   <Button
                     variant="outline"
-                    size="sm"
-                    disabled={selected.status === "posted" || selected.status === "discarded"}
-                    onClick={() => void patch(selected.id, { regenerate: true })}
+                    className={SOCIAL_ACTION_BUTTON_CLASS}
+                    disabled={locked || generating}
+                    onClick={requestRegenerate}
                   >
                     <RefreshCw className="size-4" />
-                    Regenerate from knowledge
+                    Regenerate
                   </Button>
                 </div>
-                <div className="mt-3">
-                  <SourcePills sources={selected.sources ?? []} />
+                <div className={`mt-3 ${SOCIAL_CONTENT_BOX_CLASS}`}>
+                  <SourcePills sources={selected.sources ?? []} hideEmpty />
                 </div>
                 {selected.usedInternalKnowledge ? (
-                  <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  <p className={`mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive ${SOCIAL_WRAP_INLINE_CLASS}`}>
                     This draft touched an internal document. Review before you post it.
                   </p>
                 ) : null}
-                <div className="mt-4">
-                  <Field label="Reply">
+                <div className={`mt-4 ${SOCIAL_CONTENT_BOX_CLASS}`}>
+                  <Field label="Draft" htmlFor="social-draft-body">
                     <Textarea
+                      id="social-draft-body"
+                      className={`${SOCIAL_FIELD_CONTROL_CLASS} ${SOCIAL_WRAP_TEXT_CLASS} min-h-40`}
                       value={selected.draftBody}
-                      disabled={selected.status === "posted" || selected.status === "discarded"}
+                      disabled={locked}
                       onChange={(e) => {
                         const draftBody = e.target.value;
+                        setDraftDirty(true);
                         setMessages((prev) =>
                           prev.map((row) =>
                             row.id === selected.id ? { ...row, draftBody } : row,
@@ -236,8 +560,10 @@ export function PaidSocialInbox() {
                     />
                   </Field>
                 </div>
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className={SOCIAL_ACTION_ROW_CLASS}>
                   <Button
+                    className={SOCIAL_ACTION_BUTTON_CLASS}
+                    disabled={!selected.draftBody.trim()}
                     onClick={async () => {
                       await navigator.clipboard.writeText(selected.draftBody);
                       toast.success("Draft copied — paste it in the social app yourself");
@@ -248,21 +574,24 @@ export function PaidSocialInbox() {
                   </Button>
                   <Button
                     variant="outline"
-                    disabled={selected.status === "posted" || selected.status === "discarded"}
+                    className={SOCIAL_ACTION_BUTTON_CLASS}
+                    disabled={locked}
                     onClick={() => void patch(selected.id, { status: "posted" })}
                   >
                     Mark as posted
                   </Button>
                   <Button
                     variant="outline"
-                    disabled={selected.status === "posted" || selected.status === "discarded"}
+                    className={SOCIAL_ACTION_BUTTON_CLASS}
+                    disabled={locked}
                     onClick={() => void patch(selected.id, { status: "escalated" })}
                   >
                     Keep with a human
                   </Button>
                   <Button
                     variant="ghost"
-                    disabled={selected.status === "posted" || selected.status === "discarded"}
+                    className={SOCIAL_ACTION_BUTTON_CLASS}
+                    disabled={locked}
                     onClick={() => void patch(selected.id, { status: "discarded" })}
                   >
                     Discard draft
@@ -274,103 +603,31 @@ export function PaidSocialInbox() {
         </div>
       )}
 
-      <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
-        <DialogContent className="sm:max-w-lg">
+      <Dialog open={confirmRegenerate} onOpenChange={setConfirmRegenerate}>
+        <DialogContent className="w-[calc(100%-1.5rem)] max-w-lg">
           <DialogHeader>
-            <DialogTitle>Paste a received social message</DialogTitle>
-            <DialogDescription>
-              BizPilot will write a draft from your knowledge. It still will not post.
+            <DialogTitle>Replace your edited draft?</DialogTitle>
+            <DialogDescription className={SOCIAL_WRAP_INLINE_CLASS}>
+              Regenerating replaces the suggested draft. The received message or post instructions
+              stay the same. Your manual edits will be lost. Nothing will be posted.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3">
-            <Field label="Channel">
-              <Select
-                value={incoming.platform}
-                onValueChange={(value) =>
-                  setIncoming({ ...incoming, platform: value as SocialPlatform })
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SOCIAL_PLATFORMS.map((platform) => (
-                    <SelectItem key={platform} value={platform}>
-                      {SOCIAL_PLATFORM_LABEL[platform]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="From name">
-              <Input
-                value={incoming.fromName}
-                onChange={(e) => setIncoming({ ...incoming, fromName: e.target.value })}
-              />
-            </Field>
-            <Field label="Handle">
-              <Input
-                value={incoming.handle}
-                onChange={(e) => setIncoming({ ...incoming, handle: e.target.value })}
-                placeholder="@customer"
-              />
-            </Field>
-            <Field label="Optional conversation link">
-              <Input
-                value={incoming.conversationUrl}
-                onChange={(e) => setIncoming({ ...incoming, conversationUrl: e.target.value })}
-              />
-            </Field>
-            <Field label="Message">
-              <Textarea
-                value={incoming.body}
-                onChange={(e) => setIncoming({ ...incoming, body: e.target.value })}
-                rows={5}
-              />
-            </Field>
-          </div>
           <DialogFooter>
             <Button
-              onClick={async () => {
-                if (!incoming.body.trim()) {
-                  toast.error("Message is required");
-                  return;
-                }
-                const response = await fetch("/api/app/social", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    platform: incoming.platform,
-                    fromName: incoming.fromName || "Customer",
-                    handle: incoming.handle || "@customer",
-                    body: incoming.body,
-                    conversationUrl: incoming.conversationUrl.trim() || undefined,
-                  }),
-                });
-                const payload = (await response.json()) as {
-                  message?: PaidSocialMessage;
-                  error?: string;
-                };
-                if (!response.ok) {
-                  toast.error(payload.error || "Could not create a draft");
-                  return;
-                }
-                if (payload.message) {
-                  setMessages((prev) => [payload.message!, ...prev]);
-                  setSelectedId(payload.message.id);
-                }
-                setComposeOpen(false);
-                setIncoming({
-                  platform: "instagram",
-                  fromName: "",
-                  handle: "",
-                  body: "",
-                  conversationUrl: "",
-                });
-                toast.success("Draft created — copy and post it yourself");
+              variant="outline"
+              className={SOCIAL_ACTION_BUTTON_CLASS}
+              onClick={() => setConfirmRegenerate(false)}
+            >
+              Keep edits
+            </Button>
+            <Button
+              className={SOCIAL_ACTION_BUTTON_CLASS}
+              onClick={() => {
+                setConfirmRegenerate(false);
+                if (selected) void patch(selected.id, { regenerate: true });
               }}
             >
-              Create draft
+              Regenerate
             </Button>
           </DialogFooter>
         </DialogContent>
