@@ -22,8 +22,22 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { EMAIL_STATUS_LABEL } from "@/lib/email-draft";
+import {
+  GMAIL_ACTION_BUTTON_CLASS,
+  GMAIL_ACTION_ROW_CLASS,
+  GMAIL_BODY_CLASS,
+  GMAIL_CARD_CLASS,
+  GMAIL_CONTENT_BOX_CLASS,
+  GMAIL_FIELD_CONTROL_CLASS,
+  GMAIL_PAGE_TITLE_CLASS,
+  GMAIL_PANE_GRID_CLASS,
+  GMAIL_SUBJECT_CLASS,
+  GMAIL_TOOLBAR_CLASS,
+  GMAIL_WRAP_INLINE_CLASS,
+  GMAIL_WRAP_TEXT_CLASS,
+} from "@/lib/gmail/email-layout";
 import { INTENT_LABEL } from "@/lib/intent-labels";
-import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS, PAGE_TITLE_CLASS } from "@/lib/ui/type-scale";
+import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS } from "@/lib/ui/type-scale";
 import type { EmailStatus, ReplySource } from "@/lib/types";
 import { Copy, Link2Off, MailPlus, Pencil, RefreshCw, ShieldAlert, Unplug } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -308,55 +322,70 @@ export function PaidEmailInbox() {
 
   return (
     <div className={PAGE_SHELL_CLASS}>
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">Email support</p>
-          <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Gmail inbox</h1>
-          <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
+      <div className="flex min-w-0 max-w-full flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0 max-w-full">
+          <p className="text-[10px] font-medium tracking-[0.16em] text-primary uppercase sm:text-xs sm:tracking-[0.2em]">
+            Email support
+          </p>
+          <h1 className={GMAIL_PAGE_TITLE_CLASS}>Gmail inbox</h1>
+          <p className={`mt-2 max-w-full text-xs leading-relaxed text-muted-foreground sm:max-w-2xl sm:text-sm md:text-base`}>
             Connect Gmail to read received mail and generate a suggested reply from Knowledge. Replies
             send only after you confirm. They never go out on their own.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className={GMAIL_TOOLBAR_CLASS}>
           {connected ? (
             <>
-              <Button variant="outline" onClick={() => void loadInbox()} disabled={inboxLoading}>
+              <Button
+                variant="outline"
+                className={GMAIL_ACTION_BUTTON_CLASS}
+                onClick={() => void loadInbox()}
+                disabled={inboxLoading}
+              >
                 <RefreshCw className="size-4" />
                 Refresh Inbox
               </Button>
-              <Button variant="outline" onClick={() => void disconnectGmail()}>
+              <Button
+                variant="outline"
+                className={GMAIL_ACTION_BUTTON_CLASS}
+                onClick={() => void disconnectGmail()}
+              >
                 <Unplug className="size-4" />
                 Disconnect Gmail
               </Button>
             </>
           ) : gmail?.configured === false ? (
-            <Button disabled>Connect Gmail</Button>
+            <Button disabled className={GMAIL_ACTION_BUTTON_CLASS}>
+              Connect Gmail
+            </Button>
           ) : (
-            <Button render={<a href="/api/app/gmail/connect" />}>Connect Gmail</Button>
+            <Button className={GMAIL_ACTION_BUTTON_CLASS} render={<a href="/api/app/gmail/connect" />}>
+              Connect Gmail
+            </Button>
           )}
         </div>
       </div>
 
       {gmail?.googleEmail ? (
-        <p className={HELPER_TEXT_CLASS}>
+        <p className={`${HELPER_TEXT_CLASS} ${GMAIL_WRAP_INLINE_CLASS}`}>
           {connected ? "Connected as" : "Last connected as"} {gmail.googleEmail}
         </p>
       ) : null}
 
-      <Alert>
+      <Alert className={GMAIL_CONTENT_BOX_CLASS}>
         <ShieldAlert />
         <AlertTitle>Human send required</AlertTitle>
-        <AlertDescription>
+        <AlertDescription className={GMAIL_WRAP_INLINE_CLASS}>
           Opening a message writes a suggested reply from Knowledge. BizPilot will not send it until
           you press Send reply and confirm.
         </AlertDescription>
       </Alert>
 
       {gmail?.configured === false ? (
-        <Alert>
+        <Alert className={GMAIL_CONTENT_BOX_CLASS}>
           <Link2Off />
           <AlertTitle>Gmail is not configured</AlertTitle>
-          <AlertDescription>
+          <AlertDescription className={GMAIL_WRAP_INLINE_CLASS}>
             Add Google OAuth credentials on the server, then Connect Gmail will appear. Manual email
             drafts still work below.
           </AlertDescription>
@@ -364,10 +393,10 @@ export function PaidEmailInbox() {
       ) : null}
 
       {gmail?.needsReconnect ? (
-        <Alert>
+        <Alert className={GMAIL_CONTENT_BOX_CLASS}>
           <ShieldAlert />
           <AlertTitle>Reconnect Gmail</AlertTitle>
-          <AlertDescription>
+          <AlertDescription className={GMAIL_WRAP_INLINE_CLASS}>
             Access was revoked or expired. Connect Gmail again to load the inbox. Nothing is sent
             while disconnected.
           </AlertDescription>
@@ -382,31 +411,33 @@ export function PaidEmailInbox() {
         inboxLoading && inbox.length === 0 ? (
           <p className={HELPER_TEXT_CLASS}>Loading Gmail messages…</p>
         ) : inbox.length === 0 ? (
-          <div className="rounded-2xl border bg-card p-8 text-center">
-            <p className="font-heading text-xl">Inbox is empty</p>
+          <div className={`${GMAIL_CARD_CLASS} p-6 text-center sm:p-8`}>
+            <p className="font-heading text-lg sm:text-xl">Inbox is empty</p>
             <p className={`mx-auto mt-2 max-w-md ${HELPER_TEXT_CLASS}`}>
               Refresh after new mail arrives in this Gmail account.
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-[minmax(16rem,0.9fr)_minmax(0,1.4fr)]">
-            <div className="rounded-2xl border bg-card shadow-sm">
-              <div className="border-b px-4 py-3 text-sm font-medium">Inbox</div>
-              <div className="max-h-[70vh] overflow-y-auto">
+          <div className={GMAIL_PANE_GRID_CLASS}>
+            <div className={`${GMAIL_CONTENT_BOX_CLASS} rounded-2xl border bg-card shadow-sm`}>
+              <div className="border-b px-3 py-2.5 text-sm font-medium sm:px-4 sm:py-3">Inbox</div>
+              <div className="max-h-[70vh] overflow-x-hidden overflow-y-auto">
                 {inbox.map((row) => (
                   <button
                     key={row.id}
                     type="button"
                     onClick={() => void openMessage(row.id)}
-                    className={`block w-full border-b px-4 py-3 text-left last:border-b-0 ${
+                    className={`block w-full min-w-0 max-w-full border-b px-3 py-2.5 text-left last:border-b-0 sm:px-4 sm:py-3 ${
                       selectedId === row.id ? "bg-muted/70" : "hover:bg-muted/40"
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className={`truncate text-sm ${row.unread ? "font-semibold" : "font-medium"}`}>
+                    <div className="flex min-w-0 max-w-full items-start justify-between gap-2">
+                      <p
+                        className={`min-w-0 flex-1 truncate text-sm ${row.unread ? "font-semibold" : "font-medium"}`}
+                      >
                         {row.fromName}
                       </p>
-                      <div className="flex shrink-0 items-center gap-1">
+                      <div className="flex min-w-0 flex-wrap justify-end gap-1">
                         {row.unread ? <Badge>Unread</Badge> : <Badge variant="outline">Read</Badge>}
                         {row.replyStatus === "sent" ? <Badge variant="secondary">Replied</Badge> : null}
                       </div>
@@ -422,50 +453,55 @@ export function PaidEmailInbox() {
             {detailLoading && !detail ? (
               <p className={HELPER_TEXT_CLASS}>Loading message and suggested reply…</p>
             ) : detail ? (
-              <div className="grid gap-4">
+              <div className={`${GMAIL_CONTENT_BOX_CLASS} grid gap-3 sm:gap-4`}>
                 {sentBanner ? (
-                  <Alert>
+                  <Alert className={GMAIL_CONTENT_BOX_CLASS}>
                     <AlertTitle>Reply sent successfully</AlertTitle>
-                    <AlertDescription>
+                    <AlertDescription className={GMAIL_WRAP_INLINE_CLASS}>
                       The reply was sent from {gmail?.googleEmail} in the original Gmail thread.
                     </AlertDescription>
                   </Alert>
                 ) : null}
-                <div className="rounded-2xl border bg-card p-4 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium">{detail.fromName}</p>
-                      <p className="text-xs text-muted-foreground">{detail.fromEmail}</p>
+                <div className={GMAIL_CARD_CLASS}>
+                  <div className="flex min-w-0 max-w-full flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0 max-w-full">
+                      <p className={`text-sm font-medium ${GMAIL_WRAP_INLINE_CLASS}`}>{detail.fromName}</p>
+                      <p className={`text-xs text-muted-foreground ${GMAIL_WRAP_INLINE_CLASS}`}>
+                        {detail.fromEmail}
+                      </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex min-w-0 max-w-full flex-wrap gap-2">
                       {detail.unread ? <Badge>Unread</Badge> : <Badge variant="outline">Read</Badge>}
                       <Badge variant="outline">{formatMailDate(detail.date)}</Badge>
                     </div>
                   </div>
-                  <h2 className="mt-3 font-heading text-xl">{detail.subject}</h2>
-                  <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed">{detail.body}</p>
+                  <h2 className={GMAIL_SUBJECT_CLASS}>{detail.subject}</h2>
+                  <p className={GMAIL_BODY_CLASS}>{detail.body}</p>
                 </div>
-                <div className="rounded-2xl border bg-card p-4 shadow-sm">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 className="font-heading text-lg">Suggested reply</h3>
-                      <p className="text-sm text-muted-foreground">{detail.draft.operatorNote}</p>
+                <div className={GMAIL_CARD_CLASS}>
+                  <div className="flex min-w-0 max-w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <div className="min-w-0 max-w-full">
+                      <h3 className="font-heading text-base sm:text-lg">Suggested reply</h3>
+                      <p className={`text-xs text-muted-foreground sm:text-sm ${GMAIL_WRAP_INLINE_CLASS}`}>
+                        {detail.draft.operatorNote}
+                      </p>
                     </div>
-                    <Badge variant="outline">
+                    <Badge variant="outline" className="max-w-full whitespace-normal">
                       {INTENT_LABEL[detail.draft.intent] ?? detail.draft.intent}
                     </Badge>
                   </div>
-                  <div className="mt-3">
+                  <div className={`mt-3 ${GMAIL_CONTENT_BOX_CLASS}`}>
                     <SourcePills sources={detail.draft.sources ?? []} />
                   </div>
                   {detail.draft.usedInternalKnowledge ? (
-                    <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                    <p className={`mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive ${GMAIL_WRAP_INLINE_CLASS}`}>
                       This draft touched an internal document. Review before you send it.
                     </p>
                   ) : null}
-                  <div className="mt-4 grid gap-3">
-                    <Field label="Subject">
+                  <div className={`mt-4 grid gap-3 ${GMAIL_CONTENT_BOX_CLASS}`}>
+                    <Field label="Subject" className={GMAIL_CONTENT_BOX_CLASS}>
                       <Input
+                        className={GMAIL_FIELD_CONTROL_CLASS}
                         value={detail.draft.draftSubject}
                         disabled={sent || !editing}
                         onChange={(e) => {
@@ -481,8 +517,9 @@ export function PaidEmailInbox() {
                         }
                       />
                     </Field>
-                    <Field label="Reply">
+                    <Field label="Reply" className={GMAIL_CONTENT_BOX_CLASS}>
                       <Textarea
+                        className={`${GMAIL_FIELD_CONTROL_CLASS} ${GMAIL_WRAP_TEXT_CLASS} min-h-40 text-sm sm:min-h-64 sm:text-base`}
                         value={detail.draft.draftBody}
                         disabled={sent || !editing}
                         onChange={(e) => {
@@ -496,25 +533,32 @@ export function PaidEmailInbox() {
                             ? void patchGmail(detail.id, { draftBody: detail.draft.draftBody })
                             : undefined
                         }
-                        rows={12}
+                        rows={8}
                       />
                     </Field>
                   </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className={GMAIL_ACTION_ROW_CLASS}>
                     <Button
                       variant="outline"
+                      className={GMAIL_ACTION_BUTTON_CLASS}
                       disabled={sent || detailLoading}
                       onClick={() => void patchGmail(detail.id, { regenerate: true })}
                     >
                       <RefreshCw className="size-4" />
                       Regenerate reply
                     </Button>
-                    <Button variant="outline" disabled={sent} onClick={() => setEditing(true)}>
+                    <Button
+                      variant="outline"
+                      className={GMAIL_ACTION_BUTTON_CLASS}
+                      disabled={sent}
+                      onClick={() => setEditing(true)}
+                    >
                       <Pencil className="size-4" />
                       Edit reply
                     </Button>
                     <Button
                       variant="outline"
+                      className={GMAIL_ACTION_BUTTON_CLASS}
                       onClick={async () => {
                         await navigator.clipboard.writeText(detail.draft.draftBody);
                         toast.success("Reply copied");
@@ -523,15 +567,19 @@ export function PaidEmailInbox() {
                       <Copy className="size-4" />
                       Copy reply
                     </Button>
-                    <Button disabled={sent || sending} onClick={() => setConfirmSend(true)}>
+                    <Button
+                      className={GMAIL_ACTION_BUTTON_CLASS}
+                      disabled={sent || sending}
+                      onClick={() => setConfirmSend(true)}
+                    >
                       Send reply
                     </Button>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="rounded-2xl border bg-card p-8 text-center">
-                <p className="font-heading text-xl">Select a message</p>
+              <div className={`${GMAIL_CARD_CLASS} p-6 text-center sm:p-8`}>
+                <p className="font-heading text-lg sm:text-xl">Select a message</p>
                 <p className={`mx-auto mt-2 max-w-md ${HELPER_TEXT_CLASS}`}>
                   Opening an email generates a suggested reply from the current Knowledge section.
                 </p>
@@ -540,8 +588,8 @@ export function PaidEmailInbox() {
           </div>
         )
       ) : (
-        <div className="rounded-2xl border bg-card p-8 text-center">
-          <p className="font-heading text-xl">Connect Gmail to load received mail</p>
+        <div className={`${GMAIL_CARD_CLASS} p-6 text-center sm:p-8`}>
+          <p className="font-heading text-lg sm:text-xl">Connect Gmail to load received mail</p>
           <p className={`mx-auto mt-2 max-w-md ${HELPER_TEXT_CLASS}`}>
             After you authorize BizPilot, messages from this Gmail inbox appear here with sender,
             subject, and read status.
@@ -549,7 +597,7 @@ export function PaidEmailInbox() {
         </div>
       )}
 
-      <Accordion className="rounded-2xl border bg-card px-4">
+      <Accordion className={`${GMAIL_CONTENT_BOX_CLASS} rounded-2xl border bg-card px-3 sm:px-4`}>
         <AccordionItem value="manual">
           <AccordionTrigger>Add email manually</AccordionTrigger>
           <AccordionContent>
@@ -558,20 +606,24 @@ export function PaidEmailInbox() {
               unless you copy them yourself.
             </p>
             <div className="mt-3">
-              <Button variant="outline" onClick={() => setManualOpen(true)}>
+              <Button
+                variant="outline"
+                className={GMAIL_ACTION_BUTTON_CLASS}
+                onClick={() => setManualOpen(true)}
+              >
                 <MailPlus className="size-4" />
                 Add email manually
               </Button>
             </div>
             {manual.length ? (
-              <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,1.2fr)]">
-                <div className="rounded-xl border">
+              <div className={`mt-4 ${GMAIL_PANE_GRID_CLASS}`}>
+                <div className={`${GMAIL_CONTENT_BOX_CLASS} rounded-xl border`}>
                   {manual.map((row) => (
                     <button
                       key={row.id}
                       type="button"
                       onClick={() => setManualSelectedId(row.id)}
-                      className={`block w-full border-b px-3 py-2 text-left last:border-b-0 ${
+                      className={`block w-full min-w-0 max-w-full border-b px-3 py-2 text-left last:border-b-0 ${
                         selectedManual?.id === row.id ? "bg-muted/70" : "hover:bg-muted/40"
                       }`}
                     >
@@ -581,12 +633,13 @@ export function PaidEmailInbox() {
                   ))}
                 </div>
                 {selectedManual ? (
-                  <div className="grid gap-3">
-                    <p className="text-sm">
+                  <div className={`${GMAIL_CONTENT_BOX_CLASS} grid gap-3`}>
+                    <p className={`text-sm ${GMAIL_WRAP_INLINE_CLASS}`}>
                       {selectedManual.fromName} &lt;{selectedManual.fromEmail}&gt;
                     </p>
                     <Badge variant="outline">{EMAIL_STATUS_LABEL[selectedManual.status]}</Badge>
                     <Textarea
+                      className={`${GMAIL_FIELD_CONTROL_CLASS} ${GMAIL_WRAP_TEXT_CLASS} text-sm sm:text-base`}
                       value={selectedManual.draftBody}
                       disabled={
                         selectedManual.status === "sent" || selectedManual.status === "discarded"
@@ -604,17 +657,17 @@ export function PaidEmailInbox() {
                       }
                       rows={8}
                     />
-                    <div className="flex flex-wrap gap-2">
+                    <div className={GMAIL_ACTION_ROW_CLASS}>
                       <Button
                         variant="outline"
-                        size="sm"
+                        className={GMAIL_ACTION_BUTTON_CLASS}
                         onClick={() => void patchManual(selectedManual.id, { regenerate: true })}
                       >
                         Regenerate reply
                       </Button>
                       <Button
                         variant="outline"
-                        size="sm"
+                        className={GMAIL_ACTION_BUTTON_CLASS}
                         onClick={async () => {
                           await navigator.clipboard.writeText(selectedManual.draftBody);
                           toast.success("Reply copied");
@@ -624,7 +677,7 @@ export function PaidEmailInbox() {
                       </Button>
                       <Button
                         variant="outline"
-                        size="sm"
+                        className={GMAIL_ACTION_BUTTON_CLASS}
                         onClick={() => void patchManual(selectedManual.id, { status: "sent" })}
                       >
                         Mark as sent
@@ -639,19 +692,23 @@ export function PaidEmailInbox() {
       </Accordion>
 
       <Dialog open={confirmSend} onOpenChange={setConfirmSend}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="w-[calc(100%-1.5rem)] max-w-lg">
           <DialogHeader>
             <DialogTitle>Send this reply?</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className={GMAIL_WRAP_INLINE_CLASS}>
               This sends from {gmail?.googleEmail} to {detail?.fromEmail} and stays in the original
               Gmail conversation. It will not send unless you confirm.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmSend(false)}>
+            <Button
+              variant="outline"
+              className={GMAIL_ACTION_BUTTON_CLASS}
+              onClick={() => setConfirmSend(false)}
+            >
               Cancel
             </Button>
-            <Button disabled={sending} onClick={() => void sendGmail()}>
+            <Button className={GMAIL_ACTION_BUTTON_CLASS} disabled={sending} onClick={() => void sendGmail()}>
               {sending ? "Sending…" : "Confirm send"}
             </Button>
           </DialogFooter>
@@ -659,7 +716,7 @@ export function PaidEmailInbox() {
       </Dialog>
 
       <Dialog open={manualOpen} onOpenChange={setManualOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="w-[calc(100%-1.5rem)] max-w-lg">
           <DialogHeader>
             <DialogTitle>Add email manually</DialogTitle>
             <DialogDescription>
