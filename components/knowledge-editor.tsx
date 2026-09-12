@@ -234,7 +234,7 @@ function EditorBody({
                 </Field>
                 <Field
                   label="About the business"
-                  hint="What you do, who you serve, and what you are not. This keeps chat from assuming you are a store — or a clinic."
+                  hint="Customers can see this in chat and email drafts. Write what you would say out loud — not internal rules like “never invent policies.”"
                 >
                   <Textarea
                     value={kb.description}

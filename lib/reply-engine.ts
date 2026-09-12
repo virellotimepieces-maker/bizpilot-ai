@@ -181,14 +181,64 @@ export function formatOffering(off: Offering): string | null {
   return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
+function stripOperatorFacingText(text: string) {
+  return text
+    .replace(/\s*(?:Never invent|Do not invent|Don't invent)[^.!?\n]*[.!?]*/gi, " ")
+    .replace(/\s*If information is unavailable[^.!?\n]*[.!?]*/gi, " ")
+    .replace(/\s*Refer (?:the question|this|it) to a (?:person|human|teammate)[^.!?\n]*[.!?]*/gi, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/  +/g, " ")
+    .trim();
+}
+
 function formatPublishedBusiness(kb: KnowledgeBase) {
   const lines = [
     kb.name.trim(),
     kb.tagline.trim(),
     kb.industry.trim() ? `Industry: ${kb.industry.trim()}` : "",
-    kb.description.trim(),
+    stripOperatorFacingText(kb.description.trim()),
   ].filter(filled);
   return lines.join("\n");
+}
+
+function asksAboutTheBusiness(query: string) {
+  return /\b(what do you (do|offer|provide|sell)|who are you|about (the )?business|tell me about (you|the (business|company|studio|shop|clinic|practice|store)))\b/i.test(
+    query,
+  );
+}
+
+function inboundQuestionText(query: string) {
+  return query
+    .replace(/^(?:\s*(?:re|fwd|fw):)+/gi, "")
+    .replace(/\(no subject\)/gi, " ")
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isThinInboundEmail(query: string, intent: ReplyIntent) {
+  if (UNSAFE.includes(intent)) return false;
+  if (intent !== "unknown" && intent !== "offerings") return false;
+  return inboundQuestionText(query).length < 12;
+}
+
+export function thinInboundEmailAsk() {
+  return "Thanks for writing. Could you share a bit more about what you need help with — a product question, an order, shipping, or a return? We'll follow up from there.";
+}
+
+function shouldHoldEmailForDetails(
+  channel: ReplyChannel,
+  query: string,
+  intent: ReplyIntent,
+  sources: ReplySource[],
+) {
+  if (channel !== "email") return false;
+  if (UNSAFE.includes(intent)) return false;
+  if (isThinInboundEmail(query, intent)) return true;
+  if (asksAboutTheBusiness(query)) return false;
+  if (intent !== "unknown") return false;
+  return sources.length > 0 && sources.every((source) => source.kind === "business");
 }
 
 export function unavailableKnowledgeMessage(kb: KnowledgeBase) {
@@ -210,15 +260,17 @@ export function hasEmptyFieldLabels(text: string) {
 }
 
 function sanitizeReplyBody(text: string) {
-  return text
-    .replace(/(?:^|\n)\s*\([^)]+\)\s*:?\s*(?=Price:|Availability:|$)/g, "\n")
-    .replace(/\bPrice:\s*\.(?=\s|$)/g, "")
-    .replace(/\bPrice:\s*(?=Availability:|$)/g, "")
-    .replace(/\bAvailability:\s*(?=\s*$)/gm, "")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/  +/g, " ")
-    .trim();
+  return stripOperatorFacingText(
+    text
+      .replace(/(?:^|\n)\s*\([^)]+\)\s*:?\s*(?=Price:|Availability:|$)/g, "\n")
+      .replace(/\bPrice:\s*\.(?=\s|$)/g, "")
+      .replace(/\bPrice:\s*(?=Availability:|$)/g, "")
+      .replace(/\bAvailability:\s*(?=\s*$)/gm, "")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/  +/g, " ")
+      .trim(),
+  );
 }
 
 type RankedSource = {
@@ -306,10 +358,7 @@ function collectSources(
     const aboutBlob = [kb.name, kb.tagline, kb.industry, kb.description]
       .filter(filled)
       .join("\n");
-    const aboutIntent =
-      /\b(what do you (do|offer|provide|sell)|who are you|about (the )?business|tell me about (you|the (business|company|studio|shop|clinic|practice)))\b/i.test(
-        query,
-      );
+    const aboutIntent = asksAboutTheBusiness(query);
     const score =
       scoreText(qTokens, aboutBlob) + (aboutIntent && aboutNarrative ? 0.5 : 0);
     consider(
@@ -317,7 +366,7 @@ function collectSources(
       { kind: "business", title: "About the business" },
       about,
       score,
-      aboutIntent && aboutNarrative ? 0.05 : 0.16,
+      aboutIntent && aboutNarrative ? 0.05 : 0.28,
     );
   }
 
@@ -685,6 +734,7 @@ export function generateReply(options: {
 
   const collected = collectSources(kb, query, intent, channel);
   const usedInternal = collected.usedInternal;
+  const holdEmail = shouldHoldEmailForDetails(channel, query, intent, collected.sources);
   const snippets = collected.snippets.filter(
     (snippet) => snippet.trim() && !hasEmptyFieldLabels(snippet),
   );
@@ -740,6 +790,14 @@ export function generateReply(options: {
         : "This matched an escalation rule or looks account-specific. Draft only — do not auto-send.";
     safeForChatAuto = false;
     collected.sources.unshift({ kind: "escalation", title: "Human-escalation rules" });
+  } else if (holdEmail) {
+    body = thinInboundEmailAsk();
+    confidence = 0.38;
+    requiresHuman = true;
+    safeForChatAuto = false;
+    operatorNote =
+      "The inbound email had no specific question to answer from Knowledge. Ask what they need instead of pasting the business profile.";
+    collected.sources.length = 0;
   } else if (!snippets.length) {
     body = unavailableKnowledgeMessage(kb);
     confidence = 0.42;

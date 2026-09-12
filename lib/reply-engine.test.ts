@@ -8,6 +8,7 @@ import {
   formatOffering,
   generateReply,
   hasEmptyFieldLabels,
+  thinInboundEmailAsk,
   unavailableKnowledgeMessage,
 } from "./reply-engine";
 import { PRESETS } from "./presets";
@@ -223,6 +224,70 @@ describe("blank product and service fields", () => {
       channel: "chat",
     });
     assert.equal(reply.body, unavailableKnowledgeMessage(kb));
+    assertNoEmptyLabels(reply.body);
+  });
+});
+
+describe("email drafts stay customer-facing", () => {
+  const virello = customDesk({
+    name: "Virello Timepieces",
+    tagline: "Modern watches for everyday style",
+    industry: "Online watch store",
+    description:
+      "Virello Timepieces is an online store selling watches. We assist customers with product questions, payments, orders, shipping, returns, and customer support. Never invent store policies or payment options. If information is unavailable, refer the question to a person.",
+    contact: {
+      ...emptyKnowledge("custom").contact,
+      email: "hello@virello.test",
+    },
+  });
+
+  it("does not paste the knowledge profile into a no-subject email", () => {
+    const reply = generateReply({
+      query: "Re: (no subject)\n",
+      kb: virello,
+      channel: "email",
+      customerName: "BOFOWO",
+    });
+    assert.match(reply.body, /^Hi BOFOWO,/);
+    assert.match(reply.body, new RegExp(thinInboundEmailAsk().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.doesNotMatch(reply.body, /Never invent/i);
+    assert.doesNotMatch(reply.body, /refer the question to a person/i);
+    assert.doesNotMatch(reply.body, /Industry:/);
+    assert.doesNotMatch(reply.body, /Modern watches for everyday style/);
+    assert.equal(reply.requiresHuman, true);
+    assertNoEmptyLabels(reply.body);
+  });
+
+  it("still answers a real email question from published knowledge", () => {
+    const reply = generateReply({
+      query: "Hours\nWhen are you open on Monday?",
+      kb: {
+        ...virello,
+        hours: {
+          ...virello.hours,
+          days: virello.hours.days.map((day) =>
+            day.day === "mon" ? { ...day, closed: false, open: "09:00", close: "17:00" } : day,
+          ),
+        },
+      },
+      channel: "email",
+      customerName: "Pat",
+    });
+    assert.match(reply.body, /monday/i);
+    assert.match(reply.body, /9 a\.m\./i);
+    assert.doesNotMatch(reply.body, /Never invent/i);
+    assertNoEmptyLabels(reply.body);
+  });
+
+  it("strips operator instructions when chat answers from About the business", () => {
+    const reply = generateReply({
+      query: "Tell me about the business",
+      kb: virello,
+      channel: "chat",
+    });
+    assert.match(reply.body, /online store selling watches/i);
+    assert.doesNotMatch(reply.body, /Never invent/i);
+    assert.doesNotMatch(reply.body, /refer the question to a person/i);
     assertNoEmptyLabels(reply.body);
   });
 });
