@@ -257,4 +257,23 @@ describe("Gmail HTTP and browser sources", () => {
     assert.match(paid, /confirm: true/);
     assert.doesNotMatch(paid, /Paste a received email/);
   });
+
+  it("wires the paid Email tab to the Gmail inbox, not the legacy paste form", () => {
+    const page = readFileSync("app/app/email/page.tsx", "utf8");
+    const shell = readFileSync("components/paid-app-shell.tsx", "utf8");
+    const paid = readFileSync("components/paid-email-inbox.tsx", "utf8");
+    assert.match(page, /PaidEmailInbox/);
+    assert.doesNotMatch(page, /from "@\/components\/email-inbox"/);
+    assert.match(shell, /href: "\/app\/email"/);
+    assert.match(paid, /fetch\("\/api\/app\/gmail"\)/);
+    assert.match(paid, /\/api\/app\/gmail\/connect/);
+    assert.match(paid, /\/api\/app\/gmail\/messages/);
+    assert.match(paid, /\/api\/app\/gmail\/messages\/\$\{encodeURIComponent\(detail\.id\)\}\/send/);
+    assert.match(paid, /Add email manually/);
+    assert.doesNotMatch(paid, /Drafts you send yourself/);
+    assert.doesNotMatch(paid, /Paste a received email/);
+    assert.doesNotMatch(paid, /There is no SMTP connection/);
+    assert.doesNotMatch(page, /Drafts you send yourself/);
+    assert.doesNotMatch(page, /Paste a received email/);
+  });
 });
