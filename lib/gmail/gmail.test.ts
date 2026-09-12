@@ -13,6 +13,7 @@ import { buildReplyRfc822, gmailSendPayload } from "./mime";
 import { htmlToText, parseFromHeader, summarizeGmailMessage } from "./parse";
 import { publicGmailStatus } from "./public";
 import { assertCanSendDraft, assertSendConfirmed } from "./send";
+import { splitGmailThread } from "./thread";
 import { decryptSecret, encryptSecret } from "./token-crypto";
 
 describe("Gmail OAuth config", () => {
@@ -147,6 +148,169 @@ describe("Gmail parse and MIME", () => {
     assert.equal(payload.threadId, "thread-1");
     assert.doesNotMatch(payload.raw, /Nine to five/);
     assert.ok(payload.raw.length > 20);
+  });
+
+  it("stores the complete quoted Gmail body and only splits it for display and AI parsing", () => {
+    const full = [
+      "Can you also ship to Canada?",
+      "",
+      "On Fri, Sep 11, 2026 at 4:02 PM Support <support@example.com> wrote:",
+      "> We currently ship within the United States.",
+      ">",
+      "> On Thu, Sep 10, 2026 at 2:00 PM Pat Lee <pat@example.com> wrote:",
+      "> > Do you ship internationally?",
+    ].join("\n");
+    const parsed = summarizeGmailMessage(
+      {
+        id: "m-thread",
+        threadId: "t-thread",
+        snippet: "Can you also ship to Canada?",
+        payload: {
+          headers: [
+            { name: "From", value: "Pat Lee <pat@example.com>" },
+            { name: "Subject", value: "Re: Shipping" },
+          ],
+          parts: [
+            {
+              mimeType: "text/plain",
+              body: { data: Buffer.from(full, "utf8").toString("base64url") },
+            },
+          ],
+        },
+      },
+      true,
+    );
+    assert.equal(parsed.body, full);
+    assert.match(parsed.body, /^>/m);
+    assert.match(parsed.body, /On Fri, Sep 11, 2026/);
+  });
+});
+
+describe("Gmail thread quote splitting", () => {
+  it("splits replies that quote previous messages with > markers", () => {
+    const body = [
+      "Thanks — one more thing: do you have the blue strap?",
+      "",
+      "> We have the 40mm field watch in stock.",
+      "> On Monday we can ship.",
+    ].join("\n");
+    const split = splitGmailThread(body);
+    assert.equal(split.latest, "Thanks — one more thing: do you have the blue strap?");
+    assert.match(split.quoted, /^> We have the 40mm field watch in stock\./m);
+    assert.match(split.quoted, /^> On Monday we can ship\./m);
+    assert.doesNotMatch(split.latest, /^>/m);
+  });
+
+  it("splits Gmail On [date], [email] wrote: history, including a wrapped wrote: line", () => {
+    const sameLine = [
+      "The appointment still has not shown up on my calendar.",
+      "",
+      "On Sat, Sep 12, 2026 at 10:15 AM Alex Rivera <alex@example.com> wrote:",
+      "> Can you confirm Tuesday at 3pm?",
+    ].join("\n");
+    const wrapped = [
+      "Please send the invoice when you can.",
+      "",
+      "On Sat, Sep 12, 2026 at 10:15 AM Alex Rivera",
+      "<alex@example.com> wrote:",
+      "> Here is the updated total.",
+    ].join("\n");
+    const same = splitGmailThread(sameLine);
+    assert.equal(same.latest, "The appointment still has not shown up on my calendar.");
+    assert.match(same.quoted, /On Sat, Sep 12, 2026 at 10:15 AM Alex Rivera <alex@example.com> wrote:/);
+    assert.match(same.quoted, /> Can you confirm Tuesday at 3pm\?/);
+    const wrap = splitGmailThread(wrapped);
+    assert.equal(wrap.latest, "Please send the invoice when you can.");
+    assert.match(wrap.quoted, /<alex@example.com> wrote:/);
+    assert.match(wrap.quoted, /> Here is the updated total\./);
+  });
+
+  it("splits Original Message separators", () => {
+    const body = [
+      "Please see my question below and advise.",
+      "",
+      "-----Original Message-----",
+      "From: Jordan Hale <jordan@example.com>",
+      "Sent: Friday, September 11, 2026 4:02 PM",
+      "To: support@example.com",
+      "Subject: Hours",
+      "",
+      "When are you open on Monday?",
+    ].join("\n");
+    const split = splitGmailThread(body);
+    assert.equal(split.latest, "Please see my question below and advise.");
+    assert.match(split.quoted, /Original Message/);
+    assert.match(split.quoted, /When are you open on Monday\?/);
+  });
+
+  it("splits forwarded-message headers", () => {
+    const gmailForward = [
+      "FYI — can you handle this customer?",
+      "",
+      "---------- Forwarded message ---------",
+      "From: Pat Lee <pat@example.com>",
+      "Date: Thu, Sep 10, 2026 at 2:00 PM",
+      "Subject: Order 1842",
+      "To: owner@example.com",
+      "",
+      "Where is order 1842?",
+    ].join("\n");
+    const appleForward = [
+      "Looping you in on this.",
+      "",
+      "Begin forwarded message:",
+      "From: Pat Lee <pat@example.com>",
+      "Subject: Order 1842",
+      "Date: September 10, 2026 at 2:00 PM",
+      "To: owner@example.com",
+      "",
+      "Where is order 1842?",
+    ].join("\n");
+    const gmail = splitGmailThread(gmailForward);
+    assert.equal(gmail.latest, "FYI — can you handle this customer?");
+    assert.match(gmail.quoted, /Forwarded message/);
+    assert.match(gmail.quoted, /Where is order 1842\?/);
+    const apple = splitGmailThread(appleForward);
+    assert.equal(apple.latest, "Looping you in on this.");
+    assert.match(apple.quoted, /Begin forwarded message:/);
+    assert.doesNotMatch(apple.latest, /Where is order 1842/);
+  });
+
+  it("keeps only the newest message from a multi-message quoted thread", () => {
+    const body = [
+      "Can you also send the invoice?",
+      "",
+      "On Tue, Sep 8, 2026 at 9:00 AM Support <support@example.com> wrote:",
+      "> The refund is processing.",
+      ">",
+      "> On Mon, Sep 7, 2026 at 4:00 PM Pat Lee <pat@example.com> wrote:",
+      "> > I still have not received my refund.",
+      "> >",
+      "> > On Mon, Sep 7, 2026 at 1:00 PM Support <support@example.com> wrote:",
+      "> > > I issued the refund yesterday.",
+    ].join("\n");
+    const split = splitGmailThread(body);
+    assert.equal(split.latest, "Can you also send the invoice?");
+    assert.match(split.quoted, /The refund is processing/);
+    assert.match(split.quoted, /I still have not received my refund/);
+    assert.match(split.quoted, /I issued the refund yesterday/);
+    assert.doesNotMatch(split.latest, /refund/);
+  });
+
+  it("does not collapse a forward that is the entire email", () => {
+    const body = [
+      "---------- Forwarded message ---------",
+      "From: Pat Lee <pat@example.com>",
+      "Date: Thu, Sep 10, 2026 at 2:00 PM",
+      "Subject: Order 1842",
+      "To: owner@example.com",
+      "",
+      "Where is order 1842?",
+    ].join("\n");
+    const split = splitGmailThread(body);
+    assert.equal(split.quoted, "");
+    assert.match(split.latest, /Where is order 1842\?/);
+    assert.match(split.latest, /Forwarded message/);
   });
 });
 

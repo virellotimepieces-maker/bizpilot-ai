@@ -1,6 +1,7 @@
 import { BillingError } from "@/lib/billing/types";
-import { isPlaceholderSubject, inboundCustomerText } from "@/lib/reply-engine";
+import { isPlaceholderSubject } from "@/lib/reply-engine";
 import { GMAIL_SEND_LOCK_MS } from "./config";
+import { latestGmailMessage } from "./thread";
 
 export function assertSendConfirmed(confirm: unknown) {
   if (confirm !== true) {
@@ -23,7 +24,7 @@ export function assertCanSendDraft(draft: { status: string; sendLockAt?: Date | 
 export function replySubjectFor(originalSubject: string, body = "") {
   if (isPlaceholderSubject(originalSubject)) {
     const first =
-      inboundCustomerText(body)
+      latestGmailMessage(body)
         .split("\n")
         .map((line) => line.trim())
         .find(Boolean) ?? "";

@@ -24,6 +24,19 @@ export const GMAIL_SUBJECT_CLASS =
 export const GMAIL_BODY_CLASS =
   `mt-4 text-sm leading-relaxed sm:text-sm ${GMAIL_WRAP_TEXT_CLASS}`;
 
+export const SHOW_PREVIOUS_MESSAGES_LABEL = "Show previous messages.";
+
+export const HIDE_PREVIOUS_MESSAGES_LABEL = "Hide previous messages.";
+
+export const GMAIL_QUOTED_TOGGLE_CLASS =
+  "mt-3 h-11 min-h-11 w-full min-w-0 max-w-full justify-center whitespace-normal text-sm sm:w-auto sm:justify-start";
+
+export const GMAIL_QUOTED_PANEL_CLASS =
+  `${GMAIL_CONTENT_BOX_CLASS} mt-2 max-h-[40vh] overflow-x-hidden overflow-y-auto rounded-lg border bg-muted/40 p-3`;
+
+export const GMAIL_QUOTED_BODY_CLASS =
+  `text-xs leading-relaxed text-muted-foreground sm:text-sm ${GMAIL_WRAP_TEXT_CLASS}`;
+
 export const GMAIL_FIELD_CONTROL_CLASS =
   `${GMAIL_CONTENT_BOX_CLASS} [overflow-wrap:anywhere] [word-break:break-word]`;
 

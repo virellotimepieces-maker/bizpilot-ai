@@ -1,6 +1,7 @@
 "use client";
 
 import { Field } from "@/components/field";
+import { GmailThreadBody } from "@/components/gmail-thread-body";
 import { SourcePills } from "@/components/source-pills";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -25,7 +26,6 @@ import { EMAIL_STATUS_LABEL } from "@/lib/email-draft";
 import {
   GMAIL_ACTION_BUTTON_CLASS,
   GMAIL_ACTION_ROW_CLASS,
-  GMAIL_BODY_CLASS,
   GMAIL_CARD_CLASS,
   GMAIL_CONTENT_BOX_CLASS,
   GMAIL_FIELD_CONTROL_CLASS,
@@ -482,7 +482,7 @@ export function PaidEmailInbox() {
                     </div>
                   </div>
                   <h2 className={GMAIL_SUBJECT_CLASS}>{detail.subject}</h2>
-                  <p className={GMAIL_BODY_CLASS}>{detail.body}</p>
+                  <GmailThreadBody key={detail.id} body={detail.body} messageId={detail.id} />
                 </div>
                 <div className={GMAIL_CARD_CLASS}>
                   <div className="flex min-w-0 max-w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">

@@ -13,7 +13,10 @@ import {
   GMAIL_PANE_GRID_CLASS,
   GMAIL_PAGE_TITLE_CLASS,
   GMAIL_TOOLBAR_CLASS,
+  GMAIL_QUOTED_PANEL_CLASS,
+  GMAIL_QUOTED_TOGGLE_CLASS,
   GMAIL_WRAP_TEXT_CLASS,
+  SHOW_PREVIOUS_MESSAGES_LABEL,
   gmailActionsStackAt,
   gmailUsableContentWidth,
   gmailWouldOverflowHorizontally,
@@ -89,9 +92,26 @@ describe("paid Gmail email mobile layout", () => {
     assert.match(source, /htmlFor="gmail-draft-body"/);
     assert.match(source, /Replace your edited draft/);
     assert.match(source, /hideEmpty/);
+    assert.match(source, /GmailThreadBody/);
     assert.equal(
       EMAIL_AI_HELPER_COPY,
       "AI drafts a relevant reply from the incoming email, using your Knowledge as optional business or personal context. Review before sending. Email never auto-sends.",
     );
+  });
+
+  it("collapses quoted Gmail history under Show previous messages and caps height on mobile", () => {
+    const inbox = readFileSync("components/paid-email-inbox.tsx", "utf8");
+    const threadBody = readFileSync("components/gmail-thread-body.tsx", "utf8");
+    assert.match(inbox, /GmailThreadBody/);
+    assert.match(inbox, /body=\{detail\.body\}/);
+    assert.doesNotMatch(inbox, /<p className=\{GMAIL_BODY_CLASS\}>\{detail\.body\}<\/p>/);
+    assert.equal(SHOW_PREVIOUS_MESSAGES_LABEL, "Show previous messages.");
+    assert.match(threadBody, /SHOW_PREVIOUS_MESSAGES_LABEL/);
+    assert.match(threadBody, /splitGmailThread/);
+    assert.match(GMAIL_QUOTED_TOGGLE_CLASS, /h-11/);
+    assert.match(GMAIL_QUOTED_TOGGLE_CLASS, /w-full/);
+    assert.match(GMAIL_QUOTED_PANEL_CLASS, /max-h-\[40vh\]/);
+    assert.match(GMAIL_QUOTED_PANEL_CLASS, /overflow-y-auto/);
+    assert.match(GMAIL_QUOTED_PANEL_CLASS, /overflow-x-hidden/);
   });
 });

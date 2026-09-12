@@ -271,6 +271,36 @@ describe("AI email reply prompt", () => {
     assert.match(thread, /no earlier thread/);
   });
 
+  it("feeds quoted Gmail history as previous conversation and only the newest message as the current request", () => {
+    const kb = onlineStore({ name: "Northwind Clinic" });
+    const body = [
+      "Can you also send the invoice?",
+      "",
+      "On Tue, Sep 8, 2026 at 9:00 AM Support <support@example.com> wrote:",
+      "> The refund is processing.",
+      ">",
+      "> On Mon, Sep 7, 2026 at 4:00 PM Pat Lee <pat@example.com> wrote:",
+      "> > Do you accept PayPal?",
+    ].join("\n");
+    const messages = buildEmailReplyMessages({
+      knowledge: kb,
+      fromName: "Pat Lee",
+      fromEmail: "pat@example.com",
+      subject: "Re: Refund",
+      body,
+    });
+    const user = messages[1].content;
+    const customer = fenced(user, CUSTOMER_OPEN, CUSTOMER_CLOSE);
+    const thread = fenced(user, THREAD_OPEN, THREAD_CLOSE);
+    assert.match(customer, /Can you also send the invoice\?/);
+    assert.doesNotMatch(customer, /Do you accept PayPal/);
+    assert.doesNotMatch(customer, /The refund is processing/);
+    assert.match(thread, /The refund is processing/);
+    assert.match(thread, /Do you accept PayPal/);
+    assert.match(messages[0].content, /previous conversation/);
+    assert.match(user, /Reply only to this newest message/);
+  });
+
   it("case 21: does not hard-code a subscriber, industry, or Support closing in production sources", () => {
     for (const file of PRODUCTION_AI_SOURCES) {
       const source = readFileSync(file, "utf8");

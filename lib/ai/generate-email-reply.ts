@@ -18,7 +18,8 @@ import {
 import { knowledgePrompt } from "@/lib/ai/knowledge-prompt";
 import { BillingError } from "@/lib/billing/types";
 import { customerFirstName, formatFinishedEmail, unwrapEmailBody } from "@/lib/email-format";
-import { formatHoursList, inboundCustomerText } from "@/lib/reply-engine";
+import { latestGmailMessage } from "@/lib/gmail/thread";
+import { formatHoursList } from "@/lib/reply-engine";
 import type { KnowledgeBase } from "@/lib/types";
 
 export type ChatComplete = (messages: EmailReplyChatMessage[]) => Promise<string>;
@@ -201,7 +202,7 @@ export function finalizeEmailReply(
     orderData?: EmailOrderContext | null;
   },
 ) {
-  const latest = inboundCustomerText(input.body ?? "") || input.body || "";
+  const latest = latestGmailMessage(input.body ?? "") || input.body || "";
   const kind = input.kind ?? classifyEmailConversation(input.subject ?? "", latest);
   const fallback = (nextKind: EmailConversationKind) =>
     compactFallbackBody({
@@ -300,7 +301,7 @@ export async function generateEmailDraft(input: {
   complete?: ChatComplete;
   workspaceId?: string;
 }): Promise<{ body: string; operatorNote: string; kind: EmailConversationKind }> {
-  const latest = inboundCustomerText(input.body) || input.body;
+  const latest = latestGmailMessage(input.body) || input.body;
   const query = `${input.subject}\n${latest}`;
   const kind = classifyEmailConversation(input.subject, latest);
   const facts = pickRelevantEmailFacts(input.knowledge, query);

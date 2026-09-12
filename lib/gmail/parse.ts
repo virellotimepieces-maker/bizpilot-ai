@@ -1,4 +1,4 @@
-import { inboundCustomerText } from "@/lib/reply-engine";
+import { latestGmailMessage } from "./thread";
 
 export type GmailPayloadPart = {
   mimeType?: string;
@@ -85,8 +85,8 @@ export function extractPlainBody(payload: GmailPayloadPart | undefined, snippet 
   const html = longestBody(bodies, "text/html");
   const plainText = plain?.text.trim() ?? "";
   const htmlText = html ? htmlToText(html.text) : "";
-  const plainQuestion = inboundCustomerText(plainText);
-  const htmlQuestion = inboundCustomerText(htmlText);
+  const plainQuestion = latestGmailMessage(plainText);
+  const htmlQuestion = latestGmailMessage(htmlText);
   if (htmlQuestion.length > Math.max(plainQuestion.length * 1.5, 20)) return htmlText;
   if (plainQuestion) return plainText;
   if (htmlText) return htmlText;
