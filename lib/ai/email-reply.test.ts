@@ -5,6 +5,7 @@ import {
   classifyEmailConversation,
   emailClosingFor,
   EMAIL_AI_HELPER_COPY,
+  EMAIL_PAYMENT_CHECKOUT_GUIDANCE,
   findKnowledgeConflicts,
   mailboxKindForKnowledge,
 } from "./email-identity";
@@ -118,6 +119,18 @@ async function stubEmailModel(messages: EmailReplyChatMessage[]) {
     return finish(
       `Please send your company name and website, a brief description of the service, pricing, and the specific benefit for ${displayName}. The note will be reviewed, and a reply will be sent only if it is a good fit. Unknown links or attachments are not opened.`,
     );
+  }
+
+  if (/paypal|shop pay|payment method/i.test(body)) {
+    const verified = user.match(/Connected payment-setting data \(verified[^:]*:\s*(.+)/i);
+    const published = user.match(/Published payment methods:\s*(.+)/i);
+    if (verified?.[1]?.trim() && !/^none/i.test(verified[1])) {
+      return finish(`Yes — checkout currently offers ${verified[1].trim().replace(/\.$/, "")}.`);
+    }
+    if (published?.[1]?.trim()) {
+      return finish(`Thank you for your interest in placing an order. ${published[1].trim()}`);
+    }
+    return finish(EMAIL_PAYMENT_CHECKOUT_GUIDANCE);
   }
 
   if (/Conflicts \(do not choose silently/i.test(knowledge)) {
@@ -724,5 +737,87 @@ describe("paid email drafts use the AI reply path", () => {
       () => generateEmailDraft(input),
       (error: unknown) => error instanceof BillingError && error.code === "limit",
     );
+  });
+});
+
+describe("email AI is not gated on knowledge matches", () => {
+  it("still calls the model when retrieval returns zero facts", async () => {
+    let calls = 0;
+    const kb = onlineStore({ name: "Harbor Goods", description: "" });
+    const draft = await generateEmailDraft({
+      knowledge: kb,
+      fromName: "Michael",
+      fromEmail: "mike@example.com",
+      subject: "Shipping inquiry",
+      body: "Do you support PayPal and Shop Pay? I'd love to place an order.",
+      complete: async (messages) => {
+        calls += 1;
+        const knowledge = fenced(messages[1].content, KNOWLEDGE_OPEN, KNOWLEDGE_CLOSE);
+        assert.match(knowledge, /No specifically matching facts were retrieved/);
+        assert.match(messages[1].content, /Connected payment-setting data: none/);
+        return stubEmailModel(messages);
+      },
+    });
+    assert.equal(calls, 1);
+    assert.match(draft.body, /^Hi Michael,/);
+    assert.match(draft.body, /checkout/i);
+    assert.doesNotMatch(draft.body, /published knowledge/i);
+    assert.doesNotMatch(draft.body, /looping in a teammate/i);
+    assert.doesNotMatch(draft.body, /No published knowledge matched/i);
+    assert.doesNotMatch(draft.operatorNote, /No published knowledge matched/);
+    assert.ok(draft.operatorNote.includes(EMAIL_AI_HELPER_COPY));
+  });
+
+  it("answers an unknown business-specific question without canned knowledge-base wording", async () => {
+    const reply = await generateEmailReply({
+      knowledge: onlineStore({ name: "Harbor Goods" }),
+      fromName: "Morgan",
+      fromEmail: "morgan@example.com",
+      subject: "Returns",
+      body: "What's your return window in days?",
+      complete: stubEmailModel,
+    });
+    assert.match(reply, /confirm/i);
+    assert.doesNotMatch(reply, /published knowledge/i);
+    assert.doesNotMatch(reply, /looping in a teammate/i);
+  });
+
+  it("uses matching Knowledge when a payment policy is published", async () => {
+    const kb = onlineStore({
+      name: "Harbor Goods",
+      store: {
+        shippingPolicy: "",
+        stockMessaging: "",
+        paymentMethods: "We accept Visa, Mastercard, and PayPal.",
+        cashOnDelivery: false,
+        orderTrackingNotes: "",
+      },
+    });
+    const reply = await generateEmailReply({
+      knowledge: kb,
+      fromName: "Michael",
+      fromEmail: "mike@example.com",
+      subject: "Payments",
+      body: "Do you support PayPal and Shop Pay?",
+      complete: stubEmailModel,
+    });
+    assert.match(reply, /PayPal/);
+    assert.doesNotMatch(reply, /published knowledge/i);
+    assert.doesNotMatch(reply, /looping in a teammate/i);
+  });
+
+  it("uses connected payment-setting data when present", async () => {
+    const reply = await generateEmailReply({
+      knowledge: onlineStore({ name: "Harbor Goods" }),
+      fromName: "Michael",
+      fromEmail: "mike@example.com",
+      subject: "Payments",
+      body: "Do you support PayPal and Shop Pay?",
+      orderData: { paymentMethods: ["PayPal", "Shop Pay"] },
+      complete: stubEmailModel,
+    });
+    assert.match(reply, /PayPal/);
+    assert.match(reply, /Shop Pay/);
+    assert.doesNotMatch(reply, /published knowledge/i);
   });
 });

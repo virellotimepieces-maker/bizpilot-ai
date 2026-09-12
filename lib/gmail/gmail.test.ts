@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { EMAIL_AI_HELPER_COPY } from "../ai/email-identity";
+import { EMAIL_AI_HELPER_COPY, EMAIL_PAYMENT_CHECKOUT_GUIDANCE } from "../ai/email-identity";
 import { MemoryBillingStore } from "../billing/memory-store";
 import { BillingError } from "../billing/types";
 import { emptyKnowledge } from "../empty-knowledge";
@@ -284,6 +284,50 @@ describe("Gmail drafts and isolation", () => {
     assert.notEqual(regenerated.status, "sent");
   });
 
+  it("rebuilds a stored canned knowledge-fallback draft without waiting for Regenerate", async () => {
+    const store = new MemoryBillingStore();
+    const user = await store.createUser({
+      email: "owner3@example.com",
+      passwordHash: "hash",
+      name: "Owner",
+    });
+    const workspace = await store.createWorkspace({ ownerUserId: user.id, name: "Harbor Goods" });
+    await store.saveKnowledge(workspace.id, {
+      ...emptyKnowledge("online_store"),
+      name: "Harbor Goods",
+    });
+    await store.upsertGmailReplyDraft({
+      workspaceId: workspace.id,
+      gmailMessageId: "gm-canned",
+      gmailThreadId: "th-canned",
+      fromName: "Michael",
+      fromEmail: "mike@example.com",
+      subject: "Shipping inquiry",
+      body: "Do you support PayPal and Shop Pay? I'd love to place an order.",
+      draftSubject: "Re: Shipping inquiry",
+      draftBody:
+        "Hi Michael,\n\nThat information is not available in the published knowledge base. I'm looping in a teammate who can take it from here.",
+      intent: "unknown",
+      operatorNote:
+        "No published knowledge matched this question. Tell the visitor the information is unavailable and offer a human. Do not invent details. Email never auto-sends.",
+      usedInternalKnowledge: false,
+      status: "draft",
+    });
+    const rebuilt = await ensureGmailReplyDraft(store, workspace, {
+      gmailMessageId: "gm-canned",
+      gmailThreadId: "th-canned",
+      fromName: "Michael",
+      fromEmail: "mike@example.com",
+      subject: "Shipping inquiry",
+      body: "Do you support PayPal and Shop Pay? I'd love to place an order.",
+      complete: async () => EMAIL_PAYMENT_CHECKOUT_GUIDANCE,
+    });
+    assert.doesNotMatch(rebuilt.draftBody, /published knowledge/i);
+    assert.doesNotMatch(rebuilt.draftBody, /looping in a teammate/i);
+    assert.doesNotMatch(rebuilt.operatorNote, /No published knowledge matched/);
+    assert.match(rebuilt.draftBody, /checkout/i);
+  });
+
   it("never puts token fields on the public Gmail status payload", () => {
     const payload = publicGmailStatus({
       id: "c1",
@@ -354,8 +398,10 @@ describe("Gmail HTTP and browser sources", () => {
     assert.match(paid, /EMAIL_AI_HELPER_COPY/);
     assert.equal(
       EMAIL_AI_HELPER_COPY,
-      "AI drafts a relevant reply from the incoming email, using your Knowledge as business or personal context. Review before sending. Email never auto-sends.",
+      "AI drafts a relevant reply from the incoming email, using your Knowledge as optional business or personal context. Review before sending. Email never auto-sends.",
     );
+    assert.doesNotMatch(paid, /No published knowledge matched/);
+    assert.doesNotMatch(paid, /published knowledge base/);
     assert.doesNotMatch(paid, /Paste a received email/);
   });
 

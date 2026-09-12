@@ -1,7 +1,7 @@
 import type { BusinessType, KnowledgeBase } from "@/lib/types";
 
 export const EMAIL_AI_HELPER_COPY =
-  "AI drafts a relevant reply from the incoming email, using your Knowledge as business or personal context. Review before sending. Email never auto-sends.";
+  "AI drafts a relevant reply from the incoming email, using your Knowledge as optional business or personal context. Review before sending. Email never auto-sends.";
 
 export type EmailConversationKind =
   | "customer_support"
@@ -113,6 +113,33 @@ export function workspaceIdentityBlock(kb: KnowledgeBase, kind: EmailConversatio
       ? "This conversation is customer support. The closing may include Support if shown above."
       : "Do not add Support, Customer Support, or “our business” unless the Closing line already includes it.",
   ].join("\n");
+}
+
+export const CANNED_KNOWLEDGE_FALLBACK_RE =
+  /No published knowledge matched|published knowledge base|looping in a teammate|Published knowledge only|offer a human/i;
+
+export function isCannedKnowledgeFallback(text: string) {
+  return CANNED_KNOWLEDGE_FALLBACK_RE.test(text);
+}
+
+export function isPaymentMethodQuestion(text: string) {
+  return /\b(paypal|shop ?pay|apple pay|google pay|klarna|afterpay|venmo|zelle|cash on delivery|payment methods?|credit cards?|debit cards?)\b/i.test(
+    text,
+  );
+}
+
+export const EMAIL_PAYMENT_CHECKOUT_GUIDANCE =
+  "Thank you for your interest in placing an order. The payment methods currently available for your order will be displayed securely at checkout. Please proceed to checkout to confirm which options are available for your location and order.";
+
+export function emailPaymentAnswer(kb: KnowledgeBase, query: string, connectedMethods?: string[] | null) {
+  const connected = (connectedMethods ?? []).map((row) => row.trim()).filter(Boolean);
+  if (connected.length) {
+    return `Yes — checkout currently offers ${connected.join(", ")}.`;
+  }
+  const published = kb.store?.paymentMethods.trim();
+  if (published) return `Thank you for your interest in placing an order. ${published}`;
+  if (isPaymentMethodQuestion(query)) return EMAIL_PAYMENT_CHECKOUT_GUIDANCE;
+  return "";
 }
 
 export function findKnowledgeConflicts(kb: KnowledgeBase) {

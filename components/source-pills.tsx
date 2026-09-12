@@ -2,11 +2,18 @@ import { Badge } from "@/components/ui/badge";
 import { sourceLabel } from "@/lib/intent-labels";
 import type { ReplySource } from "@/lib/types";
 
-export function SourcePills({ sources }: { sources: ReplySource[] }) {
+export function SourcePills({
+  sources,
+  hideEmpty = false,
+}: {
+  sources: ReplySource[];
+  hideEmpty?: boolean;
+}) {
   if (!sources.length) {
+    if (hideEmpty) return null;
     return (
       <p className="text-xs text-muted-foreground">
-        No published knowledge matched this message.
+        No matching sources for this message.
       </p>
     );
   }

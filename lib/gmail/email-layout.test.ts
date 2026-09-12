@@ -88,10 +88,10 @@ describe("paid Gmail email mobile layout", () => {
     assert.match(source, /htmlFor="gmail-draft-subject"/);
     assert.match(source, /htmlFor="gmail-draft-body"/);
     assert.match(source, /Replace your edited draft/);
-    assert.match(source, /EMAIL_AI_HELPER_COPY/);
+    assert.match(source, /hideEmpty/);
     assert.equal(
       EMAIL_AI_HELPER_COPY,
-      "AI drafts a relevant reply from the incoming email, using your Knowledge as business or personal context. Review before sending. Email never auto-sends.",
+      "AI drafts a relevant reply from the incoming email, using your Knowledge as optional business or personal context. Review before sending. Email never auto-sends.",
     );
   });
 });

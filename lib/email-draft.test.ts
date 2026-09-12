@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { draftEmailFromInbound, isEmailStatus } from "./email-draft";
+import { draftEmailFromInbound, draftEmailFromInboundAi, isEmailStatus } from "./email-draft";
 import { emptyKnowledge } from "./empty-knowledge";
+import { EMAIL_PAYMENT_CHECKOUT_GUIDANCE } from "./ai/email-identity";
 
 describe("email drafts", () => {
   it("creates an editable draft and never marks it sent", () => {
@@ -59,5 +60,38 @@ describe("email drafts", () => {
     assert.match(draft.draftBody, /9 a\.m\./i);
     assert.doesNotMatch(draft.draftBody, /Could you share a bit more/i);
     assert.doesNotMatch(draft.draftBody, /Never invent/i);
+  });
+
+  it("does not emit canned knowledge-base wording for a PayPal question", async () => {
+    const kb = emptyKnowledge("online_store");
+    kb.name = "Harbor Goods";
+    const heuristic = draftEmailFromInbound({
+      kb,
+      fromName: "Michael",
+      fromEmail: "mike@example.com",
+      subject: "Shipping inquiry",
+      body: "Do you support PayPal and Shop Pay? I'd love to place an order.",
+    });
+    assert.doesNotMatch(heuristic.draftBody, /published knowledge/i);
+    assert.doesNotMatch(heuristic.draftBody, /looping in a teammate/i);
+    assert.doesNotMatch(heuristic.operatorNote, /No published knowledge matched/);
+    assert.match(heuristic.draftBody, /checkout/i);
+
+    const ai = await draftEmailFromInboundAi(
+      {
+        kb,
+        fromName: "Michael",
+        fromEmail: "mike@example.com",
+        subject: "Shipping inquiry",
+        body: "Do you support PayPal and Shop Pay? I'd love to place an order.",
+      },
+      {
+        complete: async () => EMAIL_PAYMENT_CHECKOUT_GUIDANCE,
+      },
+    );
+    assert.equal(ai.sources.length, 0);
+    assert.match(ai.draftBody, /checkout/i);
+    assert.doesNotMatch(ai.draftBody, /published knowledge/i);
+    assert.doesNotMatch(ai.operatorNote, /No published knowledge matched/);
   });
 });

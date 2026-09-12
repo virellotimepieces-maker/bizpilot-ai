@@ -1,4 +1,5 @@
 import type { ChatComplete } from "@/lib/ai/generate-email-reply";
+import { isCannedKnowledgeFallback } from "@/lib/ai/email-identity";
 import type { BillingStore } from "@/lib/billing/store";
 import type { GmailReplyDraftRecord, WorkspaceRecord } from "@/lib/billing/types";
 import { emptyKnowledge, normalizeKnowledge } from "@/lib/empty-knowledge";
@@ -53,10 +54,14 @@ export async function ensureGmailReplyDraft(
   if (existing?.status === "sent" && !input.regenerate) {
     return existing;
   }
-  if (existing && !input.regenerate) {
+  const staleCanned =
+    Boolean(existing) &&
+    existing!.status !== "sent" &&
+    isCannedKnowledgeFallback(`${existing!.operatorNote}\n${existing!.draftBody}`);
+  if (existing && !input.regenerate && !staleCanned) {
     return existing;
   }
-  if (existing && input.regenerate) {
+  if (existing && (input.regenerate || staleCanned)) {
     const kb = normalizeKnowledge(workspace.knowledge ?? emptyKnowledge("custom"));
     const current: EmailMessage = {
       id: existing.id,

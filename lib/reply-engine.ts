@@ -1,5 +1,5 @@
 import { customerFirstName, formatFinishedEmail } from "./email-format";
-import { classifyEmailConversation, emailClosingFor } from "./ai/email-identity";
+import { classifyEmailConversation, emailClosingFor, EMAIL_AI_HELPER_COPY, emailPaymentAnswer } from "./ai/email-identity";
 import { DAY_LABEL } from "./labels";
 import type {
   GeneratedReply,
@@ -103,7 +103,7 @@ const INTENT_PATTERNS: { intent: ReplyIntent; re: RegExp }[] = [
   },
   {
     intent: "store_payment",
-    re: /\b(cod|cash on delivery|pay cash|payment methods?|shop pay|visa|gcash|maya|bayad)\b/i,
+    re: /\b(cod|cash on delivery|pay cash|payment methods?|paypal|shop pay|visa|gcash|maya|bayad)\b/i,
   },
   {
     intent: "service_area",
@@ -819,15 +819,22 @@ export function generateReply(options: {
     requiresHuman = true;
     safeForChatAuto = false;
     operatorNote =
-      "The inbound email had no specific question to answer from Knowledge. Ask what they need instead of pasting the business profile.";
+      "The inbound email had no specific question. Ask what they need instead of pasting a profile.";
     collected.sources.length = 0;
   } else if (!snippets.length) {
-    body = unavailableKnowledgeMessage(kb);
+    if (channel === "email") {
+      body =
+        emailPaymentAnswer(kb, query) ||
+        "Thanks for writing. I want to give you a precise answer, so that detail needs to be confirmed before it is promised.";
+      operatorNote = EMAIL_AI_HELPER_COPY;
+    } else {
+      body = unavailableKnowledgeMessage(kb);
+      operatorNote =
+        "No published knowledge matched this question. Tell the visitor the information is unavailable and offer a human. Do not invent details.";
+    }
     confidence = 0.42;
     requiresHuman = true;
-    safeForChatAuto = kb.escalation.autoAnswerChat;
-    operatorNote =
-      "No published knowledge matched this question. Tell the visitor the information is unavailable and offer a human. Do not invent details.";
+    safeForChatAuto = channel === "chat" ? kb.escalation.autoAnswerChat : false;
   } else {
     const answer = composeSafeAnswer(kb, query, intent, snippets);
     body = answer;
@@ -846,7 +853,9 @@ export function generateReply(options: {
       !UNSAFE.includes(intent);
     operatorNote = usedInternal
       ? "This draft used an internal document. Review before sending — website chat will not auto-answer from internal notes."
-      : safeForChatAuto
+      : channel === "email"
+        ? EMAIL_AI_HELPER_COPY
+        : safeForChatAuto
         ? "Published knowledge only. Safe for website chat to answer automatically. Email still needs approval."
         : "Low confidence or incomplete knowledge. Keep as a draft for a human.";
   }
@@ -868,11 +877,19 @@ export function generateReply(options: {
 
   body = sanitizeReplyBody(body);
   if (!body || hasEmptyFieldLabels(body)) {
-    body = unavailableKnowledgeMessage(kb);
+    body =
+      channel === "email"
+        ? emailPaymentAnswer(kb, query) ||
+          "Thanks for writing. I want to give you a precise answer, so that detail needs to be confirmed before it is promised."
+        : unavailableKnowledgeMessage(kb);
     if (intent !== "emergency" && intent !== "medical_advice") {
       requiresHuman = true;
       confidence = Math.min(confidence, 0.42);
       if (channel === "chat") safeForChatAuto = kb.escalation.autoAnswerChat;
+    }
+    if (channel === "email") {
+      body = wrapEmail(kb, customerName, body, query);
+      operatorNote = EMAIL_AI_HELPER_COPY;
     }
   }
 

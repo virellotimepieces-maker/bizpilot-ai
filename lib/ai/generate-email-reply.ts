@@ -3,8 +3,11 @@ import {
   detectPromptInjection,
   detectSuspiciousEmail,
   emailClosingFor,
+  emailPaymentAnswer,
   EMAIL_AI_HELPER_COPY,
   findKnowledgeConflicts,
+  isCannedKnowledgeFallback,
+  isPaymentMethodQuestion,
   type EmailConversationKind,
 } from "@/lib/ai/email-identity";
 import {
@@ -137,6 +140,10 @@ export function pickRelevantEmailFacts(knowledge: KnowledgeBase, query: string) 
       if (!unique.includes(bundled)) unique.unshift(bundled);
     }
   }
+  if (isPaymentMethodQuestion(query) && knowledge.store?.paymentMethods.trim()) {
+    const methods = knowledge.store.paymentMethods.trim();
+    if (!unique.includes(methods)) unique.unshift(methods);
+  }
   return unique.filter((fact) => !detectPromptInjection(fact)).slice(0, 4);
 }
 
@@ -145,6 +152,7 @@ function compactFallbackBody(input: {
   subject: string;
   body: string;
   kind: EmailConversationKind;
+  paymentMethods?: string[] | null;
 }) {
   const name = input.knowledge.name.trim();
   if (input.kind === "sales_vendor") {
@@ -168,7 +176,10 @@ function compactFallbackBody(input: {
   if (input.kind === "personal") {
     return `Thanks for your note — I’ll take a look and follow up.`;
   }
-  const facts = pickRelevantEmailFacts(input.knowledge, `${input.subject}\n${input.body}`);
+  const query = `${input.subject}\n${input.body}`;
+  const payment = emailPaymentAnswer(input.knowledge, query, input.paymentMethods);
+  if (payment) return payment;
+  const facts = pickRelevantEmailFacts(input.knowledge, query);
   const conflicts = findKnowledgeConflicts(input.knowledge);
   if (conflicts.length) {
     return `Thanks for writing. That detail needs to be confirmed because published information currently disagrees. A person will review it before anything is promised.`;
@@ -176,7 +187,7 @@ function compactFallbackBody(input: {
   if (facts.length) {
     return `Thanks for writing. ${facts[0]}`;
   }
-  return `Thanks for writing. That detail needs to be confirmed before a specific answer can be given.`;
+  return `Thanks for writing. I want to give you a precise answer, so that detail needs to be confirmed before it is promised.`;
 }
 
 export function finalizeEmailReply(
@@ -192,30 +203,26 @@ export function finalizeEmailReply(
 ) {
   const latest = inboundCustomerText(input.body ?? "") || input.body || "";
   const kind = input.kind ?? classifyEmailConversation(input.subject ?? "", latest);
+  const fallback = (nextKind: EmailConversationKind) =>
+    compactFallbackBody({
+      knowledge: input.knowledge,
+      subject: input.subject ?? "",
+      body: latest,
+      kind: nextKind,
+      paymentMethods: input.orderData?.paymentMethods,
+    });
   let text = stripInternalEmailLabels(raw || "");
   if (!text || looksLikeKnowledgeDump(text, input.knowledge)) {
-    text = compactFallbackBody({
-      knowledge: input.knowledge,
-      subject: input.subject ?? "",
-      body: latest,
-      kind,
-    });
+    text = fallback(kind);
   }
   if (detectPromptInjection(raw) || /SYSTEM INSTRUCTIONS/i.test(raw) || /<<UNTRUSTED_/i.test(raw)) {
-    text = compactFallbackBody({
-      knowledge: input.knowledge,
-      subject: input.subject ?? "",
-      body: latest,
-      kind: "suspicious",
-    });
+    text = fallback("suspicious");
   }
   if (COMPLETED_ACTION_RE.test(text) && !input.orderData?.status) {
-    text = compactFallbackBody({
-      knowledge: input.knowledge,
-      subject: input.subject ?? "",
-      body: latest,
-      kind,
-    });
+    text = fallback(kind);
+  }
+  if (isCannedKnowledgeFallback(text)) {
+    text = fallback(kind);
   }
   return formatFinishedEmail({
     firstName: customerFirstName(input.fromName),

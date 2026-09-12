@@ -497,7 +497,7 @@ export function PaidEmailInbox() {
                     </Badge>
                   </div>
                   <div className={`mt-3 ${GMAIL_CONTENT_BOX_CLASS}`}>
-                    <SourcePills sources={detail.draft.sources ?? []} />
+                    <SourcePills sources={detail.draft.sources ?? []} hideEmpty />
                   </div>
                   {detail.draft.usedInternalKnowledge ? (
                     <p className={`mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive ${GMAIL_WRAP_INLINE_CLASS}`}>
