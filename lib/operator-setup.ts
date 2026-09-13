@@ -45,9 +45,35 @@ export function gmailRedirectUrl(appUrl: string) {
   return `${appUrl.replace(/\/$/, "")}/api/app/gmail/callback`;
 }
 
+export type StripeMode = "unset" | "test" | "live" | "unknown";
+
+export function stripeMode(env: EnvMap): StripeMode {
+  const key = env.STRIPE_SECRET_KEY?.trim() ?? "";
+  if (!key) return "unset";
+  if (key.startsWith("sk_test_")) return "test";
+  if (key.startsWith("sk_live_")) return "live";
+  return "unknown";
+}
+
+function stripeHint(env: EnvMap, missing: string[]) {
+  if (missing.length) {
+    return "In Stripe Live mode, create a $29/month BizPilot Pro price, add the live webhook, activate Customer Portal, then paste the Live keys into Vercel.";
+  }
+  const mode = stripeMode(env);
+  if (mode === "test") {
+    return "Stripe Test mode is still on. Turn Test mode off, create a Live $29 price and live webhook, then replace STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and STRIPE_PRICE_ID on Vercel.";
+  }
+  if (mode === "live") {
+    return "Live Stripe is on. Checkout will charge real cards.";
+  }
+  return "Checkout and cancel can run against this Stripe account. Use an sk_live_ key to take real cards.";
+}
+
 export function operatorSetup(env: EnvMap = process.env): {
   items: OperatorCheck[];
   readyForSubscribers: boolean;
+  readyForLiveCustomers: boolean;
+  stripeMode: StripeMode;
 } {
   const foundationMissing = missingNames(env, OPERATOR_FOUNDATION_VARS);
   const stripeMissing = missingNames(env, OPERATOR_STRIPE_VARS);
@@ -55,6 +81,7 @@ export function operatorSetup(env: EnvMap = process.env): {
   const gmailMissing = missingNames(env, OPERATOR_GMAIL_VARS);
   const gmailReady =
     gmailMissing.length === 0 && present(env, "APP_URL") && present(env, "AUTH_SECRET");
+  const mode = stripeMode(env);
 
   const items: OperatorCheck[] = [
     {
@@ -70,14 +97,11 @@ export function operatorSetup(env: EnvMap = process.env): {
     },
     {
       key: "stripe",
-      label: "Stripe Checkout, webhook, and Customer Portal",
+      label: "Live Stripe Checkout, webhook, and Customer Portal",
       required: true,
       done: stripeMissing.length === 0,
       missing: stripeMissing,
-      hint:
-        stripeMissing.length === 0
-          ? "Checkout and cancel can run against this Stripe account."
-          : "Create a $29/month BizPilot Pro price, add the webhook, activate Customer Portal, then paste the keys into Vercel.",
+      hint: stripeHint(env, stripeMissing),
     },
     {
       key: "openai",
@@ -102,8 +126,12 @@ export function operatorSetup(env: EnvMap = process.env): {
     },
   ];
 
+  const readyForSubscribers = items.filter((item) => item.required).every((item) => item.done);
+
   return {
     items,
-    readyForSubscribers: items.filter((item) => item.required).every((item) => item.done),
+    readyForSubscribers,
+    readyForLiveCustomers: readyForSubscribers && mode === "live",
+    stripeMode: mode,
   };
 }

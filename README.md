@@ -5,7 +5,7 @@ Customer support for one business at a time, billed as **BizPilot Pro**.
 ## Two modes (keep them separate)
 
 - **Demo (`/demo`)** — browser-only preview. Knowledge lives in `localStorage`. Chat uses deterministic matching, not an AI model. It is not a customer workspace and cannot take a subscription.
-- **Paid (`/signup` → Stripe → `/app`)** — one business workspace, one website widget, and 500 AI customer replies per Stripe billing month. Requires a PostgreSQL database, Stripe, and an OpenAI key. **You (the operator) set those credentials on Vercel.** Follow [docs/operator-setup.md](docs/operator-setup.md). Subscribers only sign up and pay. **Not production-ready for paying customers until Phase 1 (Stripe) is proven:** signup → payment → widget → AI → cancellation.
+- **Paid (`/signup` → Stripe → `/app`)** — one business workspace, one website widget, and 500 AI customer replies per Stripe billing month. Live site: https://www.mybizpilotai.com. **You (the operator) set Live Stripe and OpenAI on Vercel.** Follow [docs/operator-setup.md](docs/operator-setup.md). Subscribers only sign up and pay.
 
 ## BizPilot Pro
 
@@ -109,4 +109,4 @@ npm run lint
 
 ## Status
 
-The subscription **foundation** (schema, auth, Stripe webhook handling, usage limits, tenant isolation, tests) is in the repo. You still need to set operator credentials on Vercel and prove Stripe Checkout + webhook + Customer Portal. Start with [docs/operator-setup.md](docs/operator-setup.md).
+The live site is **https://www.mybizpilotai.com**. You still need Live Stripe keys (`sk_live_`), a live webhook, and `OPENAI_API_KEY` on Vercel Production. Start with [docs/operator-setup.md](docs/operator-setup.md).

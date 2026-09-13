@@ -18,7 +18,7 @@ import {
 } from "./widget-preview";
 
 const PRICE = "price_test_bizpilot_pro";
-const ORIGIN = "https://bizpilot-ai-mocha.vercel.app";
+const ORIGIN = "https://www.mybizpilotai.com";
 const KEY = "bpw_live_preview_key";
 
 function unix(date: Date) {

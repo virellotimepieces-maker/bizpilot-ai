@@ -1,3 +1,5 @@
+import { canonicalPublicOrigin } from "@/lib/public-origin";
+
 export const WIDGET_IFRAME_ID = "bizpilot-widget";
 export const WIDGET_POST_MESSAGE_SOURCE = "bizpilot-widget";
 export const WIDGET_MAX_WIDTH = "calc(100vw - 24px)";
@@ -39,11 +41,16 @@ export function buildWidgetHostMessage(type: WidgetHostMessageType): WidgetHostM
   return { source: WIDGET_POST_MESSAGE_SOURCE, type };
 }
 
-export function widgetScriptOrigin(request: {
-  url: string;
-  headers: { get(name: string): string | null };
-  nextUrl?: { protocol?: string };
-}) {
+export function widgetScriptOrigin(
+  request: {
+    url: string;
+    headers: { get(name: string): string | null };
+    nextUrl?: { protocol?: string };
+  },
+  env: Record<string, string | undefined> = process.env,
+) {
+  const fromAppUrl = canonicalPublicOrigin(env.APP_URL);
+  if (fromAppUrl) return fromAppUrl;
   const forwardedHost = request.headers.get("x-forwarded-host");
   const host = (forwardedHost ?? request.headers.get("host") ?? "")
     .split(",")[0]

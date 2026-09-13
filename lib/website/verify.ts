@@ -1,8 +1,13 @@
 import { widgetScriptPath } from "@/lib/widget-embed-script";
+import {
+  crawlerUserAgent,
+  LEGACY_WIDGET_ORIGINS,
+  PRODUCTION_WIDGET_ORIGIN,
+} from "@/lib/public-origin";
 import { WEBSITE_FETCH_TIMEOUT_MS } from "./types";
 import { isSameRegisteredDomain } from "./urls";
 
-export const PRODUCTION_WIDGET_ORIGIN = "https://bizpilot-ai-mocha.vercel.app";
+export { PRODUCTION_WIDGET_ORIGIN } from "@/lib/public-origin";
 export const MAX_HOMEPAGE_REDIRECTS = 8;
 
 export type WebsiteFetchLike = (
@@ -37,8 +42,7 @@ export type HomepageWidgetInspection = {
 };
 
 const VERIFY_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (compatible; BizPilotVerify/1.0; +https://bizpilot-ai-mocha.vercel.app) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "User-Agent": crawlerUserAgent("BizPilotVerify"),
   Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
 };
 
@@ -68,6 +72,10 @@ export function trustedWidgetOrigins(env?: { APP_URL?: string; VERCEL_URL?: stri
   const origins = new Set<string>();
   const production = normalizeTrustedOrigin(PRODUCTION_WIDGET_ORIGIN);
   if (production) origins.add(production);
+  for (const legacy of LEGACY_WIDGET_ORIGINS) {
+    const origin = normalizeTrustedOrigin(legacy);
+    if (origin) origins.add(origin);
+  }
   const appUrl = normalizeTrustedOrigin(source.APP_URL ?? "");
   if (appUrl) origins.add(appUrl);
   const vercel = source.VERCEL_URL?.trim();

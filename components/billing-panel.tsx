@@ -20,7 +20,12 @@ type Bootstrap = {
   } | null;
   paidAccess: boolean;
   missingEnv: string[];
-  operator?: { items: OperatorCheck[]; readyForSubscribers: boolean };
+  operator?: {
+    items: OperatorCheck[];
+    readyForSubscribers: boolean;
+    readyForLiveCustomers?: boolean;
+    stripeMode?: "unset" | "test" | "live" | "unknown";
+  };
   error?: string;
   code?: string;
 };
@@ -133,12 +138,13 @@ export function BillingPanel() {
                     : "Checkout finished. If the dashboard is still locked, the Stripe webhook is missing or delayed."}
               </p>
             ) : null}
-            {data?.operator && !data.operator.readyForSubscribers ? (
+            {data?.operator && data.operator.readyForLiveCustomers === false ? (
               <div className="grid gap-2 rounded-lg border p-3">
-                <p className="text-sm font-medium">Operator setup</p>
+                <p className="text-sm font-medium">Operator setup — live Stripe</p>
                 <p className="text-sm text-muted-foreground">
-                  Subscribers cannot finish payment until you set these on Vercel Production. Do
-                  not paste secret keys into chat.
+                  {data.operator.stripeMode === "test"
+                    ? "Stripe Test mode cannot take real cards. Switch to Live keys on Vercel Production, then redeploy. Do not paste secret keys into chat."
+                    : "Subscribers cannot pay with a real card until Live Stripe, OpenAI, and the site URL are set on Vercel Production. Do not paste secret keys into chat."}
                 </p>
                 <OperatorSetupList items={data.operator.items} />
               </div>

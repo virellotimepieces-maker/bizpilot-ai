@@ -1,4 +1,5 @@
 import { gunzipSync } from "node:zlib";
+import { crawlerUserAgent } from "@/lib/public-origin";
 import { WEBSITE_FETCH_TIMEOUT_MS } from "./types";
 import { isSameRegisteredDomain } from "./urls";
 import type { WebsiteFetchLike } from "./verify";
@@ -6,8 +7,7 @@ import type { WebsiteFetchLike } from "./verify";
 export const MAX_PUBLIC_REDIRECTS = 8;
 
 export const INDEXER_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (compatible; BizPilotWebsiteIndexer/1.0; +https://bizpilot-ai-mocha.vercel.app) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "User-Agent": crawlerUserAgent("BizPilotWebsiteIndexer"),
   Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,text/xml;q=0.9,*/*;q=0.8",
   "Accept-Encoding": "gzip, deflate",
 };

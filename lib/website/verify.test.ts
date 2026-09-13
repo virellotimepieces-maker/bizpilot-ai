@@ -136,8 +136,10 @@ describe("widget script URL matching", () => {
     ]);
   });
 
-  it("always trusts the production widget origin", () => {
-    assert.ok(trustedWidgetOrigins({}).includes(ORIGIN));
+  it("always trusts the live production origin and still accepts the previous Vercel widget host", () => {
+    const trusted = trustedWidgetOrigins({});
+    assert.ok(trusted.includes(ORIGIN));
+    assert.ok(trusted.includes("https://bizpilot-ai-mocha.vercel.app"));
     assert.equal(expectedWidgetScriptPath(KEY), `/w/${KEY}.js`);
   });
 });

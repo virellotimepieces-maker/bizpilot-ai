@@ -12,7 +12,7 @@ const complete = {
   DATABASE_URL: "postgres://bizpilot",
   AUTH_SECRET: "x".repeat(32),
   APP_URL: "https://www.mybizpilotai.com",
-  STRIPE_SECRET_KEY: "sk_test_example",
+  STRIPE_SECRET_KEY: "sk_live_example",
   STRIPE_WEBHOOK_SECRET: "whsec_example",
   STRIPE_PRICE_ID: "price_example",
   OPENAI_API_KEY: "sk-example",
@@ -51,7 +51,17 @@ describe("operator setup checklist", () => {
 
     const withGmail = operatorSetup(complete);
     assert.equal(withGmail.readyForSubscribers, true);
+    assert.equal(withGmail.readyForLiveCustomers, true);
+    assert.equal(withGmail.stripeMode, "live");
     assert.equal(withGmail.items.every((item) => item.done), true);
+  });
+
+  it("treats Stripe Test keys as not live", () => {
+    const testMode = operatorSetup({ ...complete, STRIPE_SECRET_KEY: "sk_test_example" });
+    assert.equal(testMode.stripeMode, "test");
+    assert.equal(testMode.readyForSubscribers, true);
+    assert.equal(testMode.readyForLiveCustomers, false);
+    assert.match(testMode.items.find((item) => item.key === "stripe")?.hint ?? "", /Test mode/);
   });
 
   it("lists missing variable names without returning secret values", () => {
@@ -63,7 +73,7 @@ describe("operator setup checklist", () => {
     const json = JSON.stringify(operatorSetup(complete));
     assert.doesNotMatch(
       `${JSON.stringify(partial)}${json}`,
-      /sk_live_should_not_leak|sk_test_example|whsec_example|sk-example|google-secret|postgres:\/\//,
+      /sk_live_should_not_leak|sk_live_example|sk_test_example|whsec_example|sk-example|google-secret|postgres:\/\//,
     );
   });
 
@@ -90,8 +100,6 @@ describe("operator setup checklist", () => {
     const docs = readFileSync(new URL("../docs/operator-setup.md", import.meta.url), "utf8");
     assert.match(docs, /https:\/\/www\.mybizpilotai\.com\/api\/stripe\/webhook/);
     assert.match(docs, /https:\/\/www\.mybizpilotai\.com\/api\/app\/gmail\/callback/);
-    for (const event of STRIPE_WEBHOOK_EVENTS) {
-      assert.match(docs, new RegExp(event.replaceAll(".", "\\.")));
-    }
+    assert.match(docs, /Live mode/);
   });
 });

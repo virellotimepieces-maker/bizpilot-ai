@@ -58,7 +58,7 @@ export function PaidOverview() {
   }, [router]);
 
   if (!data) return <p className={HELPER_TEXT_CLASS}>Loading workspace…</p>;
-  if (data.missingEnv?.length || (data.operator && !data.operator.readyForSubscribers)) {
+  if (data.missingEnv?.length) {
     return (
       <Card>
         <CardHeader>

@@ -41,7 +41,7 @@ export const ENV_DOCS = [
   },
   {
     name: "STRIPE_SECRET_KEY",
-    why: "Stripe secret key for this BizPilot account (sk_test_ or sk_live_). Do not reuse keys from other apps.",
+    why: "Stripe Live secret key for this BizPilot account (sk_live_). Do not use sk_test_ on Production if you are taking real cards.",
   },
   {
     name: "STRIPE_WEBHOOK_SECRET",

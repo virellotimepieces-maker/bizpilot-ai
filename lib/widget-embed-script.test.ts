@@ -19,7 +19,7 @@ import {
   widgetScriptPath,
 } from "./widget-embed-script";
 
-const ORIGIN = "https://bizpilot-ai-mocha.vercel.app";
+const ORIGIN = "https://www.mybizpilotai.com";
 const KEY = "bpw_existing_widget_key";
 
 describe("generated /w/[widget-id].js embed script", () => {
@@ -112,24 +112,46 @@ describe("widget embed route wiring", () => {
   it("uses the request host so local 0.0.0.0 binds still match the page origin", async () => {
     const { widgetScriptOrigin } = await import("./widget-embed-script");
     assert.equal(
-      widgetScriptOrigin({
-        url: "http://0.0.0.0:43217/w/bpw_existing_widget_key.js",
-        headers: { get: (name: string) => (name === "host" ? "127.0.0.1:43217" : null) },
-      }),
+      widgetScriptOrigin(
+        {
+          url: "http://0.0.0.0:43217/w/bpw_existing_widget_key.js",
+          headers: { get: (name: string) => (name === "host" ? "127.0.0.1:43217" : null) },
+        },
+        {},
+      ),
       "http://127.0.0.1:43217",
     );
     assert.equal(
-      widgetScriptOrigin({
-        url: "http://0.0.0.0:43217/w/live.js",
-        headers: {
-          get: (name: string) => {
-            if (name === "x-forwarded-host") return "bizpilot-ai-mocha.vercel.app";
-            if (name === "x-forwarded-proto") return "https";
-            return null;
+      widgetScriptOrigin(
+        {
+          url: "http://0.0.0.0:43217/w/live.js",
+          headers: {
+            get: (name: string) => {
+              if (name === "x-forwarded-host") return "bizpilot-ai-mocha.vercel.app";
+              if (name === "x-forwarded-proto") return "https";
+              return null;
+            },
           },
         },
-      }),
+        {},
+      ),
       "https://bizpilot-ai-mocha.vercel.app",
+    );
+    assert.equal(
+      widgetScriptOrigin(
+        {
+          url: "https://bizpilot-ai-mocha.vercel.app/w/live.js",
+          headers: {
+            get: (name: string) => {
+              if (name === "x-forwarded-host") return "bizpilot-ai-mocha.vercel.app";
+              if (name === "x-forwarded-proto") return "https";
+              return null;
+            },
+          },
+        },
+        { APP_URL: "https://www.mybizpilotai.com/" },
+      ),
+      "https://www.mybizpilotai.com",
     );
   });
 });
