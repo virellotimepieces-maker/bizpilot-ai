@@ -121,7 +121,7 @@ function SidebarBody({
         )}
         {demo ? (
           <Link href="/" className="px-1 text-[11px] text-white/55 underline-offset-2 hover:underline">
-            Back to BizPilot Pro
+            Back to BizPilot AI
           </Link>
         ) : (
           <p className="px-1 text-[11px] leading-relaxed text-white/40">

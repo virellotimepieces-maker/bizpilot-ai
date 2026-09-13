@@ -70,7 +70,7 @@ function ChatBody() {
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div>
                 <p className="text-sm font-medium">Chat with {knowledge.name}</p>
-                <p className="text-xs text-neutral-500">Powered by BizPilot · same knowledge as email and social</p>
+                <p className="text-xs text-neutral-500">Powered by BizPilot AI · same knowledge as email and social</p>
               </div>
               <Badge variant="secondary">Live demo</Badge>
             </div>

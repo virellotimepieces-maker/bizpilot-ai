@@ -44,7 +44,7 @@ export const WIDGET_TROUBLESHOOTING = [
   {
     id: "inactive",
     title: "Subscription inactive",
-    body: "The widget only runs while BizPilot Pro is active. Open Billing in BizPilot, update payment if needed, then refresh the public website.",
+    body: "The widget only runs while BizPilot Pro is active. Open Billing in BizPilot AI, update payment if needed, then refresh the public website.",
   },
   {
     id: "csp",

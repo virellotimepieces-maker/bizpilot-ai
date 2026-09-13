@@ -245,7 +245,7 @@ export function WidgetChat({
         <div className="min-w-0">
           <p className="text-sm font-medium">Chat</p>
           <p className="text-xs text-neutral-500">
-            {waitingOnHuman ? "A teammate will reply here" : "Powered by BizPilot Pro"}
+            {waitingOnHuman ? "A teammate will reply here" : "Powered by BizPilot AI"}
           </p>
         </div>
         <button

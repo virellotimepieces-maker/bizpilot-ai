@@ -32,7 +32,7 @@ export function PaidAppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-full bg-background">
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 bg-sidebar p-4 text-sidebar-foreground md:flex md:flex-col">
-        <p className="font-heading px-1 text-lg text-white">BizPilot Pro</p>
+        <p className="font-heading px-1 text-lg text-white">BizPilot AI</p>
         <nav className="mt-6 grid gap-1">
           {NAV.map((item) => {
             const Icon = item.icon;
@@ -58,7 +58,7 @@ export function PaidAppShell({ children }: { children: React.ReactNode }) {
       </aside>
       <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
         <header className="flex items-center justify-between gap-3 border-b px-3 py-2 md:hidden">
-          <span className="font-heading text-2xl leading-none">BizPilot Pro</span>
+          <span className="font-heading text-2xl leading-none">BizPilot AI</span>
           <Button size="sm" variant="outline" className={TOUCH_TARGET_CLASS} render={<Link href="/billing" />}>
             Billing
           </Button>

@@ -42,7 +42,7 @@ export function LoginForm() {
         <Card>
           <CardHeader className="border-b">
             <CardTitle>Sign in</CardTitle>
-            <CardDescription>Use the email you used for BizPilot Pro.</CardDescription>
+            <CardDescription>Use the email you used to create your BizPilot AI account.</CardDescription>
           </CardHeader>
           <CardContent className="pt-4">
             <form className="grid gap-4" onSubmit={onSubmit}>
