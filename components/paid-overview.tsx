@@ -1,7 +1,9 @@
 "use client";
 
+import { OperatorSetupList } from "@/components/operator-setup-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { OperatorCheck } from "@/lib/operator-setup";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -23,6 +25,7 @@ type Bootstrap = {
   waitingOnHuman?: number;
   paidAccess: boolean;
   missingEnv: string[];
+  operator?: { items: OperatorCheck[]; readyForSubscribers: boolean };
   error?: string;
   code?: string;
 };
@@ -55,17 +58,23 @@ export function PaidOverview() {
   }, [router]);
 
   if (!data) return <p className={HELPER_TEXT_CLASS}>Loading workspace…</p>;
-  if (data.missingEnv?.length) {
+  if (data.missingEnv?.length || (data.operator && !data.operator.readyForSubscribers)) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Paid platform is paused</CardTitle>
           <CardDescription>
             Signup, Stripe, and the website widget need credentials that are not in this environment
-            yet.
+            yet. Set them on Vercel Production, then redeploy. Do not paste secret keys into chat.
           </CardDescription>
         </CardHeader>
-        <CardContent className="text-sm">Missing: {data.missingEnv.join(", ")}</CardContent>
+        <CardContent className="pt-4">
+          {data.operator ? (
+            <OperatorSetupList items={data.operator.items} />
+          ) : (
+            <p className="text-sm">Missing: {data.missingEnv.join(", ")}</p>
+          )}
+        </CardContent>
       </Card>
     );
   }

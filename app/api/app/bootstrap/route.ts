@@ -7,6 +7,7 @@ import { jsonError } from "@/lib/http";
 import { workspaceSetup } from "@/lib/desk-setup";
 import { BIZPILOT_PRO } from "@/lib/plan";
 import { missingPaidEnv } from "@/lib/env";
+import { operatorSetup } from "@/lib/operator-setup";
 
 export async function GET() {
   try {
@@ -52,6 +53,7 @@ export async function GET() {
       plan: BIZPILOT_PRO,
       paidAccess: hasPaidDashboardAccess(subscription),
       missingEnv: missingPaidEnv(),
+      operator: operatorSetup(),
       appUrl: process.env.APP_URL?.replace(/\/$/, "") ?? "",
     });
   } catch (error) {

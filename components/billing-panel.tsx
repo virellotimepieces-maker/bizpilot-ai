@@ -1,10 +1,12 @@
 "use client";
 
+import { OperatorSetupList } from "@/components/operator-setup-list";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BIZPILOT_PRO } from "@/lib/plan";
+import type { OperatorCheck } from "@/lib/operator-setup";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -18,6 +20,7 @@ type Bootstrap = {
   } | null;
   paidAccess: boolean;
   missingEnv: string[];
+  operator?: { items: OperatorCheck[]; readyForSubscribers: boolean };
   error?: string;
   code?: string;
 };
@@ -130,7 +133,16 @@ export function BillingPanel() {
                     : "Checkout finished. If the dashboard is still locked, the Stripe webhook is missing or delayed."}
               </p>
             ) : null}
-            {data?.missingEnv?.length ? (
+            {data?.operator && !data.operator.readyForSubscribers ? (
+              <div className="grid gap-2 rounded-lg border p-3">
+                <p className="text-sm font-medium">Operator setup</p>
+                <p className="text-sm text-muted-foreground">
+                  Subscribers cannot finish payment until you set these on Vercel Production. Do
+                  not paste secret keys into chat.
+                </p>
+                <OperatorSetupList items={data.operator.items} />
+              </div>
+            ) : data?.missingEnv?.length ? (
               <p className="text-sm text-muted-foreground">
                 Paid billing is paused until these environment variables are set:{" "}
                 {data.missingEnv.join(", ")}.

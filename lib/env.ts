@@ -37,7 +37,7 @@ export const ENV_DOCS = [
   },
   {
     name: "APP_URL",
-    why: "Public origin, for example https://your-domain.vercel.app, used in Stripe redirects and the widget snippet.",
+    why: "Public origin, for example https://www.mybizpilotai.com, used in Stripe redirects and the widget snippet.",
   },
   {
     name: "STRIPE_SECRET_KEY",
