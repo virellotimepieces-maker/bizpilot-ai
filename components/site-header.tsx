@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { StoreLiveHeaderBadge } from "@/components/store-live-status";
+import { StoreLiveHeaderBadge, StoreLivePublicStrip } from "@/components/store-live-status";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
@@ -12,7 +12,7 @@ export function SiteHeader({ signedIn = false }: { signedIn?: boolean }) {
             <Sparkles className="size-4" />
           </span>
           <span className="font-heading text-lg">BizPilot AI</span>
-          {signedIn ? <StoreLiveHeaderBadge /> : null}
+          <StoreLiveHeaderBadge />
         </Link>
         <nav className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" size="sm" render={<Link href="/demo" />}>
@@ -39,6 +39,7 @@ export function SiteHeader({ signedIn = false }: { signedIn?: boolean }) {
           )}
         </nav>
       </div>
+      <StoreLivePublicStrip />
     </header>
   );
 }

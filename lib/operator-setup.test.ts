@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   gmailRedirectUrl,
   operatorSetup,
+  publicLiveStatusPayload,
   storeLiveStatus,
   stripeWebhookUrl,
   STRIPE_WEBHOOK_EVENTS,
@@ -91,6 +92,15 @@ describe("operator setup checklist", () => {
     assert.equal(storeLiveStatus(operatorSetup({})).kind, "setup");
   });
 
+  it("announces Live and open to subscribers without leaking keys", () => {
+    const live = publicLiveStatusPayload(complete);
+    assert.equal(live.openToSubscribers, true);
+    assert.equal(live.label, "Live");
+    assert.match(live.detail, /open to subscribers/);
+    assert.doesNotMatch(JSON.stringify(live), /sk_live_example|whsec_example/);
+    assert.equal(publicLiveStatusPayload({ ...complete, STRIPE_SECRET_KEY: "sk_test_example" }).openToSubscribers, false);
+  });
+
   it("builds the production webhook and Gmail redirect URLs from APP_URL", () => {
     assert.equal(
       stripeWebhookUrl("https://www.mybizpilotai.com/"),
@@ -115,5 +125,11 @@ describe("operator setup checklist", () => {
     assert.match(docs, /https:\/\/www\.mybizpilotai\.com\/api\/stripe\/webhook/);
     assert.match(docs, /https:\/\/www\.mybizpilotai\.com\/api\/app\/gmail\/callback/);
     assert.match(docs, /Live mode/);
+  });
+
+  it("does not expose secret names or values from the public live-status route", () => {
+    const source = readFileSync(new URL("../app/api/public/live-status/route.ts", import.meta.url), "utf8");
+    assert.match(source, /publicLiveStatusPayload/);
+    assert.doesNotMatch(source, /STRIPE_SECRET_KEY|sk_live_|whsec_/);
   });
 });

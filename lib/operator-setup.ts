@@ -168,3 +168,30 @@ export function storeLiveStatus(input: {
     detail: "Finish Live Stripe on Vercel before this store can take real payments.",
   };
 }
+
+export function publicLiveStatusPayload(env: EnvMap = process.env) {
+  const setup = operatorSetup(env);
+  const status = storeLiveStatus(setup);
+  if (status.kind === "live") {
+    return {
+      kind: "live" as const,
+      label: "Live",
+      detail: "BizPilot Pro is live and open to subscribers.",
+      openToSubscribers: true,
+    };
+  }
+  if (status.kind === "test") {
+    return {
+      kind: "test" as const,
+      label: "Test mode",
+      detail: "BizPilot Pro is not open to paying subscribers yet.",
+      openToSubscribers: false,
+    };
+  }
+  return {
+    kind: "setup" as const,
+    label: "Not live",
+    detail: "BizPilot Pro is not open to subscribers yet.",
+    openToSubscribers: false,
+  };
+}
