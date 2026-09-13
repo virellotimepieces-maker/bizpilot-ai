@@ -3,10 +3,11 @@
 import { OperatorSetupList } from "@/components/operator-setup-list";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { StoreLiveBanner } from "@/components/store-live-banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BIZPILOT_PRO } from "@/lib/plan";
-import type { OperatorCheck } from "@/lib/operator-setup";
+import { storeLiveStatus, type OperatorCheck } from "@/lib/operator-setup";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -115,11 +116,18 @@ export function BillingPanel() {
 
   const failedPayment =
     data?.subscription?.status === "past_due" || data?.subscription?.status === "unpaid";
+  const liveStatus = data?.operator
+    ? storeLiveStatus({
+        stripeMode: data.operator.stripeMode ?? "unset",
+        readyForLiveCustomers: data.operator.readyForLiveCustomers === true,
+      })
+    : null;
 
   return (
     <div className="min-h-full">
       <SiteHeader signedIn />
-      <main className="mx-auto max-w-2xl px-4 py-10">
+      <main className="mx-auto grid max-w-2xl gap-4 px-4 py-10">
+        {liveStatus ? <StoreLiveBanner status={liveStatus} /> : null}
         <Card>
           <CardHeader className="border-b">
             <CardTitle>Billing</CardTitle>

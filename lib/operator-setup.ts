@@ -135,3 +135,36 @@ export function operatorSetup(env: EnvMap = process.env): {
     stripeMode: mode,
   };
 }
+
+export type StoreLiveKind = "live" | "test" | "setup";
+
+export type StoreLiveStatus = {
+  kind: StoreLiveKind;
+  label: string;
+  detail: string;
+};
+
+export function storeLiveStatus(input: {
+  stripeMode: StripeMode;
+  readyForLiveCustomers: boolean;
+}): StoreLiveStatus {
+  if (input.readyForLiveCustomers && input.stripeMode === "live") {
+    return {
+      kind: "live",
+      label: "Live",
+      detail: "This store is live. Checkout charges real cards.",
+    };
+  }
+  if (input.stripeMode === "test") {
+    return {
+      kind: "test",
+      label: "Test mode",
+      detail: "This store is not live. Checkout will not charge real cards.",
+    };
+  }
+  return {
+    kind: "setup",
+    label: "Not live",
+    detail: "Finish Live Stripe on Vercel before this store can take real payments.",
+  };
+}

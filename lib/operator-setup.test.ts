@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   gmailRedirectUrl,
   operatorSetup,
+  storeLiveStatus,
   stripeWebhookUrl,
   STRIPE_WEBHOOK_EVENTS,
 } from "./operator-setup";
@@ -75,6 +76,19 @@ describe("operator setup checklist", () => {
       `${JSON.stringify(partial)}${json}`,
       /sk_live_should_not_leak|sk_live_example|sk_test_example|whsec_example|sk-example|google-secret|postgres:\/\//,
     );
+  });
+
+  it("labels the store Live only when Live Stripe and required env are set", () => {
+    assert.deepEqual(storeLiveStatus(operatorSetup(complete)), {
+      kind: "live",
+      label: "Live",
+      detail: "This store is live. Checkout charges real cards.",
+    });
+    assert.equal(
+      storeLiveStatus(operatorSetup({ ...complete, STRIPE_SECRET_KEY: "sk_test_example" })).kind,
+      "test",
+    );
+    assert.equal(storeLiveStatus(operatorSetup({})).kind, "setup");
   });
 
   it("builds the production webhook and Gmail redirect URLs from APP_URL", () => {
