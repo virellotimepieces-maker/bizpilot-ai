@@ -191,10 +191,12 @@ export function WidgetChat({
 
   useEffect(() => {
     if (!open || !visitorKey) return;
-    void syncThread();
     const timer = window.setInterval(() => {
       void syncThread();
     }, 2500);
+    queueMicrotask(() => {
+      void syncThread();
+    });
     return () => window.clearInterval(timer);
   }, [open, visitorKey, syncThread]);
 
@@ -333,7 +335,7 @@ export function WidgetChat({
   const accent = appearance.accentColor || DEFAULT_WIDGET_ACCENT;
   const left = appearance.position === "bottom-left";
   const title = appearance.businessDisplayName || "Chat";
-  const showWelcome = rows.length === 0 && !error;
+  const showWelcome = rows.length === 0;
   const showSuggestions = showWelcome && appearance.suggestedQuestions.length > 0 && !pending;
 
   if (!open) {
@@ -369,6 +371,8 @@ export function WidgetChat({
       >
         <div className="flex min-w-0 items-center gap-2">
           {appearance.logoUrl ? (
+            // Customer logo URLs are not in next/image remotePatterns; embed iframe uses the raw src.
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={appearance.logoUrl}
               alt=""

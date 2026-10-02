@@ -425,8 +425,13 @@ export class BillingService {
     return updated;
   }
 
-  async loadWidgetThread(widgetKey: string, visitorKey: string, conversationId?: string) {
-    const { workspace } = await this.assertPaidWidgetWorkspace(widgetKey);
+  async loadWidgetThread(
+    widgetKey: string,
+    visitorKey: string,
+    conversationId?: string,
+    now = new Date(),
+  ) {
+    const { workspace } = await this.assertPaidWidgetWorkspace(widgetKey, now);
     const conversation = await this.store.getConversationForVisitor(
       workspace.id,
       visitorKey,

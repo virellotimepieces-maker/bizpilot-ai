@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { BillingError } from "@/lib/billing/types";
 import { jsonError } from "@/lib/http";
 import { requirePaidKnowledgeContext } from "@/lib/v2/knowledge-access";
 import { parseWidgetSettingsInput, serializeWidgetSettings } from "@/lib/v2/widget-settings";

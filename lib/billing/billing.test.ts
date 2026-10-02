@@ -634,6 +634,7 @@ describe("BizPilot Pro subscription", () => {
       a.workspace.widgetKey,
       "other-visitor",
       first.conversationId,
+      start,
     );
     assert.equal(leaked.conversation, null);
     assert.equal(leaked.messages.length, 0);
@@ -641,6 +642,7 @@ describe("BizPilot Pro subscription", () => {
       a.workspace.widgetKey,
       "visitor-a",
       first.conversationId,
+      start,
     );
     assert.equal(own.conversation?.id, first.conversationId);
     assert.equal(own.messages.some((row) => row.role === "human"), true);
