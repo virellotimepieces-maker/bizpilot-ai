@@ -1,5 +1,5 @@
-import { PaidLeads } from "@/components/paid-leads";
+import { PaidSales } from "@/components/paid-sales";
 
 export default function AppLeadsPage() {
-  return <PaidLeads />;
+  return <PaidSales tab="contacts" />;
 }

@@ -9,6 +9,7 @@ import type {
   LeadInput,
   LeadRecord,
   QuoteRequestRecord,
+  QuoteRequestWrite,
   UnansweredQuestionRecord,
   WidgetSettingsInput,
   WidgetSettingsRecord,
@@ -327,27 +328,11 @@ export interface BillingStore {
   updateLead(id: string, workspaceId: string, patch: LeadInput): Promise<LeadRecord>;
 
   listQuoteRequests(workspaceId: string): Promise<QuoteRequestRecord[]>;
-  createQuoteRequest(
-    workspaceId: string,
-    input?: Partial<
-      Pick<
-        QuoteRequestRecord,
-        | "conversationId"
-        | "leadId"
-        | "customerName"
-        | "email"
-        | "phone"
-        | "productService"
-        | "requirements"
-        | "notes"
-        | "status"
-      >
-    >,
-  ): Promise<QuoteRequestRecord>;
+  createQuoteRequest(workspaceId: string, input?: QuoteRequestWrite): Promise<QuoteRequestRecord>;
   updateQuoteRequest(
     id: string,
     workspaceId: string,
-    patch: Partial<Pick<QuoteRequestRecord, "status" | "notes" | "requirements" | "productService">>,
+    patch: QuoteRequestWrite,
   ): Promise<QuoteRequestRecord>;
 
   listAppointmentRequests(workspaceId: string): Promise<AppointmentRequestRecord[]>;

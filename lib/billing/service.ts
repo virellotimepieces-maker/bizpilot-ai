@@ -6,7 +6,15 @@ import { answerLacksPublishedKnowledge, normalizeUnansweredQuestion } from "@/li
 import { defaultWidgetSettings, looksLikeEmail, publicWidgetAppearance } from "@/lib/v2/widget-settings";
 import { findLeadForConversation, filterLeads } from "@/lib/v2/leads";
 import { isHighIntent } from "@/lib/v2/intents";
-import type { LeadInput } from "@/lib/v2/types";
+import {
+  extractQuotedProductService,
+  filterQuoteRequests,
+  findOpenQuoteForConversation,
+  isQuoteRequestQuestion,
+  quotesForConversation,
+  shouldPromoteToQuoteIntent,
+} from "@/lib/v2/quotes";
+import type { LeadInput, QuoteRequestWrite } from "@/lib/v2/types";
 import { groundedWebsiteAnswer } from "@/lib/website/answer";
 import type { WebsitePageRecord, WebsiteReplySource } from "@/lib/website/types";
 import type { BillingStore } from "./store";
@@ -163,6 +171,10 @@ export class BillingService {
       userId: workspace.ownerUserId,
       conversation,
     });
+    await this.syncQuoteContactFromConversation({
+      workspaceId: workspace.id,
+      conversation,
+    });
     return conversation;
   }
 
@@ -198,6 +210,24 @@ export class BillingService {
       }
     }
     return next;
+  }
+
+  async listWorkspaceQuoteRequests(
+    workspaceId: string,
+    filters: { status?: string | null; query?: string | null } = {},
+  ) {
+    return filterQuoteRequests(await this.store.listQuoteRequests(workspaceId), filters);
+  }
+
+  async updateWorkspaceQuoteRequest(workspaceId: string, quoteId: string, patch: QuoteRequestWrite) {
+    try {
+      return await this.store.updateQuoteRequest(quoteId, workspaceId, patch);
+    } catch (error) {
+      if (error instanceof Error && error.message === "quote_request_missing") {
+        throw new BillingError("Quote request not found.", "not_found");
+      }
+      throw error;
+    }
   }
 
   async generateCountedAiReply(options: {
@@ -239,6 +269,13 @@ export class BillingService {
         workspaceId: workspace.id,
         visitorKey: options.visitorKey,
       }));
+
+    await this.captureQuoteRequestIfNeeded({
+      workspaceId: workspace.id,
+      userId: workspace.ownerUserId,
+      conversationId: thread.id,
+      question: options.question,
+    });
 
     if (thread.waitingOnHuman) {
       await this.store.addMessage({
@@ -586,6 +623,108 @@ export class BillingService {
       });
     }
     return lead;
+  }
+
+  private async captureQuoteRequestIfNeeded(input: {
+    workspaceId: string;
+    userId: string;
+    conversationId: string;
+    question: string;
+  }) {
+    if (!isQuoteRequestQuestion(input.question)) return;
+    const conversation = await this.store.getConversation(input.conversationId, input.workspaceId);
+    if (!conversation) return;
+    const quotes = await this.store.listQuoteRequests(input.workspaceId);
+    const open = findOpenQuoteForConversation(quotes, conversation.id);
+    const lead = findLeadForConversation(
+      await this.store.listLeads(input.workspaceId),
+      conversation.id,
+    );
+    const requirements = input.question.trim().slice(0, 2000);
+    const productService = extractQuotedProductService(input.question);
+    const contact = {
+      customerName: conversation.visitorName,
+      email: conversation.visitorEmail,
+      phone: conversation.visitorPhone,
+      leadId: lead?.id ?? null,
+    };
+    if (open) {
+      await this.store.updateQuoteRequest(open.id, input.workspaceId, {
+        requirements,
+        productService: open.productService || productService,
+        customerName: contact.customerName || open.customerName,
+        email: contact.email || open.email,
+        phone: contact.phone || open.phone,
+        leadId: contact.leadId ?? open.leadId,
+      });
+    } else {
+      const row = await this.store.createQuoteRequest(input.workspaceId, {
+        conversationId: conversation.id,
+        ...contact,
+        productService,
+        requirements,
+        status: "requested",
+      });
+      await this.notifyQuoteRequest({
+        workspaceId: input.workspaceId,
+        userId: input.userId,
+        quoteId: row.id,
+      });
+    }
+    if (shouldPromoteToQuoteIntent(conversation.customerIntent)) {
+      await this.store.updateConversation(conversation.id, input.workspaceId, {
+        customerIntent: "quote_request",
+      });
+    }
+    if (lead && shouldPromoteToQuoteIntent(lead.intent)) {
+      await this.store.updateLead(lead.id, input.workspaceId, {
+        intent: "quote_request",
+        request: lead.request || requirements,
+      });
+    }
+  }
+
+  private async syncQuoteContactFromConversation(input: {
+    workspaceId: string;
+    conversation: ConversationRecord;
+  }) {
+    const quotes = quotesForConversation(
+      await this.store.listQuoteRequests(input.workspaceId),
+      input.conversation.id,
+    );
+    if (quotes.length === 0) return;
+    const lead = findLeadForConversation(
+      await this.store.listLeads(input.workspaceId),
+      input.conversation.id,
+    );
+    for (const row of quotes) {
+      await this.store.updateQuoteRequest(row.id, input.workspaceId, {
+        customerName: input.conversation.visitorName || row.customerName,
+        email: input.conversation.visitorEmail || row.email,
+        phone: input.conversation.visitorPhone || row.phone,
+        leadId: lead?.id ?? row.leadId,
+      });
+    }
+  }
+
+  private async notifyQuoteRequest(input: { workspaceId: string; userId: string; quoteId: string }) {
+    const existing = await this.store.listNotifications(input.userId, input.workspaceId);
+    if (
+      existing.some(
+        (row) => row.type === "quote_request" && row.relatedId === input.quoteId && !row.readAt,
+      )
+    ) {
+      return;
+    }
+    await this.store.addNotification({
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+      type: "quote_request",
+      message:
+        "A visitor asked for a quote. This is a request to review — BizPilot did not issue a price or a quote document.",
+      relatedType: "quote_request",
+      relatedId: input.quoteId,
+    });
   }
 
   private async notifyLeadEvent(input: {

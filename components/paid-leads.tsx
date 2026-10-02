@@ -47,7 +47,7 @@ function formatWhen(iso: string) {
   return date.toLocaleString();
 }
 
-export function PaidLeads() {
+export function PaidLeads({ embedded = false }: { embedded?: boolean }) {
   const [leads, setLeads] = useState<SerializedLead[] | null>(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState<"all" | LeadStatus>("all");
@@ -116,23 +116,22 @@ export function PaidLeads() {
     }
   }
 
-  if (leads === null) {
-    return (
-      <div className={PAGE_SHELL_CLASS} aria-busy="true" aria-label="Loading leads">
-        <Skeleton className="h-7 w-40" />
-        <Skeleton className="h-4 w-72" />
-        <Skeleton className="h-40" />
-      </div>
-    );
-  }
-
-  return (
-    <div className={PAGE_SHELL_CLASS}>
-      <PageHeader
-        eyebrow="Sales"
-        title="Leads"
-        description="Contacts captured from the website widget. Status is owner-marked — converted is not a Stripe payment or a calendar booking."
-      />
+  const body = (
+    <>
+      {embedded ? null : (
+        <PageHeader
+          eyebrow="Sales"
+          title="Leads"
+          description="Contacts captured from the website widget. Status is owner-marked — converted is not a Stripe payment or a calendar booking."
+        />
+      )}
+      {leads === null ? (
+        <div aria-busy="true" aria-label="Loading leads" className="grid gap-3">
+          <Skeleton className="h-4 w-72" />
+          <Skeleton className="h-40" />
+        </div>
+      ) : (
+        <>
       <p className={HELPER_TEXT_CLASS}>
         {leads.length === 0
           ? "No leads stored yet."
@@ -327,6 +326,11 @@ export function PaidLeads() {
           ) : null}
         </SheetContent>
       </Sheet>
-    </div>
+        </>
+      )}
+    </>
   );
+
+  if (embedded) return body;
+  return <div className={PAGE_SHELL_CLASS}>{body}</div>;
 }

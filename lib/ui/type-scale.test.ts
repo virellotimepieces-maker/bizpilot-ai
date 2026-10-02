@@ -68,6 +68,7 @@ describe("V2 desk navigation", () => {
     assert.equal(isDeskNavActive("/app", DESK_NAV[0]!), true);
     assert.equal(isDeskNavActive("/app/inbox", DESK_NAV[0]!), false);
     assert.equal(isDeskNavActive("/app/email", DESK_NAV.find((item) => item.id === "integrations")!), true);
+    assert.equal(isDeskNavActive("/app/quotes", DESK_NAV.find((item) => item.id === "leads")!), true);
     assert.equal(isDeskNavActive("/billing", DESK_NAV.find((item) => item.id === "billing")!), true);
   });
 });

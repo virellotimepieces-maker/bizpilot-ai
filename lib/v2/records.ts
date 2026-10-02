@@ -18,6 +18,7 @@ import type {
   LeadInput,
   LeadRecord,
   QuoteRequestRecord,
+  QuoteRequestWrite,
   UnansweredQuestionRecord,
   WidgetSettingsRecord,
 } from "./types";
@@ -126,20 +127,7 @@ export function patchLead(row: LeadRecord, patch: LeadInput, now = new Date()): 
 
 export function newQuoteRequest(
   workspaceId: string,
-  input: Partial<
-    Pick<
-      QuoteRequestRecord,
-      | "conversationId"
-      | "leadId"
-      | "customerName"
-      | "email"
-      | "phone"
-      | "productService"
-      | "requirements"
-      | "notes"
-      | "status"
-    >
-  > = {},
+  input: QuoteRequestWrite = {},
   now = new Date(),
 ): QuoteRequestRecord {
   return {
@@ -155,6 +143,27 @@ export function newQuoteRequest(
     notes: (input.notes ?? "").trim(),
     status: requireQuoteStatus(input.status ?? "requested"),
     createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function patchQuoteRequest(
+  row: QuoteRequestRecord,
+  patch: QuoteRequestWrite,
+  now = new Date(),
+): QuoteRequestRecord {
+  return {
+    ...row,
+    conversationId: patch.conversationId === undefined ? row.conversationId : patch.conversationId,
+    leadId: patch.leadId === undefined ? row.leadId : patch.leadId,
+    customerName: patch.customerName === undefined ? row.customerName : patch.customerName.trim(),
+    email: patch.email === undefined ? row.email : patch.email.trim().toLowerCase(),
+    phone: patch.phone === undefined ? row.phone : patch.phone.trim(),
+    productService:
+      patch.productService === undefined ? row.productService : patch.productService.trim(),
+    requirements: patch.requirements === undefined ? row.requirements : patch.requirements.trim(),
+    notes: patch.notes === undefined ? row.notes : patch.notes.trim(),
+    status: patch.status === undefined ? row.status : requireQuoteStatus(patch.status),
     updatedAt: now,
   };
 }

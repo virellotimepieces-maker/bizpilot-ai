@@ -223,7 +223,7 @@ describe("Widget V2 UI wiring", () => {
     assert.match(chat, /leadCaptureEnabled/);
     assert.match(chat, /identifyAsAi/);
     assert.doesNotMatch(chat, /createLead|listLeads/);
-    assert.match(leads, /PaidLeads/);
+    assert.match(leads, /PaidSales/);
     assert.doesNotMatch(leads, /DeskPlaceholderPage/);
   });
 

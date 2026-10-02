@@ -169,7 +169,7 @@ describe("Widget contact creates a Lead", () => {
     assert.equal((await store.listQuoteRequests(workspace.id)).length, 0);
     assert.equal((await store.listAppointmentRequests(workspace.id)).length, 0);
     const page = readFileSync("app/app/leads/page.tsx", "utf8");
-    assert.match(page, /PaidLeads/);
+    assert.match(page, /PaidSales/);
     assert.doesNotMatch(page, /DeskPlaceholderPage/);
   });
 });

@@ -12,8 +12,9 @@ import {
   newUnansweredQuestion,
   patchKnowledgeEntry,
   patchLead,
+  patchQuoteRequest,
 } from "@/lib/v2/records";
-import { requireAppointmentStatus, requireQuoteStatus, requireUnansweredStatus } from "@/lib/v2/assert";
+import { requireAppointmentStatus, requireUnansweredStatus } from "@/lib/v2/assert";
 import type {
   AppointmentRequestRecord,
   IntegrationConnectionRecord,
@@ -23,6 +24,7 @@ import type {
   LeadInput,
   LeadRecord,
   QuoteRequestRecord,
+  QuoteRequestWrite,
   UnansweredQuestionRecord,
   WidgetSettingsInput,
   WidgetSettingsRecord,
@@ -996,23 +998,7 @@ export class MemoryBillingStore implements BillingStore {
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
-  async createQuoteRequest(
-    workspaceId: string,
-    input: Partial<
-      Pick<
-        QuoteRequestRecord,
-        | "conversationId"
-        | "leadId"
-        | "customerName"
-        | "email"
-        | "phone"
-        | "productService"
-        | "requirements"
-        | "notes"
-        | "status"
-      >
-    > = {},
-  ) {
+  async createQuoteRequest(workspaceId: string, input: QuoteRequestWrite = {}) {
     if (input.conversationId) {
       const conversation = await this.getConversation(input.conversationId, workspaceId);
       if (!conversation) throw new Error("conversation_missing");
@@ -1026,19 +1012,16 @@ export class MemoryBillingStore implements BillingStore {
     return row;
   }
 
-  async updateQuoteRequest(
-    id: string,
-    workspaceId: string,
-    patch: Partial<Pick<QuoteRequestRecord, "status" | "notes" | "requirements" | "productService">>,
-  ) {
-    const row = this.quoteRequests.find((item) => item.id === id && item.workspaceId === workspaceId);
-    if (!row) throw new Error("quote_request_missing");
-    if (patch.status !== undefined) row.status = requireQuoteStatus(patch.status);
-    if (patch.notes !== undefined) row.notes = patch.notes;
-    if (patch.requirements !== undefined) row.requirements = patch.requirements;
-    if (patch.productService !== undefined) row.productService = patch.productService;
-    row.updatedAt = new Date();
-    return row;
+  async updateQuoteRequest(id: string, workspaceId: string, patch: QuoteRequestWrite) {
+    const current = this.quoteRequests.find((item) => item.id === id && item.workspaceId === workspaceId);
+    if (!current) throw new Error("quote_request_missing");
+    if (patch.leadId) {
+      const lead = await this.getLead(patch.leadId, workspaceId);
+      if (!lead) throw new Error("lead_missing");
+    }
+    const next = patchQuoteRequest(current, patch);
+    this.quoteRequests = this.quoteRequests.map((row) => (row.id === id ? next : row));
+    return next;
   }
 
   async listAppointmentRequests(workspaceId: string) {

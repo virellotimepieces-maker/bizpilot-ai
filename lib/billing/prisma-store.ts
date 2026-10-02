@@ -17,6 +17,7 @@ import {
   newUnansweredQuestion,
   patchKnowledgeEntry,
   patchLead,
+  patchQuoteRequest,
 } from "@/lib/v2/records";
 import { requireAppointmentStatus, requireQuoteStatus, requireUnansweredStatus } from "@/lib/v2/assert";
 import type {
@@ -28,6 +29,7 @@ import type {
   LeadInput,
   LeadRecord,
   QuoteRequestRecord,
+  QuoteRequestWrite,
   UnansweredQuestionRecord,
   WidgetSettingsInput,
 } from "@/lib/v2/types";
@@ -1519,23 +1521,7 @@ export class PrismaBillingStore implements BillingStore {
     return rows.map((row) => ({ ...row, status: requireQuoteStatus(row.status) }));
   }
 
-  async createQuoteRequest(
-    workspaceId: string,
-    input: Partial<
-      Pick<
-        QuoteRequestRecord,
-        | "conversationId"
-        | "leadId"
-        | "customerName"
-        | "email"
-        | "phone"
-        | "productService"
-        | "requirements"
-        | "notes"
-        | "status"
-      >
-    > = {},
-  ) {
+  async createQuoteRequest(workspaceId: string, input: QuoteRequestWrite = {}) {
     await this.assertOwnedConversation(workspaceId, input.conversationId);
     await this.assertOwnedLead(workspaceId, input.leadId);
     const draft = newQuoteRequest(workspaceId, input);
@@ -1556,20 +1542,24 @@ export class PrismaBillingStore implements BillingStore {
     return { ...row, status: draft.status };
   }
 
-  async updateQuoteRequest(
-    id: string,
-    workspaceId: string,
-    patch: Partial<Pick<QuoteRequestRecord, "status" | "notes" | "requirements" | "productService">>,
-  ) {
+  async updateQuoteRequest(id: string, workspaceId: string, patch: QuoteRequestWrite) {
     const existing = await this.prisma().quoteRequest.findFirst({ where: { id, workspaceId } });
     if (!existing) throw new Error("quote_request_missing");
+    if (patch.leadId) await this.assertOwnedLead(workspaceId, patch.leadId);
+    const current: QuoteRequestRecord = { ...existing, status: requireQuoteStatus(existing.status) };
+    const next = patchQuoteRequest(current, patch);
     const row = await this.prisma().quoteRequest.update({
       where: { id },
       data: {
-        status: patch.status ? requireQuoteStatus(patch.status) : undefined,
-        notes: patch.notes,
-        requirements: patch.requirements,
-        productService: patch.productService,
+        conversationId: next.conversationId,
+        leadId: next.leadId,
+        customerName: next.customerName,
+        email: next.email,
+        phone: next.phone,
+        productService: next.productService,
+        requirements: next.requirements,
+        notes: next.notes,
+        status: next.status,
       },
     });
     return { ...row, status: requireQuoteStatus(row.status) };

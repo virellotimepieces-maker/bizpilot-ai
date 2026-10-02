@@ -98,6 +98,7 @@ Open [http://localhost:43127](http://localhost:43127).
 - `/app/knowledge` Knowledge engine: searchable facts, unanswered questions, website sync, and the structured knowledge form
 - `/app/widget` Widget appearance (welcome, suggested questions, indigo accent, left/right launcher) plus the unique install snippet. Optional visitor name/email is stored on the conversation and as a Lead.
 - `/app/leads` Contacts captured from the website widget. Status is owner-marked (new, qualified, follow up, converted, closed). Converted is not a Stripe payment.
+- `/app/quotes` Quote requests from widget questions (quote or estimate language). Status is owner-marked (requested, in review, marked sent, closed). Marked sent means you recorded that you sent a quote — BizPilot does not issue prices or quote documents. Also listed under Leads.
 - `/app/email` Connect Gmail inbox. AI drafts a relevant reply from the incoming email, using Knowledge as optional business or personal context. Review before sending. Email never auto-sends. Optional “Add email manually” fallback.
 - `/account` change password while signed in (no reset email)
 

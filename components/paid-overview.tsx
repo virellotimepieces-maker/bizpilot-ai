@@ -4,12 +4,11 @@ import { OperatorSetupList } from "@/components/operator-setup-list";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { OperatorCheck } from "@/lib/operator-setup";
 import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS } from "@/lib/ui/type-scale";
-import { Inbox, MessageCircleQuestion } from "lucide-react";
+import { ClipboardList, Inbox } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -29,6 +28,7 @@ type Bootstrap = {
   setup?: { items: SetupItem[]; readyForWidget: boolean };
   waitingOnHuman?: number;
   leads?: { total: number; new: number; qualified: number };
+  quotes?: { total: number; open: number; requested: number; in_review: number };
   paidAccess: boolean;
   missingEnv: string[];
   operator?: { items: OperatorCheck[]; readyForSubscribers: boolean };
@@ -108,6 +108,7 @@ export function PaidOverview() {
   ).slice(0, 3);
   const waiting = data.waitingOnHuman ?? 0;
   const leadStats = data.leads ?? { total: 0, new: 0, qualified: 0 };
+  const quoteStats = data.quotes ?? { total: 0, open: 0, requested: 0, in_review: 0 };
 
   return (
     <div className={PAGE_SHELL_CLASS}>
@@ -188,20 +189,30 @@ export function PaidOverview() {
                 : `${leadStats.qualified} qualified · ${leadStats.total} total. Status is owner-marked, not a payment.`}
             </p>
             <Button size="sm" variant="outline" render={<Link href="/app/leads" />}>
-              Open leads
+              Open contacts
             </Button>
           </CardContent>
         </Card>
-        <EmptyState
-          icon={MessageCircleQuestion}
-          title="Unanswered questions"
-          description="Questions the assistant could not ground in approved knowledge will be listed here after that tracker is connected to live chats."
-          action={
-            <Button size="sm" variant="outline" render={<Link href="/app/knowledge" />}>
-              Open knowledge
+        <Card>
+          <CardHeader>
+            <CardTitle>Quote requests</CardTitle>
+            <CardDescription>
+              Visitor asks for a quote or estimate. These are requests to review — not issued quotes.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <p className="text-2xl font-semibold tracking-tight">{quoteStats.open} to review</p>
+            <p className={HELPER_TEXT_CLASS}>
+              {quoteStats.total === 0
+                ? "No quote requests stored yet. The widget will not invent prices."
+                : `${quoteStats.total} stored. Marked sent means you sent a quote, not that BizPilot issued one.`}
+            </p>
+            <Button size="sm" variant="outline" render={<Link href="/app/quotes" />}>
+              <ClipboardList className="size-4" />
+              Open quote requests
             </Button>
-          }
-        />
+          </CardContent>
+        </Card>
       </section>
 
       <Card>

@@ -102,6 +102,21 @@ export interface QuoteRequestRecord {
   updatedAt: Date;
 }
 
+export type QuoteRequestWrite = Partial<
+  Pick<
+    QuoteRequestRecord,
+    | "conversationId"
+    | "leadId"
+    | "customerName"
+    | "email"
+    | "phone"
+    | "productService"
+    | "requirements"
+    | "notes"
+    | "status"
+  >
+>;
+
 export interface AppointmentRequestRecord {
   id: string;
   workspaceId: string;
