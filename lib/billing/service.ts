@@ -1,5 +1,8 @@
 import { chatAutoDecision, freezeVisitorText } from "@/lib/chat-auto";
 import { publicGmailStatus } from "@/lib/gmail/public";
+import { publicShopifyStatus, shopifyConnectionStatusForRow } from "@/lib/shopify/public";
+import { catalogProductSources, retrieveRelevantProducts } from "@/lib/shopify/catalog";
+import type { ShopifyProductRecord } from "@/lib/shopify/types";
 import { BIZPILOT_PRO, isPaidAccessStatus } from "@/lib/plan";
 import type { KnowledgeBase } from "@/lib/types";
 import { publishedKnowledgeBase } from "@/lib/v2/published-knowledge";
@@ -298,11 +301,12 @@ export class BillingService {
   async listWorkspaceIntegrations(workspaceId: string) {
     const workspace = await this.store.getWorkspace(workspaceId);
     if (!workspace) throw new BillingError("Workspace not found.", "not_found");
+    const shopifyRow = await this.store.getShopifyConnection(workspaceId);
     for (const provider of FUTURE_INTEGRATION_PROVIDERS) {
       await this.store.upsertIntegrationConnection({
         workspaceId,
         provider,
-        status: "disconnected",
+        status: provider === "shopify" ? shopifyConnectionStatusForRow(shopifyRow) : "disconnected",
       });
     }
     const [gmailRow, connections] = await Promise.all([
@@ -311,6 +315,7 @@ export class BillingService {
     ]);
     return buildWorkspaceIntegrations({
       gmail: publicGmailStatus(gmailRow),
+      shopify: publicShopifyStatus(shopifyRow),
       connections,
     });
   }
@@ -325,6 +330,7 @@ export class BillingService {
       knowledge: KnowledgeBase | null,
       question: string,
       pages?: WebsitePageRecord[],
+      products?: ShopifyProductRecord[],
     ) => Promise<string>;
   }) {
     const now = options.now ?? new Date();
@@ -463,6 +469,9 @@ export class BillingService {
     }
 
     const pages = await this.store.listWebsitePages(gate.workspace.id, gate.workspace.widgetKey);
+    const products = (await this.store.listShopifyProducts(gate.workspace.id)).filter(
+      (row) => row.workspaceId === gate.workspace.id,
+    );
     const periodStartMs = gate.period.periodStart.getTime();
     const reserved = await this.store.reserveAiReply(gate.workspace.id, periodStartMs);
     if (!reserved) {
@@ -483,7 +492,7 @@ export class BillingService {
 
     let answer: string;
     try {
-      answer = await options.generate(published, options.question, pages);
+      answer = await options.generate(published, options.question, pages, products);
     } catch (error) {
       await this.store.releaseReservedAiReply(gate.workspace.id, periodStartMs);
       throw error;
@@ -496,7 +505,10 @@ export class BillingService {
       widgetKey: gate.workspace.widgetKey,
       knowledge: published,
     });
-    const sources: WebsiteReplySource[] = grounded.sources;
+    const sources: WebsiteReplySource[] = [
+      ...grounded.sources,
+      ...catalogProductSources(retrieveRelevantProducts(products, options.question, gate.workspace.id)),
+    ];
 
     const committed = await this.store.commitReservedAiReply(gate.workspace.id, periodStartMs);
     if (!committed) {

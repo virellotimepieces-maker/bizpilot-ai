@@ -32,6 +32,12 @@ import type {
   WidgetSettingsRecord,
 } from "@/lib/v2/types";
 import { defaultWidgetSettings, mergeWidgetSettings } from "@/lib/v2/widget-settings";
+import type {
+  ShopifyConnectionRecord,
+  ShopifyConnectionWrite,
+  ShopifyProductRecord,
+  ShopifyProductWrite,
+} from "@/lib/shopify/types";
 import type { WebsitePageKind, WebsitePageRecord, WebsiteSourceRecord } from "@/lib/website/types";
 import type { BillingStore, CreateUserInput, UpsertSubscriptionInput } from "./store";
 import type {
@@ -71,6 +77,8 @@ export class MemoryBillingStore implements BillingStore {
   emailDrafts: EmailDraftRecord[] = [];
   gmailConnections = new Map<string, GmailConnectionRecord>();
   gmailReplyDrafts: GmailReplyDraftRecord[] = [];
+  shopifyConnections = new Map<string, ShopifyConnectionRecord>();
+  shopifyProducts: ShopifyProductRecord[] = [];
   knowledgeEntries: KnowledgeEntryRecord[] = [];
   unansweredQuestions: UnansweredQuestionRecord[] = [];
   leads: LeadRecord[] = [];
@@ -895,6 +903,83 @@ export class MemoryBillingStore implements BillingStore {
     return row;
   }
 
+  async getShopifyConnection(workspaceId: string) {
+    return this.shopifyConnections.get(workspaceId) ?? null;
+  }
+
+  async getShopifyConnectionByShop(shopDomain: string) {
+    return [...this.shopifyConnections.values()].find((row) => row.shopDomain === shopDomain) ?? null;
+  }
+
+  async upsertShopifyConnection(input: ShopifyConnectionWrite) {
+    const now = new Date();
+    const existing = this.shopifyConnections.get(input.workspaceId);
+    const row: ShopifyConnectionRecord = {
+      id: existing?.id ?? randomUUID(),
+      workspaceId: input.workspaceId,
+      shopDomain: input.shopDomain,
+      shopName: input.shopName ?? existing?.shopName ?? "",
+      primaryDomain: input.primaryDomain ?? existing?.primaryDomain ?? "",
+      encryptedAccessToken: input.encryptedAccessToken,
+      scopes: input.scopes,
+      status: input.status,
+      lastSyncedAt: input.lastSyncedAt ?? existing?.lastSyncedAt ?? null,
+      lastSyncStatus: input.lastSyncStatus ?? existing?.lastSyncStatus ?? "idle",
+      lastSyncError: input.lastSyncError === undefined ? existing?.lastSyncError ?? null : input.lastSyncError,
+      productCount: input.productCount ?? existing?.productCount ?? 0,
+      connectedAt: existing?.connectedAt ?? now,
+      updatedAt: now,
+    };
+    this.shopifyConnections.set(input.workspaceId, row);
+    return row;
+  }
+
+  async updateShopifyConnection(
+    workspaceId: string,
+    patch: Partial<
+      Omit<ShopifyConnectionRecord, "id" | "workspaceId" | "connectedAt" | "updatedAt" | "encryptedAccessToken">
+    > & { encryptedAccessToken?: string },
+  ) {
+    const row = this.shopifyConnections.get(workspaceId);
+    if (!row) throw new Error("shopify_missing");
+    if (patch.shopDomain !== undefined) row.shopDomain = patch.shopDomain;
+    if (patch.shopName !== undefined) row.shopName = patch.shopName;
+    if (patch.primaryDomain !== undefined) row.primaryDomain = patch.primaryDomain;
+    if (patch.encryptedAccessToken !== undefined) row.encryptedAccessToken = patch.encryptedAccessToken;
+    if (patch.scopes !== undefined) row.scopes = patch.scopes;
+    if (patch.status !== undefined) row.status = patch.status;
+    if (patch.lastSyncedAt !== undefined) row.lastSyncedAt = patch.lastSyncedAt;
+    if (patch.lastSyncStatus !== undefined) row.lastSyncStatus = patch.lastSyncStatus;
+    if (patch.lastSyncError !== undefined) row.lastSyncError = patch.lastSyncError;
+    if (patch.productCount !== undefined) row.productCount = patch.productCount;
+    row.updatedAt = new Date();
+    return row;
+  }
+
+  async deleteShopifyConnection(workspaceId: string) {
+    this.shopifyConnections.delete(workspaceId);
+    this.shopifyProducts = this.shopifyProducts.filter((row) => row.workspaceId !== workspaceId);
+  }
+
+  async listShopifyProducts(workspaceId: string) {
+    return this.shopifyProducts.filter((row) => row.workspaceId === workspaceId);
+  }
+
+  async replaceShopifyProducts(workspaceId: string, products: ShopifyProductWrite[]) {
+    const now = new Date();
+    this.shopifyProducts = this.shopifyProducts.filter((row) => row.workspaceId !== workspaceId);
+    const next = products
+      .filter((row) => row.workspaceId === workspaceId)
+      .map((row) => ({
+        ...row,
+        id: randomUUID(),
+        createdAt: now,
+        updatedAt: now,
+      }));
+    this.shopifyProducts.push(...next);
+    return next;
+  }
+
   async listKnowledgeEntries(workspaceId: string, filters?: KnowledgeEntryFilters) {
     return this.knowledgeEntries
       .filter((row) => row.workspaceId === workspaceId)
@@ -1092,7 +1177,7 @@ export class MemoryBillingStore implements BillingStore {
       this.integrationConnections.push(row);
       return row;
     }
-    existing.status = persistFutureIntegrationStatus(input.status ?? existing.status);
+    existing.status = persistFutureIntegrationStatus(input.provider, input.status ?? existing.status);
     existing.updatedAt = new Date();
     return existing;
   }

@@ -75,4 +75,12 @@ export const ENV_DOCS = [
     name: "GOOGLE_CLIENT_SECRET",
     why: "Optional. Google OAuth client secret. Server-only. Never expose it in the browser.",
   },
+  {
+    name: "SHOPIFY_API_KEY",
+    why: "Optional. Shopify app Client ID for Connect Shopify on Integrations. Server-only.",
+  },
+  {
+    name: "SHOPIFY_API_SECRET",
+    why: "Optional. Shopify app Client secret. Server-only. Never expose it in the browser.",
+  },
 ] as const;

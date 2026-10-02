@@ -15,6 +15,12 @@ import type {
   WidgetSettingsInput,
   WidgetSettingsRecord,
 } from "@/lib/v2/types";
+import type {
+  ShopifyConnectionRecord,
+  ShopifyConnectionWrite,
+  ShopifyProductRecord,
+  ShopifyProductWrite,
+} from "@/lib/shopify/types";
 import type { WebsitePageRecord, WebsiteSourceRecord } from "@/lib/website/types";
 import type {
   ConversationRecord,
@@ -299,6 +305,19 @@ export interface BillingStore {
     gmailMessageId: string,
     now?: Date,
   ): Promise<GmailReplyDraftRecord>;
+
+  getShopifyConnection(workspaceId: string): Promise<ShopifyConnectionRecord | null>;
+  getShopifyConnectionByShop(shopDomain: string): Promise<ShopifyConnectionRecord | null>;
+  upsertShopifyConnection(input: ShopifyConnectionWrite): Promise<ShopifyConnectionRecord>;
+  updateShopifyConnection(
+    workspaceId: string,
+    patch: Partial<
+      Omit<ShopifyConnectionRecord, "id" | "workspaceId" | "connectedAt" | "updatedAt" | "encryptedAccessToken">
+    > & { encryptedAccessToken?: string },
+  ): Promise<ShopifyConnectionRecord>;
+  deleteShopifyConnection(workspaceId: string): Promise<void>;
+  listShopifyProducts(workspaceId: string): Promise<ShopifyProductRecord[]>;
+  replaceShopifyProducts(workspaceId: string, products: ShopifyProductWrite[]): Promise<ShopifyProductRecord[]>;
 
   listKnowledgeEntries(workspaceId: string, filters?: KnowledgeEntryFilters): Promise<KnowledgeEntryRecord[]>;
   getKnowledgeEntry(id: string, workspaceId: string): Promise<KnowledgeEntryRecord | null>;

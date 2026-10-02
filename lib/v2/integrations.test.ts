@@ -7,6 +7,7 @@ import { BillingService } from "../billing/service";
 import { MemoryBillingStore } from "../billing/memory-store";
 import { applyStripeEvent } from "../billing/stripe-events";
 import { publicGmailStatus } from "../gmail/public";
+import { publicShopifyStatus } from "../shopify/public";
 import { FUTURE_INTEGRATION_PROVIDERS } from "./enums";
 import {
   FUTURE_INTEGRATION_CATALOG,
@@ -72,30 +73,33 @@ async function paidWorkspace(email = "integrations@example.com") {
 }
 
 describe("Integration helpers", () => {
-  it("lists Gmail, social drafts, and future providers without inventing a live commerce connection", () => {
+  it("lists Gmail, Shopify, social drafts, and remaining future providers", () => {
     const snapshot = buildWorkspaceIntegrations({
       gmail: publicGmailStatus(null),
+      shopify: publicShopifyStatus(null),
       connections: [
         newIntegrationConnection({
           workspaceId: "w1",
-          provider: "shopify",
+          provider: "woocommerce",
           status: "connected",
         }),
       ],
     });
     assert.equal(snapshot.gmail.connected, false);
     assert.equal(snapshot.gmail.href, "/app/email");
+    assert.equal(snapshot.shopify.connected, false);
+    assert.equal(snapshot.shopify.label, "Not configured");
     assert.equal(snapshot.social.status, "drafts_only");
     assert.equal(snapshot.social.href, "/app/social");
     assert.deepEqual(
       snapshot.future.map((row) => row.provider),
-      [...FUTURE_INTEGRATION_PROVIDERS],
+      ["woocommerce", "calendar"],
     );
     assert.ok(snapshot.future.every((row) => row.status === "disconnected"));
     assert.ok(snapshot.future.every((row) => row.label === "Not connected"));
     const serialized = serializeWorkspaceIntegrations(snapshot);
-    assert.equal(serialized.future.find((row) => row.provider === "shopify")?.status, "disconnected");
-    assert.doesNotMatch(JSON.stringify(serialized), /encrypted|refresh_token|access_token|ciphertext/);
+    assert.equal(serialized.shopify.connected, false);
+    assert.doesNotMatch(JSON.stringify(serialized), /encrypted|refresh_token|access_token|ciphertext|shpat_/);
   });
 
   it("labels Gmail from the live connection payload only", () => {
@@ -130,21 +134,24 @@ describe("Integration helpers", () => {
       "Not configured",
     );
     assert.equal(displayFutureIntegrationStatus({ status: "connected" }), "disconnected");
-    assert.equal(persistFutureIntegrationStatus("connected"), "disconnected");
-    assert.equal(persistFutureIntegrationStatus("pending"), "disconnected");
-    assert.throws(() => persistFutureIntegrationStatus("live"), BillingError);
+    assert.equal(persistFutureIntegrationStatus("shopify", "connected"), "connected");
+    assert.equal(persistFutureIntegrationStatus("shopify", "pending"), "pending");
+    assert.equal(persistFutureIntegrationStatus("calendar", "connected"), "disconnected");
+    assert.equal(persistFutureIntegrationStatus("woocommerce", "pending"), "disconnected");
+    assert.throws(() => persistFutureIntegrationStatus("calendar", "live"), BillingError);
   });
 
-  it("covers the same future providers as the catalog", () => {
+  it("covers WooCommerce and Calendar as remaining future providers", () => {
     assert.deepEqual(
       FUTURE_INTEGRATION_CATALOG.map((item) => item.provider),
-      [...FUTURE_INTEGRATION_PROVIDERS],
+      ["woocommerce", "calendar"],
     );
+    assert.ok(FUTURE_INTEGRATION_PROVIDERS.includes("shopify"));
   });
 });
 
 describe("Workspace integrations", () => {
-  it("persists Shopify, WooCommerce, and Calendar as disconnected rows", async () => {
+  it("persists WooCommerce and Calendar as disconnected and Shopify from the real connection", async () => {
     const { store, workspace, service } = await paidWorkspace();
     const snapshot = await service.listWorkspaceIntegrations(workspace.id);
     const stored = await store.listIntegrationConnections(workspace.id);
@@ -152,13 +159,45 @@ describe("Workspace integrations", () => {
       stored.map((row) => row.provider).sort(),
       [...FUTURE_INTEGRATION_PROVIDERS].sort(),
     );
-    assert.ok(stored.every((row) => row.status === "disconnected"));
+    assert.equal(stored.find((row) => row.provider === "woocommerce")?.status, "disconnected");
+    assert.equal(stored.find((row) => row.provider === "calendar")?.status, "disconnected");
+    assert.equal(stored.find((row) => row.provider === "shopify")?.status, "disconnected");
     assert.equal(snapshot.gmail.connected, false);
+    assert.equal(snapshot.shopify.connected, false);
     assert.equal(snapshot.social.label, "Drafts only");
     assert.ok(snapshot.future.every((row) => row.status === "disconnected"));
   });
 
-  it("rewrites a tampered future connection and never returns Gmail tokens", async () => {
+  it("returns a connected Shopify store without leaking tokens", async () => {
+    const { store, workspace, service } = await paidWorkspace("integrations-shopify@example.com");
+    await store.upsertShopifyConnection({
+      workspaceId: workspace.id,
+      shopDomain: "virello.myshopify.com",
+      shopName: "Virello",
+      primaryDomain: "www.virellotimepieces.com",
+      encryptedAccessToken: "ciphertext-shopify",
+      scopes: "read_products,read_inventory",
+      status: "connected",
+      lastSyncedAt: new Date("2026-10-02T12:00:00Z"),
+      lastSyncStatus: "success",
+      productCount: 12,
+    });
+    const snapshot = await service.listWorkspaceIntegrations(workspace.id);
+    assert.equal(snapshot.shopify.connected, true);
+    assert.equal(snapshot.shopify.shopDomain, "virello.myshopify.com");
+    assert.equal(snapshot.shopify.label, "Connected");
+    assert.equal(snapshot.shopify.productCount, 12);
+    assert.equal(
+      (await store.listIntegrationConnections(workspace.id)).find((row) => row.provider === "shopify")
+        ?.status,
+      "connected",
+    );
+    const raw = JSON.stringify(serializeWorkspaceIntegrations(snapshot));
+    assert.doesNotMatch(raw, /ciphertext|encryptedAccessToken|shpat_|SHOPIFY_API_SECRET/);
+    assert.match(raw, /virello\.myshopify\.com/);
+  });
+
+  it("rewrites a tampered calendar connection and never returns Gmail tokens", async () => {
     const { store, workspace, service } = await paidWorkspace("integrations-gmail@example.com");
     await store.upsertGmailConnection({
       workspaceId: workspace.id,
@@ -199,11 +238,19 @@ describe("Workspace integrations", () => {
     assert.match(ui, /INTEGRATIONS_HINT/);
     assert.match(ui, /\/app\/email/);
     assert.match(ui, /\/app\/social/);
+    assert.match(ui, /Connect Gmail/);
+    assert.match(ui, /Connect Shopify/);
+    assert.match(ui, /Sync now/);
+    assert.match(ui, /Disconnect/);
+    assert.match(ui, /Last synced/);
     assert.match(ui, /fetch\("\/api\/app\/integrations"\)/);
+    assert.match(ui, /\/api\/app\/gmail\/connect\?returnTo=\/app\/integrations/);
+    assert.match(ui, /\/api\/app\/shopify\/connect/);
+    assert.match(ui, /\/api\/app\/shopify\/sync/);
     assert.match(api, /export async function GET/);
     assert.doesNotMatch(api, /export async function (POST|PATCH|PUT)/);
-    assert.doesNotMatch(ui, /Connect Shopify|Connect WooCommerce|Connect Calendar|Start Free/i);
-    assert.doesNotMatch(ui, /\/api\/app\/shopify|\/api\/app\/woocommerce|\/api\/app\/calendar/);
-    assert.match(INTEGRATIONS_HINT, /stay not connected/);
+    assert.doesNotMatch(ui, /Connect WooCommerce|Connect Calendar|Start Free/i);
+    assert.doesNotMatch(ui, /GOOGLE_CLIENT_SECRET|SHOPIFY_API_SECRET|encryptedAccessToken|shpat_/);
+    assert.match(INTEGRATIONS_HINT, /Shopify catalog sync is available/);
   });
 });

@@ -20,6 +20,7 @@ describe("paid widget knowledge prompt", () => {
     assert.match(prompt, /555-0100/);
     assert.match(prompt, /medication names/);
     assert.match(WIDGET_SYSTEM_RULES, /Never invent/);
+    assert.match(WIDGET_SYSTEM_RULES, /Never use Gmail/);
     assert.match(WIDGET_SYSTEM_RULES, /medical diagnoses/);
     assert.match(WIDGET_SYSTEM_RULES, /legal advice/);
   });

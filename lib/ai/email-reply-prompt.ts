@@ -142,6 +142,7 @@ export function buildEmailReplyMessages(input: {
   body: string;
   orderData?: EmailOrderContext | null;
   facts?: string[];
+  catalogFacts?: string[];
   conversationKind?: EmailConversationKind;
 }): EmailReplyChatMessage[] {
   const split = splitGmailThread(input.body);
@@ -150,7 +151,7 @@ export function buildEmailReplyMessages(input: {
   const kind = input.conversationKind ?? classifyEmailConversation(input.subject, latest);
   const firstName = customerFirstName(input.fromName);
   const closing = emailClosingFor(input.knowledge, kind);
-  const facts = input.facts ?? [];
+  const facts = [...(input.facts ?? []), ...(input.catalogFacts ?? [])];
   const user = [
     "WORKSPACE IDENTITY AND SETTINGS",
     "Use only this workspace. Do not mix in another account’s identity or data.",

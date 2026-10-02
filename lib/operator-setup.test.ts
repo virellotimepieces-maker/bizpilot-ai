@@ -5,6 +5,7 @@ import {
   gmailRedirectUrl,
   operatorSetup,
   publicLiveStatusPayload,
+  shopifyRedirectUrl,
   storeLiveStatus,
   stripeWebhookUrl,
   STRIPE_WEBHOOK_EVENTS,
@@ -20,6 +21,8 @@ const complete = {
   OPENAI_API_KEY: "sk-example",
   GOOGLE_CLIENT_ID: "client.apps.googleusercontent.com",
   GOOGLE_CLIENT_SECRET: "google-secret",
+  SHOPIFY_API_KEY: "shopify-key",
+  SHOPIFY_API_SECRET: "shopify-secret",
 };
 
 describe("operator setup checklist", () => {
@@ -33,6 +36,7 @@ describe("operator setup checklist", () => {
         ["stripe", true, false],
         ["openai", true, false],
         ["gmail", false, false],
+        ["shopify", false, false],
       ],
     );
     assert.deepEqual(blank.items.find((item) => item.key === "stripe")?.missing, [
@@ -75,7 +79,7 @@ describe("operator setup checklist", () => {
     const json = JSON.stringify(operatorSetup(complete));
     assert.doesNotMatch(
       `${JSON.stringify(partial)}${json}`,
-      /sk_live_should_not_leak|sk_live_example|sk_test_example|whsec_example|sk-example|google-secret|postgres:\/\//,
+      /sk_live_should_not_leak|sk_live_example|sk_test_example|whsec_example|sk-example|google-secret|shopify-secret|postgres:\/\//,
     );
   });
 
@@ -110,6 +114,10 @@ describe("operator setup checklist", () => {
       gmailRedirectUrl("https://www.mybizpilotai.com"),
       "https://www.mybizpilotai.com/api/app/gmail/callback",
     );
+    assert.equal(
+      shopifyRedirectUrl("https://www.mybizpilotai.com"),
+      "https://www.mybizpilotai.com/api/app/shopify/callback",
+    );
     assert.deepEqual([...STRIPE_WEBHOOK_EVENTS], [
       "checkout.session.completed",
       "customer.subscription.created",
@@ -124,6 +132,7 @@ describe("operator setup checklist", () => {
     const docs = readFileSync(new URL("../docs/operator-setup.md", import.meta.url), "utf8");
     assert.match(docs, /https:\/\/www\.mybizpilotai\.com\/api\/stripe\/webhook/);
     assert.match(docs, /https:\/\/www\.mybizpilotai\.com\/api\/app\/gmail\/callback/);
+    assert.match(docs, /https:\/\/www\.mybizpilotai\.com\/api\/app\/shopify\/callback/);
     assert.match(docs, /Live mode/);
   });
 

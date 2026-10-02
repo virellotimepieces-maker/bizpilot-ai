@@ -140,6 +140,12 @@ export interface GmailConnectionRecord {
   updatedAt: Date;
 }
 
+export type {
+  ShopifyConnectionRecord,
+  ShopifyProductRecord,
+  ShopifySyncStatus,
+} from "@/lib/shopify/types";
+
 export interface GmailReplyDraftRecord {
   id: string;
   workspaceId: string;

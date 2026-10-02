@@ -17,8 +17,9 @@ export const OPERATOR_STRIPE_VARS = [
 ] as const;
 export const OPERATOR_OPENAI_VARS = ["OPENAI_API_KEY"] as const;
 export const OPERATOR_GMAIL_VARS = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"] as const;
+export const OPERATOR_SHOPIFY_VARS = ["SHOPIFY_API_KEY", "SHOPIFY_API_SECRET"] as const;
 
-export type OperatorCheckKey = "foundation" | "stripe" | "openai" | "gmail";
+export type OperatorCheckKey = "foundation" | "stripe" | "openai" | "gmail" | "shopify";
 
 export type OperatorCheck = {
   key: OperatorCheckKey;
@@ -43,6 +44,10 @@ export function stripeWebhookUrl(appUrl: string) {
 
 export function gmailRedirectUrl(appUrl: string) {
   return `${appUrl.replace(/\/$/, "")}/api/app/gmail/callback`;
+}
+
+export function shopifyRedirectUrl(appUrl: string) {
+  return `${appUrl.replace(/\/$/, "")}/api/app/shopify/callback`;
 }
 
 export type StripeMode = "unset" | "test" | "live" | "unknown";
@@ -79,8 +84,11 @@ export function operatorSetup(env: EnvMap = process.env): {
   const stripeMissing = missingNames(env, OPERATOR_STRIPE_VARS);
   const openaiMissing = missingNames(env, OPERATOR_OPENAI_VARS);
   const gmailMissing = missingNames(env, OPERATOR_GMAIL_VARS);
+  const shopifyMissing = missingNames(env, OPERATOR_SHOPIFY_VARS);
   const gmailReady =
     gmailMissing.length === 0 && present(env, "APP_URL") && present(env, "AUTH_SECRET");
+  const shopifyReady =
+    shopifyMissing.length === 0 && present(env, "APP_URL") && present(env, "AUTH_SECRET");
   const mode = stripeMode(env);
 
   const items: OperatorCheck[] = [
@@ -121,8 +129,18 @@ export function operatorSetup(env: EnvMap = process.env): {
       done: gmailReady,
       missing: gmailMissing,
       hint: gmailReady
-        ? "Subscribers can connect their own Gmail from Email."
+        ? "Subscribers can connect their own Gmail from Email or Integrations."
         : "Optional. Enable the Gmail API, add the redirect URI, then set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.",
+    },
+    {
+      key: "shopify",
+      label: "Shopify OAuth for catalog sync",
+      required: false,
+      done: shopifyReady,
+      missing: shopifyMissing,
+      hint: shopifyReady
+        ? "Subscribers can connect their own Shopify store from Integrations."
+        : "Optional. Create a Shopify app, add the callback URL, then set SHOPIFY_API_KEY and SHOPIFY_API_SECRET.",
     },
   ];
 

@@ -219,11 +219,12 @@ export function newIntegrationConnection(input: {
   now?: Date;
 }): IntegrationConnectionRecord {
   const now = input.now ?? new Date();
+  const provider = requireIntegrationProvider(input.provider);
   return {
     id: randomUUID(),
     workspaceId: input.workspaceId,
-    provider: requireIntegrationProvider(input.provider),
-    status: persistFutureIntegrationStatus(input.status),
+    provider,
+    status: persistFutureIntegrationStatus(provider, input.status),
     createdAt: now,
     updatedAt: now,
   };

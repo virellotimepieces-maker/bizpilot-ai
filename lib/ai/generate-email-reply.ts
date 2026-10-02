@@ -300,11 +300,12 @@ export async function generateEmailDraft(input: {
   orderData?: EmailOrderContext | null;
   complete?: ChatComplete;
   workspaceId?: string;
+  catalogFacts?: string[];
 }): Promise<{ body: string; operatorNote: string; kind: EmailConversationKind }> {
   const latest = latestGmailMessage(input.body) || input.body;
   const query = `${input.subject}\n${latest}`;
   const kind = classifyEmailConversation(input.subject, latest);
-  const facts = pickRelevantEmailFacts(input.knowledge, query);
+  const facts = [...pickRelevantEmailFacts(input.knowledge, query), ...(input.catalogFacts ?? [])];
   const conflicts = findKnowledgeConflicts(input.knowledge);
   const injected =
     detectPromptInjection(query) ||
@@ -319,8 +320,8 @@ export async function generateEmailDraft(input: {
       subject: input.subject,
       body: input.body,
       orderData: input.orderData ?? null,
-      facts,
-      conversationKind: kind,
+        facts,
+        conversationKind: kind,
     });
     const complete = input.complete ?? defaultOpenAiComplete;
     const raw = await complete(messages);

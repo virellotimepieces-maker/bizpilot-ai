@@ -79,6 +79,25 @@ Google Cloud Console:
 
 Without those Google variables, Connect Gmail shows a configuration message. Manual “Add email manually” still works. Demo `/demo/inbox` stays browser-only and does not use Gmail.
 
+## Shopify catalog (optional)
+
+Paid Integrations can connect a Shopify store. Access tokens are encrypted with `AUTH_SECRET` and stored only on the server, scoped to that workspace. Catalog sync stores product title, description, price, URL, images, status, variants, and inventory only when Shopify provides it. Website chat answers product questions from that workspace’s **active** catalog plus published Knowledge. It never invents products, prices, discounts, inventory, availability, variants, or specifications. Private Gmail messages are never a source for the public widget.
+
+OAuth callback URL:
+
+```
+{APP_URL}/api/app/shopify/callback
+```
+
+Shopify app:
+
+1. Create a custom/public app in Shopify Partners.
+2. Allowed redirection URL: `{APP_URL}/api/app/shopify/callback`.
+3. Admin API scopes: `read_products`, `read_inventory`.
+4. Set `SHOPIFY_API_KEY` and `SHOPIFY_API_SECRET` on the server. Never put them in browser code.
+
+Without those Shopify variables, Connect Shopify shows a configuration message. Existing website widget snippets are unchanged.
+
 ## Run locally
 
 ```bash
@@ -101,7 +120,7 @@ Open [http://localhost:43127](http://localhost:43127).
 - `/app/quotes` Quote requests from widget questions (quote or estimate language). Status is owner-marked (requested, in review, marked sent, closed). Marked sent means you recorded that you sent a quote — BizPilot does not issue prices or quote documents. Also listed under Leads.
 - `/app/appointments` Appointment requests from widget questions (appointment or booking language). Status is owner-marked (requested, in review, declined, closed). There is no confirmed status. BizPilot does not write to a calendar. Also listed under Leads.
 - `/app/analytics` Stored workspace counts only: AI replies this billing period, conversations, leads, quote and appointment requests, unanswered questions, and knowledge facts. No sample traffic or invented conversion rates.
-- `/app/integrations` Live Gmail status plus social drafts. Shopify, WooCommerce, and Calendar are stored as not connected. There is no fake Connect button for those.
+- `/app/integrations` Connect Gmail and Shopify. Social stays drafts-only. WooCommerce and Calendar stay not connected. Gmail never auto-sends. Shopify catalog is workspace-scoped.
 - `/app/email` Connect Gmail inbox. AI drafts a relevant reply from the incoming email, using Knowledge as optional business or personal context. Review before sending. Email never auto-sends. Optional “Add email manually” fallback.
 - `/account` change password while signed in (no reset email)
 

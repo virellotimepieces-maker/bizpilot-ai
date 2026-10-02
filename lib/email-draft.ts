@@ -114,7 +114,12 @@ export async function draftEmailFromInboundAi(
     body: string;
     receivedAt?: string;
   },
-  options: { complete?: ChatComplete; orderData?: EmailOrderContext | null; workspaceId?: string } = {},
+  options: {
+    complete?: ChatComplete;
+    orderData?: EmailOrderContext | null;
+    workspaceId?: string;
+    catalogFacts?: string[];
+  } = {},
 ): Promise<Omit<EmailMessage, "id">> {
   try {
     const draft = await generateEmailDraft({
@@ -126,6 +131,7 @@ export async function draftEmailFromInboundAi(
       orderData: options.orderData ?? null,
       complete: options.complete,
       workspaceId: options.workspaceId,
+      catalogFacts: options.catalogFacts,
     });
     return aiEmailMessage(input, draft);
   } catch (error) {
@@ -161,7 +167,12 @@ export function rebuildEmailDraft(email: EmailMessage, knowledge: KnowledgeBase)
 export async function rebuildEmailDraftAi(
   email: EmailMessage,
   knowledge: KnowledgeBase,
-  options: { complete?: ChatComplete; orderData?: EmailOrderContext | null; workspaceId?: string } = {},
+  options: {
+    complete?: ChatComplete;
+    orderData?: EmailOrderContext | null;
+    workspaceId?: string;
+    catalogFacts?: string[];
+  } = {},
 ): Promise<EmailMessage> {
   const locked = email.status === "sent" || email.status === "discarded";
   if (locked) return email;

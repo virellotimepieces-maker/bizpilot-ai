@@ -36,6 +36,14 @@ import type {
   WidgetSettingsInput,
 } from "@/lib/v2/types";
 import { defaultWidgetSettings, mergeWidgetSettings } from "@/lib/v2/widget-settings";
+import type {
+  ShopifyConnectionRecord,
+  ShopifyConnectionWrite,
+  ShopifyProductRecord,
+  ShopifyProductWrite,
+  ShopifySyncStatus,
+  ShopifyVariantRecord,
+} from "@/lib/shopify/types";
 import type { WebsitePageKind, WebsitePageRecord, WebsiteSourceRecord, WebsiteSyncStatus } from "@/lib/website/types";
 import type { BillingStore, CreateUserInput, UpsertSubscriptionInput } from "./store";
 import type {
@@ -174,6 +182,85 @@ function mapEmailDraft(row: {
   return {
     ...row,
     sources: asReplySources(row.sources),
+  };
+}
+
+function asShopifySyncStatus(value: string): ShopifySyncStatus {
+  if (value === "idle" || value === "syncing" || value === "success" || value === "error") return value;
+  return "idle";
+}
+
+function asStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((row): row is string => typeof row === "string" && row.trim().length > 0);
+}
+
+function asShopifyVariants(value: unknown): ShopifyVariantRecord[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((row) => {
+    if (!row || typeof row !== "object") return [];
+    const item = row as Record<string, unknown>;
+    if (typeof item.id !== "string" || typeof item.title !== "string") return [];
+    return [
+      {
+        id: item.id,
+        title: item.title,
+        sku: typeof item.sku === "string" ? item.sku : "",
+        price: typeof item.price === "string" ? item.price : "",
+        compareAtPrice: typeof item.compareAtPrice === "string" ? item.compareAtPrice : null,
+        available: typeof item.available === "boolean" ? item.available : null,
+        inventoryQuantity: typeof item.inventoryQuantity === "number" ? item.inventoryQuantity : null,
+        inventoryTracked: Boolean(item.inventoryTracked),
+      },
+    ];
+  });
+}
+
+function mapShopifyConnection(row: {
+  id: string;
+  workspaceId: string;
+  shopDomain: string;
+  shopName: string;
+  primaryDomain: string;
+  encryptedAccessToken: string;
+  scopes: string;
+  status: string;
+  lastSyncedAt: Date | null;
+  lastSyncStatus: string;
+  lastSyncError: string | null;
+  productCount: number;
+  connectedAt: Date;
+  updatedAt: Date;
+}): ShopifyConnectionRecord {
+  return {
+    ...row,
+    lastSyncStatus: asShopifySyncStatus(row.lastSyncStatus),
+  };
+}
+
+function mapShopifyProduct(row: {
+  id: string;
+  workspaceId: string;
+  shopifyProductId: string;
+  handle: string;
+  title: string;
+  description: string;
+  status: string;
+  productType: string;
+  vendor: string;
+  tags: string;
+  url: string;
+  imageUrls: unknown;
+  variants: unknown;
+  publishedAt: Date | null;
+  shopifyUpdatedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): ShopifyProductRecord {
+  return {
+    ...row,
+    imageUrls: asStringList(row.imageUrls),
+    variants: asShopifyVariants(row.variants),
   };
 }
 
@@ -1324,6 +1411,117 @@ export class PrismaBillingStore implements BillingStore {
       data: { sendLockAt: now },
     });
     return mapGmailReplyDraft(row);
+  }
+
+  async getShopifyConnection(workspaceId: string) {
+    const row = await this.prisma().shopifyConnection.findUnique({ where: { workspaceId } });
+    return row ? mapShopifyConnection(row) : null;
+  }
+
+  async getShopifyConnectionByShop(shopDomain: string) {
+    const row = await this.prisma().shopifyConnection.findUnique({ where: { shopDomain } });
+    return row ? mapShopifyConnection(row) : null;
+  }
+
+  async upsertShopifyConnection(input: ShopifyConnectionWrite) {
+    const row = await this.prisma().shopifyConnection.upsert({
+      where: { workspaceId: input.workspaceId },
+      create: {
+        workspaceId: input.workspaceId,
+        shopDomain: input.shopDomain,
+        shopName: input.shopName ?? "",
+        primaryDomain: input.primaryDomain ?? "",
+        encryptedAccessToken: input.encryptedAccessToken,
+        scopes: input.scopes,
+        status: input.status,
+        lastSyncedAt: input.lastSyncedAt ?? null,
+        lastSyncStatus: input.lastSyncStatus ?? "idle",
+        lastSyncError: input.lastSyncError ?? null,
+        productCount: input.productCount ?? 0,
+      },
+      update: {
+        shopDomain: input.shopDomain,
+        shopName: input.shopName ?? undefined,
+        primaryDomain: input.primaryDomain ?? undefined,
+        encryptedAccessToken: input.encryptedAccessToken,
+        scopes: input.scopes,
+        status: input.status,
+        ...(input.lastSyncedAt !== undefined ? { lastSyncedAt: input.lastSyncedAt } : {}),
+        ...(input.lastSyncStatus !== undefined ? { lastSyncStatus: input.lastSyncStatus } : {}),
+        ...(input.lastSyncError !== undefined ? { lastSyncError: input.lastSyncError } : {}),
+        ...(input.productCount !== undefined ? { productCount: input.productCount } : {}),
+      },
+    });
+    return mapShopifyConnection(row);
+  }
+
+  async updateShopifyConnection(
+    workspaceId: string,
+    patch: Partial<
+      Omit<ShopifyConnectionRecord, "id" | "workspaceId" | "connectedAt" | "updatedAt" | "encryptedAccessToken">
+    > & { encryptedAccessToken?: string },
+  ) {
+    const existing = await this.getShopifyConnection(workspaceId);
+    if (!existing) throw new Error("shopify_missing");
+    const row = await this.prisma().shopifyConnection.update({
+      where: { workspaceId },
+      data: {
+        ...(patch.shopDomain !== undefined ? { shopDomain: patch.shopDomain } : {}),
+        ...(patch.shopName !== undefined ? { shopName: patch.shopName } : {}),
+        ...(patch.primaryDomain !== undefined ? { primaryDomain: patch.primaryDomain } : {}),
+        ...(patch.encryptedAccessToken !== undefined
+          ? { encryptedAccessToken: patch.encryptedAccessToken }
+          : {}),
+        ...(patch.scopes !== undefined ? { scopes: patch.scopes } : {}),
+        ...(patch.status !== undefined ? { status: patch.status } : {}),
+        ...(patch.lastSyncedAt !== undefined ? { lastSyncedAt: patch.lastSyncedAt } : {}),
+        ...(patch.lastSyncStatus !== undefined ? { lastSyncStatus: patch.lastSyncStatus } : {}),
+        ...(patch.lastSyncError !== undefined ? { lastSyncError: patch.lastSyncError } : {}),
+        ...(patch.productCount !== undefined ? { productCount: patch.productCount } : {}),
+      },
+    });
+    return mapShopifyConnection(row);
+  }
+
+  async deleteShopifyConnection(workspaceId: string) {
+    await this.prisma().shopifyProduct.deleteMany({ where: { workspaceId } });
+    await this.prisma().shopifyConnection.deleteMany({ where: { workspaceId } });
+  }
+
+  async listShopifyProducts(workspaceId: string) {
+    const rows = await this.prisma().shopifyProduct.findMany({
+      where: { workspaceId },
+      orderBy: { title: "asc" },
+    });
+    return rows.map(mapShopifyProduct);
+  }
+
+  async replaceShopifyProducts(workspaceId: string, products: ShopifyProductWrite[]) {
+    const scoped = products.filter((row) => row.workspaceId === workspaceId);
+    const prisma = this.prisma();
+    await prisma.$transaction(async (tx) => {
+      await tx.shopifyProduct.deleteMany({ where: { workspaceId } });
+      if (!scoped.length) return;
+      await tx.shopifyProduct.createMany({
+        data: scoped.map((row) => ({
+          workspaceId,
+          shopifyProductId: row.shopifyProductId,
+          handle: row.handle,
+          title: row.title,
+          description: row.description,
+          status: row.status,
+          productType: row.productType,
+          vendor: row.vendor,
+          tags: row.tags,
+          url: row.url,
+          imageUrls: row.imageUrls as unknown as Prisma.InputJsonValue,
+          variants: row.variants as unknown as Prisma.InputJsonValue,
+          publishedAt: row.publishedAt,
+          shopifyUpdatedAt: row.shopifyUpdatedAt,
+        })),
+      });
+    });
+    return this.listShopifyProducts(workspaceId);
   }
 
   private async assertOwnedConversation(workspaceId: string, conversationId?: string | null) {

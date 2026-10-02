@@ -7,33 +7,35 @@ import { exchangeGoogleAuthorizationCode, fetchGoogleUserEmail } from "@/lib/gma
 import { readGmailOAuthState } from "@/lib/gmail/oauth-state";
 import { encryptSecret } from "@/lib/gmail/token-crypto";
 
-function redirectToEmail(origin: string, query: string) {
-  const response = NextResponse.redirect(new URL(`/app/email?${query}`, origin));
+function redirectAfterGmail(origin: string, path: "/app/email" | "/app/integrations", query: string) {
+  const response = NextResponse.redirect(new URL(`${path}?${query}`, origin));
   response.cookies.delete(GMAIL_OAUTH_COOKIE);
   return response;
 }
 
 export async function GET(request: NextRequest) {
   const origin = request.nextUrl.origin;
+  let returnTo: "/app/email" | "/app/integrations" = "/app/email";
   try {
     const userId = await getSessionUserId();
     if (!userId) {
-      return redirectToEmail(origin, "gmail=signin");
+      return redirectAfterGmail(origin, returnTo, "gmail=signin");
     }
     const denied = request.nextUrl.searchParams.get("error");
     if (denied) {
-      return redirectToEmail(origin, denied === "access_denied" ? "gmail=denied" : "gmail=error");
+      return redirectAfterGmail(origin, returnTo, denied === "access_denied" ? "gmail=denied" : "gmail=error");
     }
     const code = request.nextUrl.searchParams.get("code");
     const stateParam = request.nextUrl.searchParams.get("state");
     const cookieState = request.cookies.get(GMAIL_OAUTH_COOKIE)?.value;
     if (!code || !stateParam || !cookieState || cookieState !== stateParam) {
-      return redirectToEmail(origin, "gmail=error");
+      return redirectAfterGmail(origin, returnTo, "gmail=error");
     }
     const state = await readGmailOAuthState(stateParam);
     if (!state || state.userId !== userId) {
-      return redirectToEmail(origin, "gmail=error");
+      return redirectAfterGmail(origin, returnTo, "gmail=error");
     }
+    returnTo = state.returnTo;
     const { clientId, clientSecret, redirectUri } = requireGmailOAuthConfig();
     const tokens = await exchangeGoogleAuthorizationCode({
       code,
@@ -45,7 +47,7 @@ export async function GET(request: NextRequest) {
     const store = getBillingStore();
     const membership = await store.getMembership(userId, state.workspaceId);
     if (!membership) {
-      return redirectToEmail(origin, "gmail=error");
+      return redirectAfterGmail(origin, returnTo, "gmail=error");
     }
     await store.upsertGmailConnection({
       workspaceId: state.workspaceId,
@@ -57,11 +59,11 @@ export async function GET(request: NextRequest) {
       scopes: tokens.scope || GMAIL_SCOPES.join(" "),
       status: "connected",
     });
-    return redirectToEmail(origin, "gmail=connected");
+    return redirectAfterGmail(origin, returnTo, "gmail=connected");
   } catch (error) {
     if (error instanceof BillingError && error.code === "misconfigured") {
-      return redirectToEmail(origin, "gmail=misconfigured");
+      return redirectAfterGmail(origin, returnTo, "gmail=misconfigured");
     }
-    return redirectToEmail(origin, "gmail=error");
+    return redirectAfterGmail(origin, returnTo, "gmail=error");
   }
 }

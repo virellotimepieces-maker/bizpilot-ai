@@ -1,5 +1,12 @@
 import { knowledgePrompt, WIDGET_SYSTEM_RULES } from "@/lib/ai/knowledge-prompt";
 import { BillingError } from "@/lib/billing/types";
+import {
+  CATALOG_NO_SOURCE_ANSWER,
+  groundedCatalogAnswer,
+  retrieveRelevantProducts,
+  shopifyCatalogPrompt,
+} from "@/lib/shopify/catalog";
+import type { ShopifyProductRecord } from "@/lib/shopify/types";
 import type { KnowledgeBase } from "@/lib/types";
 import { groundedWebsiteAnswer, websitePagesPrompt, WEBSITE_NO_SOURCE_ANSWER } from "@/lib/website/answer";
 import { retrieveRelevantPages } from "@/lib/website/retrieve";
@@ -9,15 +16,24 @@ export async function generateCustomerReply(
   knowledge: KnowledgeBase | null,
   question: string,
   pages: WebsitePageRecord[] = [],
+  products: ShopifyProductRecord[] = [],
 ): Promise<string> {
   const sample = pages[0];
+  const workspaceId = sample?.workspaceId || products[0]?.workspaceId || "";
+  const widgetKey = sample?.widgetKey ?? "";
+  const scopedProducts = workspaceId
+    ? products.filter((row) => row.workspaceId === workspaceId)
+    : [];
   const grounded = groundedWebsiteAnswer({
     question,
     pages,
-    workspaceId: sample?.workspaceId ?? "",
-    widgetKey: sample?.widgetKey ?? "",
+    workspaceId,
+    widgetKey,
     knowledge,
   });
+  const catalog = workspaceId
+    ? groundedCatalogAnswer({ question, products: scopedProducts, workspaceId })
+    : { answer: CATALOG_NO_SOURCE_ANSWER, usedCatalog: false, products: [] };
   const relevant = sample
     ? retrieveRelevantPages(
         pages.filter(
@@ -26,13 +42,20 @@ export async function generateCustomerReply(
         question,
       )
     : [];
+  const relevantProducts = workspaceId
+    ? retrieveRelevantProducts(scopedProducts, question, workspaceId)
+    : [];
 
-  if (!relevant.length && grounded.answer === WEBSITE_NO_SOURCE_ANSWER && !knowledge?.description && !knowledge?.name) {
+  const hasPublished =
+    Boolean(knowledge?.description && knowledge.description.trim()) ||
+    Boolean(knowledge?.name && knowledge.name.trim());
+  if (!relevant.length && !relevantProducts.length && grounded.answer === WEBSITE_NO_SOURCE_ANSWER && !hasPublished) {
     return WEBSITE_NO_SOURCE_ANSWER;
   }
 
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
+    if (catalog.usedCatalog) return catalog.answer;
     if (grounded.usedWebsite) return grounded.answer;
     throw new BillingError(
       "AI replies are not configured. Set OPENAI_API_KEY for paid widget answers.",
@@ -52,7 +75,7 @@ export async function generateCustomerReply(
       messages: [
         {
           role: "system",
-          content: `${WIDGET_SYSTEM_RULES}\n\nIndexed website pages (include facts only from these URLs):\n${websitePagesPrompt(relevant)}\n\nPublished knowledge:\n${knowledgePrompt(knowledge)}`,
+          content: `${WIDGET_SYSTEM_RULES}\n\nIndexed website pages (include facts only from these URLs):\n${websitePagesPrompt(relevant)}\n\nConnected Shopify catalog (active products for this workspace only; never invent missing fields):\n${shopifyCatalogPrompt(relevantProducts)}\n\nPublished knowledge:\n${knowledgePrompt(knowledge)}`,
         },
         { role: "user", content: question },
       ],

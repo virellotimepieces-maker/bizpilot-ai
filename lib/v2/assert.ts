@@ -66,11 +66,15 @@ export function requireIntegrationStatus(value: string): IntegrationConnectionSt
 }
 
 /**
- * Shopify, WooCommerce, and Calendar cannot be stored as connected or pending
- * until a live integration exists. Unknown values still throw.
+ * WooCommerce and Calendar cannot be stored as connected. Shopify may persist
+ * connected/pending after a real OAuth connection. Unknown values still throw.
  */
-export function persistFutureIntegrationStatus(value?: string): "disconnected" {
-  if (value !== undefined) requireIntegrationStatus(value);
+export function persistFutureIntegrationStatus(
+  provider: FutureIntegrationProvider,
+  value?: string,
+): IntegrationConnectionStatus {
+  const status = value === undefined ? "disconnected" : requireIntegrationStatus(value);
+  if (provider === "shopify") return status;
   return "disconnected";
 }
 

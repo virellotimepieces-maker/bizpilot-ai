@@ -126,4 +126,30 @@ https://www.mybizpilotai.com/api/app/gmail/callback
 ```
 
 7. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` on Vercel Production. Redeploy.
-8. In a paid workspace, Email → Connect Gmail. Review drafts; email never auto-sends.
+8. In a paid workspace, Integrations or Email → Connect Gmail. Review drafts; email never auto-sends.
+
+---
+
+## Phase 4 — Shopify (optional)
+
+Skip this until Live Stripe and OpenAI work. Subscribers connect **their** Shopify store. You only configure one Shopify app for BizPilot.
+
+1. Open [Shopify Partners](https://partners.shopify.com/) → Apps → **Create app** → Create app manually.
+2. App name: `BizPilot AI`. App URL: `https://www.mybizpilotai.com`.
+3. Allowed redirection URL(s):
+
+```
+https://www.mybizpilotai.com/api/app/shopify/callback
+```
+
+4. App setup → Admin API integration. Scopes:
+
+- `read_products`
+- `read_inventory`
+
+5. Client ID is `SHOPIFY_API_KEY`. Client secret is `SHOPIFY_API_SECRET`.
+6. Set both on Vercel Production for this existing BizPilot project. Do not create a new Vercel project. Redeploy after you approve production.
+7. In a paid workspace: Dashboard → Integrations → Shopify → enter `your-store.myshopify.com` → Connect Shopify → Sync now.
+
+Do not paste the widget into the Shopify theme from this step. Existing widget installs stay as they are.
+

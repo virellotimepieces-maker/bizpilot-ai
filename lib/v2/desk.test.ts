@@ -237,20 +237,20 @@ describe("V2 desk store foundations", () => {
     assert.equal(moved.identifyAsAi, true);
   });
 
-  it("keeps future integrations disconnected by default", async () => {
+  it("lets Shopify persist a real connection and keeps Calendar disconnected", async () => {
     const { store, workspaceA } = await twoWorkspaces();
     const shopify = await store.upsertIntegrationConnection({
       workspaceId: workspaceA.id,
       provider: "shopify",
-    });
-    assert.equal(shopify.status, "disconnected");
-    const forced = await store.upsertIntegrationConnection({
-      workspaceId: workspaceA.id,
-      provider: "shopify",
       status: "connected",
     });
-    assert.equal(forced.status, "disconnected");
-    assert.equal((await store.listIntegrationConnections(workspaceA.id))[0]?.status, "disconnected");
+    assert.equal(shopify.status, "connected");
+    const calendar = await store.upsertIntegrationConnection({
+      workspaceId: workspaceA.id,
+      provider: "calendar",
+      status: "connected",
+    });
+    assert.equal(calendar.status, "disconnected");
   });
 
   it("computes overview counts only from stored records", async () => {

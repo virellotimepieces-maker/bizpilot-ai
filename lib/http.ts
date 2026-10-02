@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { BillingError } from "@/lib/billing/types";
 
 function looksLikeSecret(message: string) {
-  return /ya29\.|1\/\/[0-9A-Za-z_-]{8,}|refresh_token|access_token|client_secret|GOOGLE_CLIENT_SECRET|AUTH_SECRET/i.test(
+  return /ya29\.|1\/\/[0-9A-Za-z_-]{8,}|refresh_token|access_token|client_secret|GOOGLE_CLIENT_SECRET|SHOPIFY_API_SECRET|AUTH_SECRET|shpat_|shpua_/i.test(
     message,
   );
 }

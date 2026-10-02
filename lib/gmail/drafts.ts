@@ -4,8 +4,20 @@ import type { BillingStore } from "@/lib/billing/store";
 import type { GmailReplyDraftRecord, WorkspaceRecord } from "@/lib/billing/types";
 import { emptyKnowledge, normalizeKnowledge } from "@/lib/empty-knowledge";
 import { draftEmailFromInboundAi, rebuildEmailDraftAi } from "@/lib/email-draft";
+import { shopifyFactsForQuery } from "@/lib/shopify/catalog";
 import type { EmailMessage } from "@/lib/types";
 import { replySubjectFor } from "./send";
+
+async function catalogFactsForWorkspace(
+  store: BillingStore,
+  workspace: WorkspaceRecord,
+  query: string,
+) {
+  const products = (await store.listShopifyProducts(workspace.id)).filter(
+    (row) => row.workspaceId === workspace.id,
+  );
+  return shopifyFactsForQuery(products, query, workspace.id);
+}
 
 export async function draftFromGmailMessage(
   input: {
@@ -14,6 +26,7 @@ export async function draftFromGmailMessage(
     fromEmail: string;
     subject: string;
     body: string;
+    catalogFacts?: string[];
   },
   options: { complete?: ChatComplete } = {},
 ) {
@@ -26,7 +39,7 @@ export async function draftFromGmailMessage(
       subject: input.subject,
       body: input.body,
     },
-    { complete: options.complete, workspaceId: input.workspace.id },
+    { complete: options.complete, workspaceId: input.workspace.id, catalogFacts: input.catalogFacts },
   );
   return {
     ...draft,
@@ -61,6 +74,11 @@ export async function ensureGmailReplyDraft(
   if (existing && !input.regenerate && !staleCanned) {
     return existing;
   }
+  const catalogFacts = await catalogFactsForWorkspace(
+    store,
+    workspace,
+    `${input.subject}\n${input.body}`,
+  );
   if (existing && (input.regenerate || staleCanned)) {
     const kb = normalizeKnowledge(workspace.knowledge ?? emptyKnowledge("custom"));
     const current: EmailMessage = {
@@ -82,6 +100,7 @@ export async function ensureGmailReplyDraft(
     const rebuilt = await rebuildEmailDraftAi(current, kb, {
       complete: input.complete,
       workspaceId: workspace.id,
+      catalogFacts,
     });
     return store.updateGmailReplyDraft(workspace.id, input.gmailMessageId, {
       fromName: input.fromName,
@@ -107,6 +126,7 @@ export async function ensureGmailReplyDraft(
       fromEmail: input.fromEmail,
       subject: input.subject,
       body: input.body,
+      catalogFacts,
     },
     { complete: input.complete },
   );

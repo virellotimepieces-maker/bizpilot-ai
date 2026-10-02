@@ -1,16 +1,17 @@
 import { assertNoTokenFields, type PublicGmailStatus } from "@/lib/gmail/public";
+import {
+  assertNoShopifySecrets,
+  publicShopifyStatus,
+  shopifyStatusLabel,
+  type PublicShopifyStatus,
+} from "@/lib/shopify/public";
 import { type FutureIntegrationProvider } from "./enums";
 import type { IntegrationConnectionRecord } from "./types";
 
 export const INTEGRATIONS_HINT =
-  "Gmail is the live inbox connection. Social is drafts you post yourself. Shopify, WooCommerce, and Calendar stay not connected until a real integration exists.";
+  "Gmail is the live inbox connection. Social is drafts you post yourself. Shopify catalog sync is available when the store is connected. WooCommerce and Calendar stay not connected until a real integration exists.";
 
 export const FUTURE_INTEGRATION_CATALOG = [
-  {
-    provider: "shopify",
-    name: "Shopify",
-    detail: "Product catalog sync is not connected. Inventory and checkout are not read from Shopify.",
-  },
   {
     provider: "woocommerce",
     name: "WooCommerce",
@@ -23,7 +24,7 @@ export const FUTURE_INTEGRATION_CATALOG = [
       "Appointment requests stay in this workspace. BizPilot does not confirm a slot on a calendar.",
   },
 ] as const satisfies readonly {
-  provider: FutureIntegrationProvider;
+  provider: Exclude<FutureIntegrationProvider, "shopify">;
   name: string;
   detail: string;
 }[];
@@ -33,6 +34,10 @@ export type GmailIntegrationStatus = PublicGmailStatus & {
   href: "/app/email";
 };
 
+export type ShopifyIntegrationStatus = PublicShopifyStatus & {
+  label: string;
+};
+
 export type SocialIntegrationStatus = {
   status: "drafts_only";
   label: "Drafts only";
@@ -40,7 +45,7 @@ export type SocialIntegrationStatus = {
 };
 
 export type FutureIntegrationStatus = {
-  provider: FutureIntegrationProvider;
+  provider: Exclude<FutureIntegrationProvider, "shopify">;
   name: string;
   status: "disconnected";
   label: "Not connected";
@@ -49,6 +54,7 @@ export type FutureIntegrationStatus = {
 
 export type WorkspaceIntegrations = {
   gmail: GmailIntegrationStatus;
+  shopify: ShopifyIntegrationStatus;
   social: SocialIntegrationStatus;
   future: FutureIntegrationStatus[];
 };
@@ -61,21 +67,27 @@ export function gmailStatusLabel(status: PublicGmailStatus): string {
 }
 
 export function displayFutureIntegrationStatus(
-  _row?: Pick<IntegrationConnectionRecord, "status"> | null,
+  row?: Pick<IntegrationConnectionRecord, "status"> | null,
 ): "disconnected" {
-  return "disconnected";
+  return row?.status === "connected" || row?.status === "pending" ? "disconnected" : "disconnected";
 }
 
 export function buildWorkspaceIntegrations(input: {
   gmail: PublicGmailStatus;
+  shopify?: PublicShopifyStatus | null;
   connections?: IntegrationConnectionRecord[];
 }): WorkspaceIntegrations {
   const byProvider = new Map((input.connections ?? []).map((row) => [row.provider, row]));
+  const shopify = input.shopify ?? publicShopifyStatus(null);
   return {
     gmail: {
       ...input.gmail,
       label: gmailStatusLabel(input.gmail),
       href: "/app/email",
+    },
+    shopify: {
+      ...shopify,
+      label: shopifyStatusLabel(shopify),
     },
     social: {
       status: "drafts_only",
@@ -103,6 +115,20 @@ export function serializeWorkspaceIntegrations(row: WorkspaceIntegrations) {
       label: row.gmail.label,
       href: row.gmail.href,
     },
+    shopify: {
+      configured: row.shopify.configured,
+      connected: row.shopify.connected,
+      connecting: row.shopify.connecting,
+      needsReconnect: row.shopify.needsReconnect,
+      shopDomain: row.shopify.shopDomain,
+      shopName: row.shopify.shopName,
+      lastSyncedAt: row.shopify.lastSyncedAt,
+      lastSyncStatus: row.shopify.lastSyncStatus,
+      lastSyncError: row.shopify.lastSyncError,
+      productCount: row.shopify.productCount,
+      connectionError: row.shopify.connectionError,
+      label: row.shopify.label,
+    },
     social: {
       status: row.social.status,
       label: row.social.label,
@@ -116,6 +142,7 @@ export function serializeWorkspaceIntegrations(row: WorkspaceIntegrations) {
       detail: item.detail,
     })),
   };
+  assertNoShopifySecrets(payload);
   assertNoTokenFields(payload);
   return payload;
 }

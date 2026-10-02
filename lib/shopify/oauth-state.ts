@@ -1,11 +1,11 @@
 import { SignJWT, jwtVerify } from "jose";
-import { GMAIL_OAUTH_COOKIE } from "./config";
+import { SHOPIFY_OAUTH_COOKIE } from "./config";
 
 type OAuthState = {
   userId: string;
   workspaceId: string;
+  shop: string;
   nonce: string;
-  returnTo: "/app/email" | "/app/integrations";
 };
 
 function secret() {
@@ -16,7 +16,7 @@ function secret() {
   return new TextEncoder().encode(value);
 }
 
-export async function createGmailOAuthState(input: OAuthState) {
+export async function createShopifyOAuthState(input: OAuthState) {
   return new SignJWT(input)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -24,29 +24,29 @@ export async function createGmailOAuthState(input: OAuthState) {
     .sign(secret());
 }
 
-export async function readGmailOAuthState(token: string): Promise<OAuthState | null> {
+export async function readShopifyOAuthState(token: string): Promise<OAuthState | null> {
   try {
     const { payload } = await jwtVerify(token, secret());
     if (
       typeof payload.userId !== "string" ||
       typeof payload.workspaceId !== "string" ||
+      typeof payload.shop !== "string" ||
       typeof payload.nonce !== "string"
     ) {
       return null;
     }
-    const returnTo = payload.returnTo === "/app/integrations" ? "/app/integrations" : "/app/email";
     return {
       userId: payload.userId,
       workspaceId: payload.workspaceId,
+      shop: payload.shop,
       nonce: payload.nonce,
-      returnTo,
     };
   } catch {
     return null;
   }
 }
 
-export function gmailOAuthCookieOptions() {
+export function shopifyOAuthCookieOptions() {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
@@ -56,4 +56,4 @@ export function gmailOAuthCookieOptions() {
   };
 }
 
-export { GMAIL_OAUTH_COOKIE };
+export { SHOPIFY_OAUTH_COOKIE };

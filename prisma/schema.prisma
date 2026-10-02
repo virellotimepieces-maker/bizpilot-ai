@@ -36,6 +36,8 @@ model Workspace {
   emailDrafts    EmailDraft[]
   gmailConnection GmailConnection?
   gmailReplyDrafts GmailReplyDraft[]
+  shopifyConnection ShopifyConnection?
+  shopifyProducts ShopifyProduct[]
   knowledgeEntries KnowledgeEntry[]
   unansweredQuestions UnansweredQuestion[]
   leads         Lead[]
@@ -413,6 +415,49 @@ model WidgetSettings {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
   workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model ShopifyConnection {
+  id                   String    @id @default(cuid())
+  workspaceId          String    @unique
+  shopDomain           String    @unique
+  shopName             String    @default("")
+  primaryDomain        String    @default("")
+  encryptedAccessToken String
+  scopes               String
+  status               String
+  lastSyncedAt         DateTime?
+  lastSyncStatus       String    @default("idle")
+  lastSyncError        String?
+  productCount         Int       @default(0)
+  connectedAt          DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model ShopifyProduct {
+  id                String    @id @default(cuid())
+  workspaceId       String
+  shopifyProductId  String
+  handle            String
+  title             String
+  description       String    @default("")
+  status            String
+  productType       String    @default("")
+  vendor            String    @default("")
+  tags              String    @default("")
+  url               String    @default("")
+  imageUrls         Json
+  variants          Json
+  publishedAt       DateTime?
+  shopifyUpdatedAt  DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, shopifyProductId])
+  @@index([workspaceId, status])
+  @@index([workspaceId])
 }
 
 model IntegrationConnection {

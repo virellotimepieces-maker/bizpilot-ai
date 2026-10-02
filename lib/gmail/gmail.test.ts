@@ -580,7 +580,8 @@ describe("Gmail HTTP and browser sources", () => {
     assert.doesNotMatch(page, /from "@\/components\/email-inbox"/);
     assert.match(nav, /\/app\/email/);
     assert.match(integrationsPage, /PaidIntegrations/);
-    assert.match(integrations, /\/app\/email/);
+    assert.match(integrations, /Connect Gmail/);
+    assert.match(integrations, /\/api\/app\/gmail\/connect/);
     assert.match(paid, /fetch\("\/api\/app\/gmail"\)/);
     assert.match(paid, /\/api\/app\/gmail\/connect/);
     assert.match(paid, /\/api\/app\/gmail\/messages/);
