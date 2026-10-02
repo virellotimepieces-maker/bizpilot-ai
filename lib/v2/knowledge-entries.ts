@@ -33,8 +33,9 @@ function push(list: KnowledgeEntryInput[], entry: KnowledgeEntryInput | null) {
 
 /**
  * Projects the existing Workspace.knowledge JSON into V2 knowledge-entry drafts.
- * Does not write to the database. Existing JSON remains the live source of truth
- * until a later phase opts in to syncing.
+ * Does not write to the database. Call syncProjectedKnowledgeEntries after a
+ * knowledge save (or when loading the Knowledge Engine) to materialize rows.
+ * Existing JSON remains the live authoring source of truth.
  */
 export function knowledgeBaseToDraftEntries(kb: KnowledgeBase | null | undefined): KnowledgeEntryInput[] {
   if (!kb) return [];

@@ -1,6 +1,8 @@
 import { chatAutoDecision, freezeVisitorText } from "@/lib/chat-auto";
 import { BIZPILOT_PRO, isPaidAccessStatus } from "@/lib/plan";
 import type { KnowledgeBase } from "@/lib/types";
+import { publishedKnowledgeBase } from "@/lib/v2/published-knowledge";
+import { answerLacksPublishedKnowledge, normalizeUnansweredQuestion } from "@/lib/v2/unanswered";
 import { groundedWebsiteAnswer } from "@/lib/website/answer";
 import type { WebsitePageRecord, WebsiteReplySource } from "@/lib/website/types";
 import type { BillingStore } from "./store";
@@ -152,7 +154,9 @@ export class BillingService {
       };
     }
 
-    const decision = chatAutoDecision(workspace.knowledge, options.question);
+    const entries = await this.store.listKnowledgeEntries(workspace.id);
+    const published = publishedKnowledgeBase(workspace.knowledge, entries);
+    const decision = chatAutoDecision(published, options.question);
     if (!decision.autoAnswer) {
       await this.store.addMessage({
         workspaceId: workspace.id,
@@ -238,7 +242,7 @@ export class BillingService {
 
     let answer: string;
     try {
-      answer = await options.generate(gate.workspace.knowledge, options.question, pages);
+      answer = await options.generate(published, options.question, pages);
     } catch (error) {
       await this.store.releaseReservedAiReply(gate.workspace.id, periodStartMs);
       throw error;
@@ -249,7 +253,7 @@ export class BillingService {
       pages,
       workspaceId: gate.workspace.id,
       widgetKey: gate.workspace.widgetKey,
-      knowledge: gate.workspace.knowledge,
+      knowledge: published,
     });
     const sources: WebsiteReplySource[] = grounded.sources;
 
@@ -269,6 +273,14 @@ export class BillingService {
       content: answer,
       usageCounted: true,
       sources,
+    });
+
+    await this.recordUnansweredIfNeeded({
+      workspaceId: gate.workspace.id,
+      userId: gate.subscription.userId,
+      conversationId: thread.id,
+      question: options.question,
+      answer,
     });
 
     if (committed.repliesUsed >= committed.replyLimit) {
@@ -360,6 +372,34 @@ export class BillingService {
     }
     const messages = await this.store.listMessages(conversation.id, workspace.id);
     return { conversation, messages };
+  }
+
+  private async recordUnansweredIfNeeded(input: {
+    workspaceId: string;
+    userId: string;
+    conversationId: string;
+    question: string;
+    answer: string;
+  }) {
+    if (!answerLacksPublishedKnowledge(input.answer)) return;
+    const open = await this.store.listUnansweredQuestions(input.workspaceId);
+    const needle = normalizeUnansweredQuestion(input.question);
+    if (open.some((row) => row.status === "open" && normalizeUnansweredQuestion(row.question) === needle)) {
+      return;
+    }
+    const row = await this.store.createUnansweredQuestion({
+      workspaceId: input.workspaceId,
+      conversationId: input.conversationId,
+      question: input.question.trim(),
+    });
+    await this.store.addNotification({
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+      type: "unanswered_question",
+      message: "A visitor asked something that is not in published Knowledge.",
+      relatedType: "unanswered_question",
+      relatedId: row.id,
+    });
   }
 
   private async notifyHumanNeeded(workspaceId: string, userId: string) {

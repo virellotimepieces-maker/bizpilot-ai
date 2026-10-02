@@ -95,11 +95,11 @@ Open [http://localhost:43127](http://localhost:43127).
 - `/privacy` and `/terms`
 - `/billing` Stripe Checkout and Customer Portal. After Checkout, the page waits for the webhook to unlock `/app`. If a payment failed, update the card in Customer Portal — do not start a second subscription.
 - `/app` paid dashboard (blocked unless the subscription is active)
-- `/app/inbox` website widget conversations — send a reply into the live chat
+- `/app/knowledge` Knowledge engine: searchable facts, unanswered questions, website sync, and the structured knowledge form
 - `/app/email` Connect Gmail inbox. AI drafts a relevant reply from the incoming email, using Knowledge as optional business or personal context. Review before sending. Email never auto-sends. Optional “Add email manually” fallback.
 - `/account` change password while signed in (no reset email)
 
-On Knowledge, paid workspaces can verify a public domain and click **Sync website**. Domain verification follows HTTPS redirects to the live homepage, then matches the workspace widget script by origin and pathname (query parameters such as `?v=` are ignored). Sync reads `sitemap.xml` recursively (Shopify product, collection, page, and blog sitemaps, including gzip and query-string child sitemaps), always crawls public `/policies/*` URLs, skips cart/checkout/account/search/admin/preview URLs, and answers only from that subscriber’s indexed pages. A sync that indexes 0 pages is reported as a failure. Verified sites re-sync daily via `/api/cron/website-sync`.
+On Knowledge, paid workspaces can search published facts, disable a fact without deleting it, add extra owner facts, and review unanswered visitor questions. They can also verify a public domain and click **Sync website**. Domain verification follows HTTPS redirects to the live homepage, then matches the workspace widget script by origin and pathname (query parameters such as `?v=` are ignored). Sync reads `sitemap.xml` recursively (Shopify product, collection, page, and blog sitemaps, including gzip and query-string child sitemaps), always crawls public `/policies/*` URLs, skips cart/checkout/account/search/admin/preview URLs, and answers only from that subscriber’s indexed pages. A sync that indexes 0 pages is reported as a failure. Verified sites re-sync daily via `/api/cron/website-sync`.
 
 ```bash
 npm test
