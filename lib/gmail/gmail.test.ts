@@ -571,11 +571,13 @@ describe("Gmail HTTP and browser sources", () => {
 
   it("wires the paid Email tab to the Gmail inbox, not the legacy paste form", () => {
     const page = readFileSync("app/app/email/page.tsx", "utf8");
-    const shell = readFileSync("components/paid-app-shell.tsx", "utf8");
+    const nav = readFileSync("lib/ui/desk-nav.ts", "utf8");
+    const integrations = readFileSync("app/app/integrations/page.tsx", "utf8");
     const paid = readFileSync("components/paid-email-inbox.tsx", "utf8");
     assert.match(page, /PaidEmailInbox/);
     assert.doesNotMatch(page, /from "@\/components\/email-inbox"/);
-    assert.match(shell, /href: "\/app\/email"/);
+    assert.match(nav, /\/app\/email/);
+    assert.match(integrations, /\/app\/email/);
     assert.match(paid, /fetch\("\/api\/app\/gmail"\)/);
     assert.match(paid, /\/api\/app\/gmail\/connect/);
     assert.match(paid, /\/api\/app\/gmail\/messages/);

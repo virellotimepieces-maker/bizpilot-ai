@@ -68,7 +68,7 @@ describe("paid Gmail email mobile layout", () => {
     assert.match(GMAIL_PANE_GRID_CLASS, /minmax\(0,/);
     assert.doesNotMatch(GMAIL_PANE_GRID_CLASS, /16rem/);
     assert.match(GMAIL_PAGE_TITLE_CLASS, /text-xl/);
-    assert.match(GMAIL_PAGE_TITLE_CLASS, /md:text-\[2\.25rem\]/);
+    assert.match(GMAIL_PAGE_TITLE_CLASS, /md:text-2xl/);
     assert.match(GMAIL_TOOLBAR_CLASS, /grid-cols-1/);
   });
 

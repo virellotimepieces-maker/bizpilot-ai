@@ -10,13 +10,13 @@ export const GMAIL_WRAP_INLINE_CLASS =
   "max-w-full min-w-0 [overflow-wrap:anywhere] [word-break:break-word]";
 
 export const GMAIL_CARD_CLASS =
-  `${GMAIL_CONTENT_BOX_CLASS} overflow-x-hidden rounded-2xl border bg-card p-3 shadow-sm sm:p-4`;
+  `${GMAIL_CONTENT_BOX_CLASS} overflow-x-hidden rounded-lg border bg-card p-3 shadow-sm sm:p-4`;
 
 export const GMAIL_PANE_GRID_CLASS =
   `${GMAIL_CONTENT_BOX_CLASS} grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]`;
 
 export const GMAIL_PAGE_TITLE_CLASS =
-  "font-heading mt-2 max-w-full min-w-0 text-xl leading-tight tracking-tight sm:text-2xl md:text-[2.25rem]";
+  "mt-2 max-w-full min-w-0 text-xl font-semibold leading-tight tracking-tight md:text-2xl";
 
 export const GMAIL_SUBJECT_CLASS =
   `mt-3 font-heading text-base leading-snug sm:text-xl ${GMAIL_WRAP_INLINE_CLASS}`;

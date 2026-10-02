@@ -73,9 +73,9 @@ export function StoreLivePublicStrip() {
     <div
       className={
         status.kind === "live"
-          ? "border-t border-emerald-700/20 bg-emerald-700/10"
+          ? "border-t border-primary/20 bg-primary/6"
           : status.kind === "test"
-            ? "border-t border-amber-700/20 bg-amber-700/10"
+            ? "border-t border-amber-700/20 bg-amber-50"
             : "border-t bg-muted/70"
       }
     >

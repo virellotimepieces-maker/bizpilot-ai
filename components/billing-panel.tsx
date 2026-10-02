@@ -6,8 +6,10 @@ import { SiteHeader } from "@/components/site-header";
 import { StoreLiveBanner } from "@/components/store-live-banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { BIZPILOT_PRO } from "@/lib/plan";
 import { storeLiveStatus, type OperatorCheck } from "@/lib/operator-setup";
+import { PAGE_SHELL_CLASS } from "@/lib/ui/type-scale";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -31,7 +33,7 @@ type Bootstrap = {
   code?: string;
 };
 
-export function BillingPanel() {
+export function BillingPanel({ chrome = "marketing" }: { chrome?: "marketing" | "desk" }) {
   const search = useSearchParams();
   const router = useRouter();
   const [data, setData] = useState<Bootstrap | null>(null);
@@ -123,11 +125,7 @@ export function BillingPanel() {
       })
     : null;
 
-  return (
-    <div className="min-h-full">
-      <SiteHeader signedIn />
-      <main className="mx-auto grid max-w-2xl gap-4 px-4 py-10">
-        {liveStatus ? <StoreLiveBanner status={liveStatus} /> : null}
+  const card = (
         <Card>
           <CardHeader className="border-b">
             <CardTitle>Billing</CardTitle>
@@ -190,6 +188,28 @@ export function BillingPanel() {
             </p>
           </CardContent>
         </Card>
+  );
+
+  if (chrome === "desk") {
+    return (
+      <div className={PAGE_SHELL_CLASS}>
+        <PageHeader
+          eyebrow="Billing"
+          title="Billing"
+          description={`${BIZPILOT_PRO.name} is USD $29 per month for one business. Cancel anytime. There are no automatic overage charges.`}
+        />
+        {liveStatus ? <StoreLiveBanner status={liveStatus} /> : null}
+        {card}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-full">
+      <SiteHeader signedIn />
+      <main className="mx-auto grid max-w-2xl gap-4 px-4 py-10">
+        {liveStatus ? <StoreLiveBanner status={liveStatus} /> : null}
+        {card}
       </main>
       <SiteFooter />
     </div>

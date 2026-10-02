@@ -1,11 +1,12 @@
 "use client";
 
+import { DeskMark } from "@/components/desk-mark";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { BUSINESS_TYPE_LABEL } from "@/lib/labels";
 import { useWorkspace } from "@/lib/workspace-store";
 import { cn } from "@/lib/utils";
-import { TAB_ITEM_CLASS, TAB_ROW_CLASS, TOUCH_TARGET_CLASS } from "@/lib/ui/type-scale";
+import { TOUCH_TARGET_CLASS } from "@/lib/ui/type-scale";
 import {
   BookOpen,
   Inbox,
@@ -13,7 +14,6 @@ import {
   Menu,
   MessageSquare,
   Share2,
-  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -36,7 +36,7 @@ function NavLinks({
 }) {
   const pathname = usePathname();
   return (
-    <nav className="grid gap-1">
+    <nav className="grid gap-0.5">
       {NAV.map((item) => {
         const href = `${basePath}${item.href === "/" ? "" : item.href}` || "/";
         const active = pathname === href || (item.href === "/" && pathname === basePath);
@@ -47,13 +47,13 @@ function NavLinks({
             href={href}
             onClick={onNavigate}
             className={cn(
-              "flex min-h-11 items-center gap-2.5 rounded-xl px-3 py-2 text-base transition",
+              "flex min-h-11 items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors",
               active
-                ? "bg-white/12 text-white shadow-sm"
-                : "text-white/70 hover:bg-white/8 hover:text-white",
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
-            <Icon className="size-4" />
+            <Icon className="size-4 shrink-0" />
             {item.label}
           </Link>
         );
@@ -62,37 +62,21 @@ function NavLinks({
   );
 }
 
-function Brand({ homeHref }: { homeHref: string }) {
-  return (
-    <Link href={homeHref} className="flex items-center gap-2.5 px-1 py-1">
-      <span className="flex size-9 items-center justify-center rounded-xl bg-[oklch(0.78_0.12_85)] text-[oklch(0.22_0.04_165)]">
-        <Sparkles className="size-4" />
-      </span>
-      <span>
-        <span className="block font-heading text-base leading-none text-white">BizPilot AI</span>
-        <span className="mt-1 block text-[11px] tracking-[0.18em] text-white/55 uppercase">
-          Support desk
-        </span>
-      </span>
-    </Link>
-  );
-}
-
 function WorkspaceMeta() {
   const { knowledge } = useWorkspace();
   if (!knowledge) {
     return (
-      <p className="px-3 text-xs leading-relaxed text-white/55">
+      <p className="px-2 text-xs leading-relaxed text-muted-foreground">
         Load a business to share one knowledge base across chat, email, and social.
       </p>
     );
   }
   return (
-    <div className="rounded-xl bg-white/8 px-3 py-3">
-      <p className="text-[11px] tracking-wide text-white/50 uppercase">
+    <div className="rounded-md border bg-card px-3 py-3">
+      <p className="text-[11px] tracking-wide text-muted-foreground uppercase">
         {BUSINESS_TYPE_LABEL[knowledge.businessType]}
       </p>
-      <p className="mt-1 text-sm leading-snug text-white">{knowledge.name || "Untitled business"}</p>
+      <p className="mt-1 text-sm leading-snug font-medium">{knowledge.name || "Untitled business"}</p>
     </div>
   );
 }
@@ -107,12 +91,12 @@ function SidebarBody({
   demo: boolean;
 }) {
   return (
-    <div className="flex h-full flex-col gap-6 p-4">
-      <Brand homeHref={demo ? "/demo" : "/"} />
+    <div className="flex h-full flex-col gap-5 p-3">
+      <DeskMark href={demo ? "/demo" : "/"} subtitle={demo ? "Demo desk" : "Support desk"} />
       <NavLinks onNavigate={onNavigate} basePath={basePath} />
       <div className="mt-auto grid gap-3">
         {demo ? (
-          <div className="rounded-xl bg-amber-400/15 px-3 py-3 text-xs leading-relaxed text-amber-50">
+          <div className="rounded-md border border-amber-700/20 bg-amber-50 px-3 py-3 text-xs leading-relaxed text-foreground">
             Demo mode. This is not a paid workspace. It stays in this browser and does not bill or
             call an AI model.
           </div>
@@ -120,11 +104,11 @@ function SidebarBody({
           <WorkspaceMeta />
         )}
         {demo ? (
-          <Link href="/" className="px-1 text-[11px] text-white/55 underline-offset-2 hover:underline">
+          <Link href="/" className="px-1 text-[11px] text-muted-foreground underline-offset-2 hover:underline">
             Back to BizPilot AI
           </Link>
         ) : (
-          <p className="px-1 text-[11px] leading-relaxed text-white/40">
+          <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">
             Website chat may answer published facts. Email and social drafts always wait for a human.
           </p>
         )}
@@ -147,17 +131,17 @@ export function AppShell({
 
   return (
     <div className="flex min-h-full bg-background">
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 bg-sidebar text-sidebar-foreground md:flex md:flex-col">
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex md:flex-col">
         <SidebarBody basePath={basePath} demo={demo} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
-        <header className="flex items-center gap-3 border-b bg-background/80 px-3 py-2 backdrop-blur md:hidden">
+        <header className="flex items-center gap-3 border-b bg-background/95 px-3 py-2 backdrop-blur md:hidden">
           <Button variant="outline" size="icon" className={TOUCH_TARGET_CLASS} onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="size-4" />
           </Button>
-          <span className="font-heading text-2xl leading-none">BizPilot AI</span>
+          <DeskMark href={demo ? "/demo" : "/"} className="min-w-0 flex-1" />
         </header>
-        <nav className={`${TAB_ROW_CLASS} border-b px-3 py-2 md:hidden`} aria-label="Desk">
+        <nav className="flex min-w-0 gap-2 overflow-x-auto border-b px-3 py-2 overscroll-x-contain md:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Desk">
           {NAV.map((item) => {
             const href = `${basePath}${item.href === "/" ? "" : item.href}` || "/";
             const compact =
@@ -175,10 +159,10 @@ export function AppShell({
                 key={item.href}
                 href={href}
                 className={cn(
-                  TAB_ITEM_CLASS,
+                  "inline-flex shrink-0 items-center justify-center min-h-11 rounded-md px-3 text-sm font-medium whitespace-nowrap",
                   pathname === href || (item.href === "/" && pathname === basePath)
                     ? "bg-primary text-primary-foreground"
-                    : "bg-card text-muted-foreground ring-1 ring-foreground/10",
+                    : "bg-card text-muted-foreground ring-1 ring-border",
                 )}
               >
                 {compact}
@@ -187,7 +171,7 @@ export function AppShell({
           })}
         </nav>
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetContent side="left" className="w-64 border-0 bg-sidebar p-0 text-sidebar-foreground">
+          <SheetContent side="left" className="w-[min(18rem,100%)] bg-sidebar p-0 text-sidebar-foreground">
             <SheetHeader className="sr-only">
               <SheetTitle>Menu</SheetTitle>
             </SheetHeader>
