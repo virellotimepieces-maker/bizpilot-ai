@@ -119,9 +119,14 @@ export function PaidOverview() {
         title={data.workspace?.name || "Workspace"}
         description="Work that needs a person first. Counts below come from stored workspace data only."
         actions={
-          <Button size="sm" render={<Link href="/app/inbox" />}>
-            Open inbox
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" render={<Link href="/app/inbox" />}>
+              Open inbox
+            </Button>
+            <Button size="sm" variant="outline" render={<Link href="/app/analytics" />}>
+              Analytics
+            </Button>
+          </div>
         }
       />
 

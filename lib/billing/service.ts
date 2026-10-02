@@ -23,6 +23,7 @@ import {
   isAppointmentRequestQuestion,
   shouldPromoteToAppointmentIntent,
 } from "@/lib/v2/appointments";
+import { buildWorkspaceAnalytics } from "@/lib/v2/analytics";
 import type { AppointmentRequestWrite, LeadInput, QuoteRequestWrite } from "@/lib/v2/types";
 import { groundedWebsiteAnswer } from "@/lib/website/answer";
 import type { WebsitePageRecord, WebsiteReplySource } from "@/lib/website/types";
@@ -263,6 +264,32 @@ export class BillingService {
       }
       throw error;
     }
+  }
+
+  async loadWorkspaceAnalytics(workspaceId: string, now = new Date()) {
+    const workspace = await this.store.getWorkspace(workspaceId);
+    if (!workspace) throw new BillingError("Workspace not found.", "not_found");
+    const usage = this.usageSnapshot((await this.peekUsage(workspaceId, now)).period);
+    const [conversations, leads, quotes, appointments, unanswered, knowledgeEntries, websitePages] =
+      await Promise.all([
+        this.store.listConversations(workspaceId),
+        this.store.listLeads(workspaceId),
+        this.store.listQuoteRequests(workspaceId),
+        this.store.listAppointmentRequests(workspaceId),
+        this.store.listUnansweredQuestions(workspaceId),
+        this.store.listKnowledgeEntries(workspaceId),
+        this.store.listWebsitePages(workspaceId, workspace.widgetKey),
+      ]);
+    return buildWorkspaceAnalytics({
+      conversations,
+      leads,
+      quotes,
+      appointments,
+      unanswered,
+      knowledgeEntries,
+      websitePages: websitePages.length,
+      usage,
+    });
   }
 
   async generateCountedAiReply(options: {
