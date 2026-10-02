@@ -49,12 +49,15 @@ describe("live widget preview", () => {
     const files = [
       "components/widget-chat.tsx",
       "components/paid-widget.tsx",
+      "components/widget-appearance-form.tsx",
       "lib/widget-preview.ts",
       "lib/widget-install-guides.ts",
       "app/embed/[widgetKey]/page.tsx",
       "app/w/[widgetKey]/route.ts",
       "lib/widget-embed-script.ts",
       "lib/widget-chat-scroll.ts",
+      "app/api/widget/settings/route.ts",
+      "app/api/app/widget-settings/route.ts",
       "lib/website/sync.ts",
       "lib/website/run-sync.ts",
       "components/website-knowledge-panel.tsx",
@@ -68,11 +71,13 @@ describe("live widget preview", () => {
     }
     const chat = readFileSync("components/widget-chat.tsx", "utf8");
     assert.match(chat, /WIDGET_CHAT_API_PATH/);
+    assert.match(chat, /WIDGET_PUBLIC_SETTINGS_PATH/);
     assert.match(chat, /startOpen = false/);
     assert.match(chat, /aria-label="Open chat"/);
     assert.match(chat, /aria-label="Close chat"/);
     assert.match(chat, /Send/);
     assert.doesNotMatch(chat, /h-dvh/);
+    assert.doesNotMatch(chat, /bg-teal|text-teal|teal-/);
     assert.match(chat, /scrollMessagesToLatest/);
     assert.match(chat, /data-widget-scroll-anchor/);
     assert.match(chat, /overscroll-contain/);

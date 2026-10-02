@@ -36,6 +36,13 @@ model Workspace {
   emailDrafts    EmailDraft[]
   gmailConnection GmailConnection?
   gmailReplyDrafts GmailReplyDraft[]
+  knowledgeEntries KnowledgeEntry[]
+  unansweredQuestions UnansweredQuestion[]
+  leads         Lead[]
+  quoteRequests QuoteRequest[]
+  appointmentRequests AppointmentRequest[]
+  widgetSettings WidgetSettings?
+  integrationConnections IntegrationConnection[]
 }
 
 model Membership {
@@ -97,24 +104,44 @@ model Notification {
   workspaceId String
   type        String
   message     String
+  relatedType String    @default("")
+  relatedId   String    @default("")
   createdAt   DateTime  @default(now())
   readAt      DateTime?
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([userId, workspaceId])
+  @@index([workspaceId, createdAt])
 }
 
 model Conversation {
-  id             String    @id @default(cuid())
-  workspaceId    String
-  visitorKey     String
-  waitingOnHuman Boolean   @default(false)
-  createdAt      DateTime  @default(now())
-  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  messages       Message[]
+  id               String    @id @default(cuid())
+  workspaceId      String
+  visitorKey       String
+  waitingOnHuman   Boolean   @default(false)
+  visitorName      String    @default("")
+  visitorEmail     String    @default("")
+  visitorPhone     String    @default("")
+  channel          String    @default("website")
+  customerIntent   String    @default("general_question")
+  inboxStatus      String    @default("open")
+  ownerLastReadAt  DateTime?
+  lastMessageAt    DateTime  @default(now())
+  aiSummary        String    @default("")
+  detectedLanguage String    @default("")
+  createdAt        DateTime  @default(now())
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  messages         Message[]
+  leads            Lead[]
+  quoteRequests    QuoteRequest[]
+  appointmentRequests AppointmentRequest[]
+  unansweredQuestions UnansweredQuestion[]
 
   @@index([workspaceId, createdAt])
+  @@index([workspaceId, inboxStatus])
+  @@index([workspaceId, waitingOnHuman])
+  @@index([workspaceId, lastMessageAt])
 }
 
 model Message {
@@ -262,4 +289,141 @@ model GmailReplyDraft {
 
   @@unique([workspaceId, gmailMessageId])
   @@index([workspaceId, createdAt])
+}
+
+model KnowledgeEntry {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  kind          String
+  title         String
+  content       String
+  enabled       Boolean   @default(true)
+  sourceType    String    @default("manual")
+  sourceUrl     String    @default("")
+  sourceLabel   String    @default("")
+  sourceRef     String    @default("")
+  lastUpdatedAt DateTime  @updatedAt
+  createdAt     DateTime  @default(now())
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, kind])
+  @@index([workspaceId, enabled])
+  @@index([workspaceId, lastUpdatedAt])
+}
+
+model UnansweredQuestion {
+  id               String        @id @default(cuid())
+  workspaceId      String
+  conversationId   String?
+  question         String
+  detectedLanguage String        @default("")
+  status           String        @default("open")
+  createdAt        DateTime      @default(now())
+  resolvedAt       DateTime?
+  workspace        Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversation     Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
+}
+
+model Lead {
+  id             String        @id @default(cuid())
+  workspaceId    String
+  conversationId String?
+  name           String        @default("")
+  email          String        @default("")
+  phone          String        @default("")
+  interest       String        @default("")
+  request        String        @default("")
+  notes          String        @default("")
+  source         String        @default("website")
+  status         String        @default("new")
+  intent         String        @default("general_question")
+  aiSummary      String        @default("")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  quoteRequests  QuoteRequest[]
+  appointmentRequests AppointmentRequest[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, conversationId])
+}
+
+model QuoteRequest {
+  id             String        @id @default(cuid())
+  workspaceId    String
+  conversationId String?
+  leadId         String?
+  customerName   String        @default("")
+  email          String        @default("")
+  phone          String        @default("")
+  productService String        @default("")
+  requirements   String        @default("")
+  notes          String        @default("")
+  status         String        @default("requested")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  lead           Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
+}
+
+model AppointmentRequest {
+  id               String        @id @default(cuid())
+  workspaceId      String
+  conversationId   String?
+  leadId           String?
+  customerName     String        @default("")
+  email            String        @default("")
+  phone            String        @default("")
+  requestedService String        @default("")
+  preferredAt      String        @default("")
+  notes            String        @default("")
+  status           String        @default("requested")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  workspace        Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversation     Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  lead             Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
+}
+
+model WidgetSettings {
+  id                   String    @id @default(cuid())
+  workspaceId          String    @unique
+  businessDisplayName  String    @default("")
+  logoUrl              String    @default("")
+  welcomeMessage       String    @default("")
+  suggestedQuestions   Json
+  accentColor          String    @default("")
+  position             String    @default("bottom-right")
+  identifyAsAi         Boolean   @default(true)
+  collectPhone         Boolean   @default(false)
+  leadCaptureEnabled   Boolean   @default(true)
+  placeholderPrompt    String    @default("")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model IntegrationConnection {
+  id          String    @id @default(cuid())
+  workspaceId String
+  provider    String
+  status      String    @default("disconnected")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, provider])
+  @@index([workspaceId])
 }

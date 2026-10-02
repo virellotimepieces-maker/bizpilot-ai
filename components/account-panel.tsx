@@ -6,6 +6,8 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { PAGE_SHELL_CLASS } from "@/lib/ui/type-scale";
 import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -17,7 +19,7 @@ type Bootstrap = {
   error?: string;
 };
 
-export function AccountPanel() {
+export function AccountPanel({ chrome = "marketing" }: { chrome?: "marketing" | "desk" }) {
   const router = useRouter();
   const currentId = useId();
   const nextId = useId();
@@ -59,10 +61,8 @@ export function AccountPanel() {
     toast.success("Password updated");
   }
 
-  return (
-    <div className="min-h-full">
-      <SiteHeader signedIn />
-      <main className="mx-auto grid max-w-2xl gap-6 px-4 py-10">
+  const body = (
+        <>
         <Card>
           <CardHeader className="border-b">
             <CardTitle>Account</CardTitle>
@@ -122,7 +122,26 @@ export function AccountPanel() {
             Terms
           </Link>
         </p>
-      </main>
+        </>
+  );
+
+  if (chrome === "desk") {
+    return (
+      <div className={PAGE_SHELL_CLASS}>
+        <PageHeader
+          eyebrow="Settings"
+          title="Settings"
+          description="Account details and password. Billing is a separate page so Stripe Checkout stays unchanged."
+        />
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-full">
+      <SiteHeader signedIn />
+      <main className="mx-auto grid max-w-2xl gap-6 px-4 py-10">{body}</main>
       <SiteFooter />
     </div>
   );

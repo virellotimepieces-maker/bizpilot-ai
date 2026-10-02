@@ -73,13 +73,13 @@ export function StoreLivePublicStrip() {
     <div
       className={
         status.kind === "live"
-          ? "border-t border-emerald-700/20 bg-emerald-700/10"
+          ? "border-t border-primary/20 bg-primary/6"
           : status.kind === "test"
-            ? "border-t border-amber-700/20 bg-amber-700/10"
+            ? "border-t border-amber-700/20 bg-amber-50"
             : "border-t bg-muted/70"
       }
     >
-      <p className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-2 px-4 py-2 text-sm sm:px-6">
+      <p className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-2 px-4 py-2 text-sm sm:px-6">
         <StoreLivePill status={status} />
         <span className="font-medium">{status.detail}</span>
       </p>

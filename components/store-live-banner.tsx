@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import type { StoreLiveStatus } from "@/lib/operator-setup";
 
 const KIND_CLASS: Record<StoreLiveStatus["kind"], string> = {
-  live: "bg-emerald-700 text-white",
+  live: "bg-primary text-primary-foreground",
   test: "bg-amber-700 text-white",
   setup: "bg-muted text-muted-foreground",
 };
@@ -25,11 +25,11 @@ export function StoreLiveBanner({ status }: { status: StoreLiveStatus }) {
   return (
     <div
       className={cn(
-        "rounded-xl border px-3 py-2 text-sm",
+        "rounded-md border px-3 py-2 text-sm",
         status.kind === "live"
-          ? "border-emerald-700/30 bg-emerald-700/8"
+          ? "border-primary/25 bg-primary/6"
           : status.kind === "test"
-            ? "border-amber-700/30 bg-amber-700/8"
+            ? "border-amber-700/30 bg-amber-50"
             : "bg-muted/60",
       )}
     >

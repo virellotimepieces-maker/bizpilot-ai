@@ -1,4 +1,6 @@
 export const WIDGET_CHAT_API_PATH = "/api/widget/chat";
+export const WIDGET_PUBLIC_SETTINGS_PATH = "/api/widget/settings";
+export const WIDGET_APP_SETTINGS_PATH = "/api/app/widget-settings";
 export const COPY_SNIPPET_FEEDBACK_MS = 2500;
 
 export const WIDGET_PREVIEW_IFRAME_CLASS =

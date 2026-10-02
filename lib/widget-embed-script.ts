@@ -1,3 +1,4 @@
+import type { WidgetPosition } from "@/lib/v2/enums";
 import { canonicalPublicOrigin } from "@/lib/public-origin";
 
 export const WIDGET_IFRAME_ID = "bizpilot-widget";
@@ -10,14 +11,16 @@ export const WIDGET_DESKTOP_HEIGHT_PX = 520;
 export const WIDGET_MOBILE_MEDIA = "(max-width: 767px)";
 export const WIDGET_EDGE_OFFSET = "12px";
 export const WIDGET_MOBILE_RIGHT = "16px";
+export const WIDGET_MOBILE_LEFT = "16px";
 export const WIDGET_MOBILE_BOTTOM = "120px";
 export const WIDGET_Z_INDEX = "2147483647";
 
-export type WidgetHostMessageType = "open" | "close";
+export type WidgetHostMessageType = "open" | "close" | "config";
 
 export type WidgetHostMessage = {
   source: typeof WIDGET_POST_MESSAGE_SOURCE;
   type: WidgetHostMessageType;
+  position?: WidgetPosition;
 };
 
 export function widgetEmbedPath(widgetKey: string) {
@@ -33,12 +36,17 @@ export function isWidgetHostMessage(data: unknown): data is WidgetHostMessage {
   const message = data as { source?: unknown; type?: unknown };
   return (
     message.source === WIDGET_POST_MESSAGE_SOURCE &&
-    (message.type === "open" || message.type === "close")
+    (message.type === "open" || message.type === "close" || message.type === "config")
   );
 }
 
-export function buildWidgetHostMessage(type: WidgetHostMessageType): WidgetHostMessage {
-  return { source: WIDGET_POST_MESSAGE_SOURCE, type };
+export function buildWidgetHostMessage(
+  type: WidgetHostMessageType,
+  extra?: { position?: WidgetPosition },
+): WidgetHostMessage {
+  return extra?.position
+    ? { source: WIDGET_POST_MESSAGE_SOURCE, type, position: extra.position }
+    : { source: WIDGET_POST_MESSAGE_SOURCE, type };
 }
 
 export function widgetScriptOrigin(
@@ -77,11 +85,13 @@ export function buildWidgetEmbedScript(origin: string, widgetKey: string) {
   var DESKTOP_HEIGHT = ${JSON.stringify(String(WIDGET_DESKTOP_HEIGHT_PX) + "px")};
   var EDGE = ${JSON.stringify(WIDGET_EDGE_OFFSET)};
   var MOBILE_RIGHT = ${JSON.stringify(WIDGET_MOBILE_RIGHT)};
+  var MOBILE_LEFT = ${JSON.stringify(WIDGET_MOBILE_LEFT)};
   var MOBILE_BOTTOM = ${JSON.stringify(WIDGET_MOBILE_BOTTOM)};
   var SOURCE = ${JSON.stringify(WIDGET_POST_MESSAGE_SOURCE)};
   if (document.getElementById(${JSON.stringify(WIDGET_IFRAME_ID)})) return;
   var iframe = document.createElement("iframe");
   var isOpen = false;
+  var anchor = "right";
   iframe.id = ${JSON.stringify(WIDGET_IFRAME_ID)};
   iframe.title = "BizPilot chat";
   iframe.src = ORIGIN + "/embed/" + encodeURIComponent(KEY);
@@ -100,8 +110,14 @@ export function buildWidgetEmbedScript(origin: string, widgetKey: string) {
   function applyAnchor() {
     iframe.style.position = "fixed";
     iframe.style.zIndex = ${JSON.stringify(WIDGET_Z_INDEX)};
-    iframe.style.right = isMobile() ? MOBILE_RIGHT : EDGE;
     iframe.style.bottom = isMobile() ? MOBILE_BOTTOM : EDGE;
+    if (anchor === "left") {
+      iframe.style.left = isMobile() ? MOBILE_LEFT : EDGE;
+      iframe.style.right = "auto";
+    } else {
+      iframe.style.right = isMobile() ? MOBILE_RIGHT : EDGE;
+      iframe.style.left = "auto";
+    }
   }
   function applyCollapsed() {
     isOpen = false;
@@ -140,8 +156,14 @@ export function buildWidgetEmbedScript(origin: string, widgetKey: string) {
     if (event.origin !== ORIGIN) return;
     var data = event.data || {};
     if (data.source !== SOURCE) return;
+    if (data.position === "bottom-left") anchor = "left";
+    if (data.position === "bottom-right") anchor = "right";
     if (data.type === "open") applyExpanded();
     if (data.type === "close") applyCollapsed();
+    if (data.type === "config") {
+      if (isOpen) applyExpanded();
+      else applyCollapsed();
+    }
   });
   window.addEventListener("resize", function () {
     if (isOpen) applyExpanded();

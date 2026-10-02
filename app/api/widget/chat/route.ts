@@ -26,11 +26,19 @@ export async function GET(request: NextRequest) {
       visitorKey,
       conversationId,
     );
+    const conversation = thread.conversation;
     return cors(
       NextResponse.json({
-        conversationId: thread.conversation?.id ?? null,
-        waitingOnHuman: thread.conversation?.waitingOnHuman ?? false,
+        conversationId: conversation?.id ?? null,
+        waitingOnHuman: conversation?.waitingOnHuman ?? false,
         messages: thread.messages,
+        contact: conversation
+          ? {
+              name: conversation.visitorName,
+              email: conversation.visitorEmail,
+              phone: conversation.visitorPhone,
+            }
+          : null,
       }),
     );
   } catch (error) {
@@ -50,6 +58,7 @@ export async function POST(request: NextRequest) {
       conversationId?: string;
       question?: string;
       handoff?: boolean;
+      contact?: { name?: string; email?: string; phone?: string };
     };
     const widgetKey = body.widgetKey?.trim();
     const question = body.question?.trim();
@@ -58,9 +67,36 @@ export async function POST(request: NextRequest) {
     }
     const store = getBillingStore();
     const service = new BillingService(store);
-    if (body.handoff && body.conversationId) {
+    let conversationId = body.conversationId;
+    const contact = body.contact;
+    if (contact && (contact.name?.trim() || contact.email?.trim() || contact.phone?.trim())) {
+      const saved = await service.saveWidgetVisitorContact({
+        widgetKey,
+        visitorKey: body.visitorKey?.trim() || "anonymous",
+        conversationId,
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone,
+      });
+      conversationId = saved.id;
+      if (!question && !body.handoff) {
+        return cors(
+          NextResponse.json({
+            conversationId: saved.id,
+            waitingOnHuman: saved.waitingOnHuman,
+            contactSaved: true,
+            contact: {
+              name: saved.visitorName,
+              email: saved.visitorEmail,
+              phone: saved.visitorPhone,
+            },
+          }),
+        );
+      }
+    }
+    if (body.handoff && conversationId) {
       const visitorKey = body.visitorKey?.trim() || "anonymous";
-      const thread = await service.loadWidgetThread(widgetKey, visitorKey, body.conversationId);
+      const thread = await service.loadWidgetThread(widgetKey, visitorKey, conversationId);
       if (!thread.conversation) throw new BillingError("Conversation not found.", "not_found");
       const conversation = await service.handoffToHuman(widgetKey, thread.conversation.id);
       return cors(
@@ -79,7 +115,7 @@ export async function POST(request: NextRequest) {
       const result = await service.generateCountedAiReply({
         widgetKey,
         visitorKey: body.visitorKey?.trim() || "anonymous",
-        conversationId: body.conversationId,
+        conversationId,
         question,
         generate: generateCustomerReply,
       });

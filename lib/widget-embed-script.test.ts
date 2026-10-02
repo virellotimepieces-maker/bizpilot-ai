@@ -91,6 +91,21 @@ describe("generated /w/[widget-id].js embed script", () => {
     assert.match(script, /minWidth = LAUNCHER/);
     assert.match(script, /minHeight = LAUNCHER/);
   });
+
+  it("defaults to the right edge and can move left after a config postMessage", () => {
+    const script = buildWidgetEmbedScript(ORIGIN, KEY);
+    assert.match(script, /var anchor = "right"/);
+    assert.match(script, /data\.position === "bottom-left"\) anchor = "left"/);
+    assert.match(script, /data\.position === "bottom-right"\) anchor = "right"/);
+    assert.match(script, /iframe\.style\.left = isMobile\(\) \? MOBILE_LEFT : EDGE/);
+    assert.match(script, /data\.type === "config"/);
+    assert.equal(isWidgetHostMessage({ source: "bizpilot-widget", type: "config" }), true);
+    assert.deepEqual(buildWidgetHostMessage("config", { position: "bottom-left" }), {
+      source: "bizpilot-widget",
+      type: "config",
+      position: "bottom-left",
+    });
+  });
 });
 
 describe("widget embed route wiring", () => {

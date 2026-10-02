@@ -1,13 +1,17 @@
 "use client";
 
 import { OperatorSetupList } from "@/components/operator-setup-list";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { OperatorCheck } from "@/lib/operator-setup";
+import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS } from "@/lib/ui/type-scale";
+import { CalendarClock, ClipboardList, Inbox } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { PAGE_TITLE_CLASS, PAGE_SHELL_CLASS, HELPER_TEXT_CLASS, SECTION_HEADING_CLASS } from "@/lib/ui/type-scale";
 
 type SetupItem = {
   key: string;
@@ -23,6 +27,9 @@ type Bootstrap = {
   notifications: { id: string; type: string; message: string }[];
   setup?: { items: SetupItem[]; readyForWidget: boolean };
   waitingOnHuman?: number;
+  leads?: { total: number; new: number; qualified: number };
+  quotes?: { total: number; open: number; requested: number; in_review: number };
+  appointments?: { total: number; open: number; requested: number; in_review: number };
   paidAccess: boolean;
   missingEnv: string[];
   operator?: { items: OperatorCheck[]; readyForSubscribers: boolean };
@@ -37,6 +44,20 @@ const SETUP_HREF: Record<string, string> = {
   sync: "/app/widget",
   queue: "/app/inbox",
 };
+
+function OverviewSkeleton() {
+  return (
+    <div className={PAGE_SHELL_CLASS} aria-busy="true" aria-label="Loading workspace">
+      <Skeleton className="h-7 w-48" />
+      <Skeleton className="h-4 w-72" />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <Skeleton className="h-28" />
+        <Skeleton className="h-28" />
+        <Skeleton className="h-28" />
+      </div>
+    </div>
+  );
+}
 
 export function PaidOverview() {
   const router = useRouter();
@@ -57,86 +78,191 @@ export function PaidOverview() {
       });
   }, [router]);
 
-  if (!data) return <p className={HELPER_TEXT_CLASS}>Loading workspace…</p>;
+  if (!data) return <OverviewSkeleton />;
   if (data.missingEnv?.length) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Paid platform is paused</CardTitle>
-          <CardDescription>
-            Signup, Stripe, and the website widget need credentials that are not in this environment
-            yet. Set them on Vercel Production, then redeploy. Do not paste secret keys into chat.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-4">
-          {data.operator ? (
-            <OperatorSetupList items={data.operator.items} />
-          ) : (
-            <p className="text-sm">Missing: {data.missingEnv.join(", ")}</p>
-          )}
-        </CardContent>
-      </Card>
+      <div className={PAGE_SHELL_CLASS}>
+        <PageHeader title="Paid platform is paused" description="Signup, Stripe, and the website widget need credentials that are not in this environment yet." />
+        <Card>
+          <CardHeader>
+            <CardTitle>Operator setup</CardTitle>
+            <CardDescription>Set these on Vercel Production, then redeploy. Do not paste secret keys into chat.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {data.operator ? (
+              <OperatorSetupList items={data.operator.items} />
+            ) : (
+              <p className={HELPER_TEXT_CLASS}>Missing: {data.missingEnv.join(", ")}</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     );
   }
   if (!data.paidAccess) {
-    return <p className="text-sm">Redirecting to billing…</p>;
+    return <p className={HELPER_TEXT_CLASS}>Redirecting to billing…</p>;
   }
 
   const openItems = data.setup?.items.filter((item) => !item.done) ?? [];
+  const alerts = data.notifications.filter(
+    (row) => row.type === "usage_limit" || row.type === "payment_failed" || row.type === "human_needed",
+  ).slice(0, 3);
+  const waiting = data.waitingOnHuman ?? 0;
+  const leadStats = data.leads ?? { total: 0, new: 0, qualified: 0 };
+  const quoteStats = data.quotes ?? { total: 0, open: 0, requested: 0, in_review: 0 };
+  const appointmentStats = data.appointments ?? { total: 0, open: 0, requested: 0, in_review: 0 };
 
   return (
     <div className={PAGE_SHELL_CLASS}>
-      <div>
-        <p className="text-xs tracking-[0.2em] text-primary uppercase">Paid workspace</p>
-        <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>{data.workspace?.name}</h1>
-      </div>
-      {data.notifications
-        .filter(
-          (row) =>
-            row.type === "usage_limit" ||
-            row.type === "payment_failed" ||
-            row.type === "human_needed",
-        )
-        .slice(0, 3)
-        .map((row) => (
-          <div key={row.id} className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm">
-            {row.message}
+      <PageHeader
+        eyebrow="Overview"
+        title={data.workspace?.name || "Workspace"}
+        description="Work that needs a person first. Counts below come from stored workspace data only."
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" render={<Link href="/app/inbox" />}>
+              Open inbox
+            </Button>
+            <Button size="sm" variant="outline" render={<Link href="/app/analytics" />}>
+              Analytics
+            </Button>
           </div>
-        ))}
-      <div className="grid gap-3 sm:grid-cols-3">
+        }
+      />
+
+      {alerts.map((row) => (
+        <Alert key={row.id} variant={row.type === "payment_failed" ? "destructive" : "warning"}>
+          <AlertTitle>{row.type === "human_needed" ? "Needs a person" : "Account notice"}</AlertTitle>
+          <AlertDescription>{row.message}</AlertDescription>
+        </Alert>
+      ))}
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Needs human attention</CardTitle>
+            <CardDescription>Website conversations where AI replies are paused.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <p className="text-2xl font-semibold tracking-tight">{waiting}</p>
+            <Button size="sm" variant={waiting > 0 ? "default" : "outline"} render={<Link href="/app/inbox" />}>
+              Review inbox
+            </Button>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>AI replies this month</CardTitle>
             <CardDescription>Counted only after a successful model response.</CardDescription>
           </CardHeader>
-          <CardContent className={`${SECTION_HEADING_CLASS} font-heading`}>
-            {data.usage ? `${data.usage.used} / ${data.usage.limit}` : "—"}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Waiting on a person</CardTitle>
-            <CardDescription>Website visitors whose AI is paused.</CardDescription>
-          </CardHeader>
-          <CardContent className={`${SECTION_HEADING_CLASS} font-heading`}>
-            {data.waitingOnHuman ?? 0}
+          <CardContent>
+            <p className="text-2xl font-semibold tracking-tight">
+              {data.usage ? `${data.usage.used} / ${data.usage.limit}` : "—"}
+            </p>
+            <p className={`mt-2 ${HELPER_TEXT_CLASS}`}>
+              {data.usage ? `${data.usage.remaining} remaining in this billing period.` : "Usage appears after the subscription period is active."}
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>Subscription</CardTitle>
+            <CardDescription>BizPilot Pro, billed in Stripe.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-2 text-sm">
-            <p>{data.subscription?.status}</p>
-            <Button size="sm" variant="outline" render={<Link href="/app/email" />}>
-              Email
-            </Button>
-            <Button size="sm" variant="outline" render={<Link href="/app/social" />}>
-              Social drafts
+          <CardContent className="grid gap-2">
+            <p className="text-sm font-medium capitalize">{data.subscription?.status ?? "unknown"}</p>
+            <Button size="sm" variant="outline" render={<Link href="/app/billing" />}>
+              Billing
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Leads</CardTitle>
+            <CardDescription>
+              Contacts stored from the website widget. Counts are from this workspace only.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <p className="text-2xl font-semibold tracking-tight">
+              {leadStats.new} new
+            </p>
+            <p className={HELPER_TEXT_CLASS}>
+              {leadStats.total === 0
+                ? "No contacts stored yet. The widget will not invent names or emails."
+                : `${leadStats.qualified} qualified · ${leadStats.total} total. Status is owner-marked, not a payment.`}
+            </p>
+            <Button size="sm" variant="outline" render={<Link href="/app/leads" />}>
+              Open contacts
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Quote requests</CardTitle>
+            <CardDescription>
+              Visitor asks for a quote or estimate. These are requests to review — not issued quotes.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <p className="text-2xl font-semibold tracking-tight">{quoteStats.open} to review</p>
+            <p className={HELPER_TEXT_CLASS}>
+              {quoteStats.total === 0
+                ? "No quote requests stored yet. The widget will not invent prices."
+                : `${quoteStats.total} stored. Marked sent means you sent a quote, not that BizPilot issued one.`}
+            </p>
+            <Button size="sm" variant="outline" render={<Link href="/app/quotes" />}>
+              <ClipboardList className="size-4" />
+              Open quote requests
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Appointment requests</CardTitle>
+            <CardDescription>
+              Visitor asks to book a visit. These are requests to review — not calendar bookings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <p className="text-2xl font-semibold tracking-tight">{appointmentStats.open} to review</p>
+            <p className={HELPER_TEXT_CLASS}>
+              {appointmentStats.total === 0
+                ? "No appointment requests stored yet. The widget will not confirm a booking."
+                : `${appointmentStats.total} stored. There is no confirmed booking status.`}
+            </p>
+            <Button size="sm" variant="outline" render={<Link href="/app/appointments" />}>
+              <CalendarClock className="size-4" />
+              Open appointment requests
+            </Button>
+          </CardContent>
+        </Card>
+      </section>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent activity</CardTitle>
+          <CardDescription>
+            {alerts.length === 0
+              ? "No stored account notices right now."
+              : "Latest account notices from this workspace."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-2">
+          {data.notifications.length === 0 ? (
+            <p className={HELPER_TEXT_CLASS}>There is no recent activity stored for this workspace.</p>
+          ) : (
+            data.notifications.slice(0, 6).map((row) => (
+              <p key={row.id} className="rounded-md border px-3 py-2 text-sm">
+                {row.message}
+              </p>
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -151,18 +277,18 @@ export function PaidOverview() {
           {(data.setup?.items ?? []).map((item) => (
             <div
               key={item.key}
-              className="flex flex-col gap-2 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-2 rounded-md border px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-medium">
                   {item.done ? "Done" : "To do"} — {item.label}
                 </p>
-                <p className="text-sm text-muted-foreground">{item.hint}</p>
+                <p className={HELPER_TEXT_CLASS}>{item.hint}</p>
               </div>
               <Button
                 size="sm"
                 variant={item.done ? "outline" : "default"}
-                render={<Link href={SETUP_HREF[item.key] ?? "/app"} />}
+                render={<Link href={SETUP_HREF[item.key] ?? "/app" } />}
               >
                 {item.done ? "Open" : "Fix"}
               </Button>
@@ -170,6 +296,22 @@ export function PaidOverview() {
           ))}
         </CardContent>
       </Card>
+
+      <p className={HELPER_TEXT_CLASS}>
+        Gmail drafts and social drafts are under Integrations. They still require you to confirm before anything is sent or posted.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" render={<Link href="/app/email" />}>
+          <Inbox className="size-4" />
+          Gmail
+        </Button>
+        <Button size="sm" variant="outline" render={<Link href="/app/social" />}>
+          Social drafts
+        </Button>
+        <Button size="sm" variant="outline" render={<Link href="/app/integrations" />}>
+          Open integrations
+        </Button>
+      </div>
     </div>
   );
 }

@@ -10,13 +10,13 @@ export const SOCIAL_WRAP_INLINE_CLASS =
   "max-w-full min-w-0 [overflow-wrap:anywhere] [word-break:break-word]";
 
 export const SOCIAL_CARD_CLASS =
-  `${SOCIAL_CONTENT_BOX_CLASS} overflow-x-hidden rounded-2xl border bg-card p-3 shadow-sm sm:p-4`;
+  `${SOCIAL_CONTENT_BOX_CLASS} overflow-x-hidden rounded-lg border bg-card p-3 shadow-sm sm:p-4`;
 
 export const SOCIAL_PANE_GRID_CLASS =
   `${SOCIAL_CONTENT_BOX_CLASS} grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]`;
 
 export const SOCIAL_PAGE_TITLE_CLASS =
-  "font-heading mt-2 max-w-full min-w-0 text-xl leading-tight tracking-tight sm:text-2xl md:text-[2.25rem]";
+  "mt-2 max-w-full min-w-0 text-xl font-semibold leading-tight tracking-tight md:text-2xl";
 
 export const SOCIAL_FIELD_CONTROL_CLASS =
   `${SOCIAL_CONTENT_BOX_CLASS} [overflow-wrap:anywhere] [word-break:break-word]`;

@@ -4,6 +4,38 @@ import { normalizeKnowledge } from "@/lib/empty-knowledge";
 import type { KnowledgeBase, ReplySource } from "@/lib/types";
 import { BIZPILOT_PRO } from "@/lib/plan";
 import { getPrisma } from "@/lib/db";
+import { applyConversationPatch, parseConversationChannel, parseInboxStatus, type ConversationV2Patch } from "@/lib/v2/conversation";
+import { parseCustomerIntent } from "@/lib/v2/intents";
+import { knowledgeEntryMatchesQuery } from "@/lib/v2/knowledge-entries";
+import {
+  mapWidgetSettings,
+  newAppointmentRequest,
+  newIntegrationConnection,
+  newKnowledgeEntry,
+  newLead,
+  newQuoteRequest,
+  newUnansweredQuestion,
+  patchAppointmentRequest,
+  patchKnowledgeEntry,
+  patchLead,
+  patchQuoteRequest,
+} from "@/lib/v2/records";
+import { requireAppointmentStatus, requireQuoteStatus, requireUnansweredStatus } from "@/lib/v2/assert";
+import type {
+  AppointmentRequestRecord,
+  AppointmentRequestWrite,
+  IntegrationConnectionRecord,
+  KnowledgeEntryFilters,
+  KnowledgeEntryInput,
+  KnowledgeEntryRecord,
+  LeadInput,
+  LeadRecord,
+  QuoteRequestRecord,
+  QuoteRequestWrite,
+  UnansweredQuestionRecord,
+  WidgetSettingsInput,
+} from "@/lib/v2/types";
+import { defaultWidgetSettings, mergeWidgetSettings } from "@/lib/v2/widget-settings";
 import type { WebsitePageKind, WebsitePageRecord, WebsiteSourceRecord, WebsiteSyncStatus } from "@/lib/website/types";
 import type { BillingStore, CreateUserInput, UpsertSubscriptionInput } from "./store";
 import type {
@@ -197,6 +229,110 @@ function asSources(value: unknown): MessageRecord["sources"] {
     const item = row as { title?: unknown; url?: unknown; kind?: unknown };
     return typeof item.title === "string" && typeof item.url === "string";
   });
+}
+
+function mapConversation(row: {
+  id: string;
+  workspaceId: string;
+  visitorKey: string;
+  waitingOnHuman: boolean;
+  visitorName: string;
+  visitorEmail: string;
+  visitorPhone: string;
+  channel: string;
+  customerIntent: string;
+  inboxStatus: string;
+  ownerLastReadAt: Date | null;
+  lastMessageAt: Date;
+  aiSummary: string;
+  detectedLanguage: string;
+  createdAt: Date;
+}): ConversationRecord {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    visitorKey: row.visitorKey,
+    waitingOnHuman: row.waitingOnHuman,
+    visitorName: row.visitorName,
+    visitorEmail: row.visitorEmail,
+    visitorPhone: row.visitorPhone,
+    channel: parseConversationChannel(row.channel),
+    customerIntent: parseCustomerIntent(row.customerIntent),
+    inboxStatus: parseInboxStatus(row.inboxStatus),
+    ownerLastReadAt: row.ownerLastReadAt,
+    lastMessageAt: row.lastMessageAt,
+    aiSummary: row.aiSummary,
+    detectedLanguage: row.detectedLanguage,
+    createdAt: row.createdAt,
+  };
+}
+
+function mapNotification(row: {
+  id: string;
+  userId: string;
+  workspaceId: string;
+  type: string;
+  message: string;
+  relatedType: string;
+  relatedId: string;
+  createdAt: Date;
+  readAt: Date | null;
+}): NotificationRecord {
+  return row as NotificationRecord;
+}
+
+function mapKnowledgeEntry(row: {
+  id: string;
+  workspaceId: string;
+  kind: string;
+  title: string;
+  content: string;
+  enabled: boolean;
+  sourceType: string;
+  sourceUrl: string;
+  sourceLabel: string;
+  sourceRef: string;
+  lastUpdatedAt: Date;
+  createdAt: Date;
+}): KnowledgeEntryRecord {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    kind: row.kind as KnowledgeEntryRecord["kind"],
+    title: row.title,
+    content: row.content,
+    enabled: row.enabled,
+    sourceType: row.sourceType as KnowledgeEntryRecord["sourceType"],
+    sourceUrl: row.sourceUrl,
+    sourceLabel: row.sourceLabel,
+    sourceRef: row.sourceRef,
+    lastUpdatedAt: row.lastUpdatedAt,
+    createdAt: row.createdAt,
+  };
+}
+
+function mapLeadRow(row: {
+  id: string;
+  workspaceId: string;
+  conversationId: string | null;
+  name: string;
+  email: string;
+  phone: string;
+  interest: string;
+  request: string;
+  notes: string;
+  source: string;
+  status: string;
+  intent: string;
+  aiSummary: string;
+  createdAt: Date;
+  updatedAt: Date;
+}): LeadRecord {
+  return {
+    ...row,
+    status: row.status as LeadRecord["status"],
+    intent: parseCustomerIntent(row.intent),
+  };
 }
 
 function mapMessage(row: {
@@ -514,9 +650,20 @@ export class PrismaBillingStore implements BillingStore {
     workspaceId: string;
     type: NotificationRecord["type"];
     message: string;
+    relatedType?: string;
+    relatedId?: string;
   }) {
-    const row = await this.prisma().notification.create({ data: input });
-    return row as NotificationRecord;
+    const row = await this.prisma().notification.create({
+      data: {
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+        type: input.type,
+        message: input.message,
+        relatedType: input.relatedType ?? "",
+        relatedId: input.relatedId ?? "",
+      },
+    });
+    return mapNotification(row);
   }
 
   async listNotifications(userId: string, workspaceId: string) {
@@ -524,19 +671,34 @@ export class PrismaBillingStore implements BillingStore {
       where: { userId, workspaceId },
       orderBy: { createdAt: "desc" },
     });
-    return rows as NotificationRecord[];
+    return rows.map(mapNotification);
+  }
+
+  async markNotificationRead(id: string, userId: string, workspaceId: string, now = new Date()) {
+    const existing = await this.prisma().notification.findFirst({
+      where: { id, userId, workspaceId },
+    });
+    if (!existing) throw new Error("notification_missing");
+    const row = await this.prisma().notification.update({
+      where: { id },
+      data: { readAt: now },
+    });
+    return mapNotification(row);
   }
 
   async createConversation(input: { workspaceId: string; visitorKey: string }) {
-    const row = await this.prisma().conversation.create({ data: input });
-    return row as ConversationRecord;
+    const now = new Date();
+    const row = await this.prisma().conversation.create({
+      data: { workspaceId: input.workspaceId, visitorKey: input.visitorKey, lastMessageAt: now },
+    });
+    return mapConversation(row);
   }
 
   async getConversation(id: string, workspaceId: string) {
     const row = await this.prisma().conversation.findFirst({
       where: { id, workspaceId },
     });
-    return row as ConversationRecord | null;
+    return row ? mapConversation(row) : null;
   }
 
   async getConversationForVisitor(
@@ -548,21 +710,21 @@ export class PrismaBillingStore implements BillingStore {
       const row = await this.prisma().conversation.findFirst({
         where: { id: conversationId, workspaceId, visitorKey },
       });
-      return row as ConversationRecord | null;
+      return row ? mapConversation(row) : null;
     }
     const row = await this.prisma().conversation.findFirst({
       where: { workspaceId, visitorKey },
       orderBy: { createdAt: "desc" },
     });
-    return row as ConversationRecord | null;
+    return row ? mapConversation(row) : null;
   }
 
   async listConversations(workspaceId: string) {
     const rows = await this.prisma().conversation.findMany({
       where: { workspaceId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { lastMessageAt: "desc" },
     });
-    return rows as ConversationRecord[];
+    return rows.map(mapConversation);
   }
 
   async countWaitingConversations(workspaceId: string) {
@@ -578,7 +740,33 @@ export class PrismaBillingStore implements BillingStore {
       where: { id },
       data: { waitingOnHuman: waiting },
     });
-    return row as ConversationRecord;
+    return mapConversation(row);
+  }
+
+  async updateConversation(id: string, workspaceId: string, patch: ConversationV2Patch) {
+    const existing = await this.getConversation(id, workspaceId);
+    if (!existing) throw new Error("conversation_missing");
+    const next = applyConversationPatch(existing, patch);
+    const row = await this.prisma().conversation.update({
+      where: { id },
+      data: {
+        visitorName: next.visitorName,
+        visitorEmail: next.visitorEmail,
+        visitorPhone: next.visitorPhone,
+        channel: next.channel,
+        customerIntent: next.customerIntent,
+        inboxStatus: next.inboxStatus,
+        ownerLastReadAt: next.ownerLastReadAt,
+        aiSummary: next.aiSummary,
+        detectedLanguage: next.detectedLanguage,
+        waitingOnHuman: next.waitingOnHuman,
+      },
+    });
+    return mapConversation(row);
+  }
+
+  async markConversationRead(id: string, workspaceId: string, now = new Date()) {
+    return this.updateConversation(id, workspaceId, { ownerLastReadAt: now });
   }
 
   async addMessage(input: {
@@ -591,6 +779,7 @@ export class PrismaBillingStore implements BillingStore {
   }) {
     const conversation = await this.getConversation(input.conversationId, input.workspaceId);
     if (!conversation) throw new Error("conversation_missing");
+    const createdAt = new Date();
     const row = await this.prisma().message.create({
       data: {
         workspaceId: input.workspaceId,
@@ -599,7 +788,12 @@ export class PrismaBillingStore implements BillingStore {
         content: input.content,
         usageCounted: input.usageCounted,
         sources: input.sources === undefined ? undefined : (input.sources as Prisma.InputJsonValue),
+        createdAt,
       },
+    });
+    await this.prisma().conversation.update({
+      where: { id: input.conversationId },
+      data: { lastMessageAt: createdAt },
     });
     return mapMessage(row);
   }
@@ -1130,5 +1324,378 @@ export class PrismaBillingStore implements BillingStore {
       data: { sendLockAt: now },
     });
     return mapGmailReplyDraft(row);
+  }
+
+  private async assertOwnedConversation(workspaceId: string, conversationId?: string | null) {
+    if (!conversationId) return;
+    const conversation = await this.getConversation(conversationId, workspaceId);
+    if (!conversation) throw new Error("conversation_missing");
+  }
+
+  private async assertOwnedLead(workspaceId: string, leadId?: string | null) {
+    if (!leadId) return;
+    const lead = await this.prisma().lead.findFirst({ where: { id: leadId, workspaceId } });
+    if (!lead) throw new Error("lead_missing");
+  }
+
+  async listKnowledgeEntries(workspaceId: string, filters?: KnowledgeEntryFilters) {
+    const rows = await this.prisma().knowledgeEntry.findMany({
+      where: {
+        workspaceId,
+        ...(filters?.kind ? { kind: filters.kind } : {}),
+        ...(filters?.enabled === undefined ? {} : { enabled: filters.enabled }),
+      },
+      orderBy: { lastUpdatedAt: "desc" },
+    });
+    const query = filters?.query ?? "";
+    return rows.map(mapKnowledgeEntry).filter((row) => knowledgeEntryMatchesQuery(row.title, row.content, query));
+  }
+
+  async getKnowledgeEntry(id: string, workspaceId: string) {
+    const row = await this.prisma().knowledgeEntry.findFirst({ where: { id, workspaceId } });
+    return row ? mapKnowledgeEntry(row) : null;
+  }
+
+  async createKnowledgeEntry(workspaceId: string, input: KnowledgeEntryInput) {
+    const draft = newKnowledgeEntry(workspaceId, input);
+    const row = await this.prisma().knowledgeEntry.create({
+      data: {
+        workspaceId,
+        kind: draft.kind,
+        title: draft.title,
+        content: draft.content,
+        enabled: draft.enabled,
+        sourceType: draft.sourceType,
+        sourceUrl: draft.sourceUrl,
+        sourceLabel: draft.sourceLabel,
+        sourceRef: draft.sourceRef,
+      },
+    });
+    return mapKnowledgeEntry(row);
+  }
+
+  async updateKnowledgeEntry(id: string, workspaceId: string, patch: Partial<KnowledgeEntryInput>) {
+    const current = await this.getKnowledgeEntry(id, workspaceId);
+    if (!current) throw new Error("knowledge_entry_missing");
+    const next = patchKnowledgeEntry(current, patch);
+    const row = await this.prisma().knowledgeEntry.update({
+      where: { id },
+      data: {
+        kind: next.kind,
+        title: next.title,
+        content: next.content,
+        enabled: next.enabled,
+        sourceType: next.sourceType,
+        sourceUrl: next.sourceUrl,
+        sourceLabel: next.sourceLabel,
+        sourceRef: next.sourceRef,
+      },
+    });
+    return mapKnowledgeEntry(row);
+  }
+
+  async deleteKnowledgeEntry(id: string, workspaceId: string) {
+    const current = await this.getKnowledgeEntry(id, workspaceId);
+    if (!current) throw new Error("knowledge_entry_missing");
+    await this.prisma().knowledgeEntry.delete({ where: { id } });
+  }
+
+  async listUnansweredQuestions(workspaceId: string) {
+    const rows = await this.prisma().unansweredQuestion.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((row) => ({
+      ...row,
+      status: requireUnansweredStatus(row.status),
+    }));
+  }
+
+  async createUnansweredQuestion(input: {
+    workspaceId: string;
+    conversationId?: string | null;
+    question: string;
+    detectedLanguage?: string;
+  }) {
+    await this.assertOwnedConversation(input.workspaceId, input.conversationId);
+    const draft = newUnansweredQuestion(input);
+    const row = await this.prisma().unansweredQuestion.create({
+      data: {
+        workspaceId: draft.workspaceId,
+        conversationId: draft.conversationId,
+        question: draft.question,
+        detectedLanguage: draft.detectedLanguage,
+        status: draft.status,
+      },
+    });
+    return { ...row, status: requireUnansweredStatus(row.status) };
+  }
+
+  async updateUnansweredQuestion(
+    id: string,
+    workspaceId: string,
+    patch: Partial<Pick<UnansweredQuestionRecord, "status" | "resolvedAt">>,
+  ) {
+    const existing = await this.prisma().unansweredQuestion.findFirst({ where: { id, workspaceId } });
+    if (!existing) throw new Error("unanswered_question_missing");
+    const status = patch.status ? requireUnansweredStatus(patch.status) : requireUnansweredStatus(existing.status);
+    const resolvedAt =
+      patch.resolvedAt !== undefined
+        ? patch.resolvedAt
+        : status !== "open" && !existing.resolvedAt
+          ? new Date()
+          : existing.resolvedAt;
+    const row = await this.prisma().unansweredQuestion.update({
+      where: { id },
+      data: { status, resolvedAt },
+    });
+    return { ...row, status: requireUnansweredStatus(row.status) };
+  }
+
+  async listLeads(workspaceId: string) {
+    const rows = await this.prisma().lead.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map(mapLeadRow);
+  }
+
+  async getLead(id: string, workspaceId: string) {
+    const row = await this.prisma().lead.findFirst({ where: { id, workspaceId } });
+    return row ? mapLeadRow(row) : null;
+  }
+
+  async createLead(workspaceId: string, input: LeadInput = {}) {
+    await this.assertOwnedConversation(workspaceId, input.conversationId);
+    const draft = newLead(workspaceId, input);
+    const row = await this.prisma().lead.create({
+      data: {
+        workspaceId,
+        conversationId: draft.conversationId,
+        name: draft.name,
+        email: draft.email,
+        phone: draft.phone,
+        interest: draft.interest,
+        request: draft.request,
+        notes: draft.notes,
+        source: draft.source,
+        status: draft.status,
+        intent: draft.intent,
+        aiSummary: draft.aiSummary,
+      },
+    });
+    return {
+      ...row,
+      status: draft.status,
+      intent: draft.intent,
+    };
+  }
+
+  async updateLead(id: string, workspaceId: string, patch: LeadInput) {
+    const current = await this.getLead(id, workspaceId);
+    if (!current) throw new Error("lead_missing");
+    await this.assertOwnedConversation(workspaceId, patch.conversationId);
+    const next = patchLead(current, patch);
+    const row = await this.prisma().lead.update({
+      where: { id },
+      data: {
+        conversationId: next.conversationId,
+        name: next.name,
+        email: next.email,
+        phone: next.phone,
+        interest: next.interest,
+        request: next.request,
+        notes: next.notes,
+        source: next.source,
+        status: next.status,
+        intent: next.intent,
+        aiSummary: next.aiSummary,
+      },
+    });
+    return { ...row, status: next.status, intent: next.intent };
+  }
+
+  async listQuoteRequests(workspaceId: string) {
+    const rows = await this.prisma().quoteRequest.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((row) => ({ ...row, status: requireQuoteStatus(row.status) }));
+  }
+
+  async createQuoteRequest(workspaceId: string, input: QuoteRequestWrite = {}) {
+    await this.assertOwnedConversation(workspaceId, input.conversationId);
+    await this.assertOwnedLead(workspaceId, input.leadId);
+    const draft = newQuoteRequest(workspaceId, input);
+    const row = await this.prisma().quoteRequest.create({
+      data: {
+        workspaceId,
+        conversationId: draft.conversationId,
+        leadId: draft.leadId,
+        customerName: draft.customerName,
+        email: draft.email,
+        phone: draft.phone,
+        productService: draft.productService,
+        requirements: draft.requirements,
+        notes: draft.notes,
+        status: draft.status,
+      },
+    });
+    return { ...row, status: draft.status };
+  }
+
+  async updateQuoteRequest(id: string, workspaceId: string, patch: QuoteRequestWrite) {
+    const existing = await this.prisma().quoteRequest.findFirst({ where: { id, workspaceId } });
+    if (!existing) throw new Error("quote_request_missing");
+    if (patch.leadId) await this.assertOwnedLead(workspaceId, patch.leadId);
+    const current: QuoteRequestRecord = { ...existing, status: requireQuoteStatus(existing.status) };
+    const next = patchQuoteRequest(current, patch);
+    const row = await this.prisma().quoteRequest.update({
+      where: { id },
+      data: {
+        conversationId: next.conversationId,
+        leadId: next.leadId,
+        customerName: next.customerName,
+        email: next.email,
+        phone: next.phone,
+        productService: next.productService,
+        requirements: next.requirements,
+        notes: next.notes,
+        status: next.status,
+      },
+    });
+    return { ...row, status: requireQuoteStatus(row.status) };
+  }
+
+  async listAppointmentRequests(workspaceId: string) {
+    const rows = await this.prisma().appointmentRequest.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((row) => ({ ...row, status: requireAppointmentStatus(row.status) }));
+  }
+
+  async createAppointmentRequest(workspaceId: string, input: AppointmentRequestWrite = {}) {
+    await this.assertOwnedConversation(workspaceId, input.conversationId);
+    await this.assertOwnedLead(workspaceId, input.leadId);
+    const draft = newAppointmentRequest(workspaceId, input);
+    const row = await this.prisma().appointmentRequest.create({
+      data: {
+        workspaceId,
+        conversationId: draft.conversationId,
+        leadId: draft.leadId,
+        customerName: draft.customerName,
+        email: draft.email,
+        phone: draft.phone,
+        requestedService: draft.requestedService,
+        preferredAt: draft.preferredAt,
+        notes: draft.notes,
+        status: draft.status,
+      },
+    });
+    return { ...row, status: draft.status };
+  }
+
+  async updateAppointmentRequest(id: string, workspaceId: string, patch: AppointmentRequestWrite) {
+    const existing = await this.prisma().appointmentRequest.findFirst({ where: { id, workspaceId } });
+    if (!existing) throw new Error("appointment_request_missing");
+    if (patch.leadId) await this.assertOwnedLead(workspaceId, patch.leadId);
+    const current: AppointmentRequestRecord = {
+      ...existing,
+      status: requireAppointmentStatus(existing.status),
+    };
+    const next = patchAppointmentRequest(current, patch);
+    const row = await this.prisma().appointmentRequest.update({
+      where: { id },
+      data: {
+        conversationId: next.conversationId,
+        leadId: next.leadId,
+        customerName: next.customerName,
+        email: next.email,
+        phone: next.phone,
+        requestedService: next.requestedService,
+        preferredAt: next.preferredAt,
+        notes: next.notes,
+        status: next.status,
+      },
+    });
+    return { ...row, status: requireAppointmentStatus(row.status) };
+  }
+
+  async getWidgetSettings(workspaceId: string) {
+    const row = await this.prisma().widgetSettings.findUnique({ where: { workspaceId } });
+    return row ? mapWidgetSettings(row) : null;
+  }
+
+  async upsertWidgetSettings(workspaceId: string, patch: WidgetSettingsInput = {}) {
+    const current = await this.getWidgetSettings(workspaceId);
+    const base = current ?? { id: "pending", ...defaultWidgetSettings(workspaceId) };
+    const next = mergeWidgetSettings(base, patch);
+    const row = await this.prisma().widgetSettings.upsert({
+      where: { workspaceId },
+      create: {
+        workspaceId,
+        businessDisplayName: next.businessDisplayName,
+        logoUrl: next.logoUrl,
+        welcomeMessage: next.welcomeMessage,
+        suggestedQuestions: next.suggestedQuestions,
+        accentColor: next.accentColor,
+        position: next.position,
+        identifyAsAi: next.identifyAsAi,
+        collectPhone: next.collectPhone,
+        leadCaptureEnabled: next.leadCaptureEnabled,
+        placeholderPrompt: next.placeholderPrompt,
+      },
+      update: {
+        businessDisplayName: next.businessDisplayName,
+        logoUrl: next.logoUrl,
+        welcomeMessage: next.welcomeMessage,
+        suggestedQuestions: next.suggestedQuestions,
+        accentColor: next.accentColor,
+        position: next.position,
+        identifyAsAi: next.identifyAsAi,
+        collectPhone: next.collectPhone,
+        leadCaptureEnabled: next.leadCaptureEnabled,
+        placeholderPrompt: next.placeholderPrompt,
+      },
+    });
+    return mapWidgetSettings(row);
+  }
+
+  async listIntegrationConnections(workspaceId: string) {
+    const rows = await this.prisma().integrationConnection.findMany({ where: { workspaceId } });
+    return rows.map((row) => {
+      const parsed = newIntegrationConnection({
+        workspaceId: row.workspaceId,
+        provider: row.provider,
+        status: row.status,
+      });
+      return {
+        id: row.id,
+        workspaceId: row.workspaceId,
+        provider: parsed.provider,
+        status: parsed.status,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      };
+    });
+  }
+
+  async upsertIntegrationConnection(input: {
+    workspaceId: string;
+    provider: IntegrationConnectionRecord["provider"];
+    status?: IntegrationConnectionRecord["status"];
+  }) {
+    const draft = newIntegrationConnection(input);
+    const row = await this.prisma().integrationConnection.upsert({
+      where: { workspaceId_provider: { workspaceId: input.workspaceId, provider: draft.provider } },
+      create: {
+        workspaceId: input.workspaceId,
+        provider: draft.provider,
+        status: draft.status,
+      },
+      update: { status: draft.status },
+    });
+    return { ...row, provider: draft.provider, status: draft.status };
   }
 }

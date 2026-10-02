@@ -68,8 +68,23 @@ export interface NotificationRecord {
   id: string;
   userId: string;
   workspaceId: string;
-  type: "usage_limit" | "payment_failed" | "canceled" | "activated" | "website_conflict" | "website_sync_error" | "human_needed";
+  type:
+    | "usage_limit"
+    | "payment_failed"
+    | "canceled"
+    | "activated"
+    | "website_conflict"
+    | "website_sync_error"
+    | "human_needed"
+    | "new_lead"
+    | "qualified_lead"
+    | "high_intent"
+    | "unanswered_question"
+    | "quote_request"
+    | "appointment_request";
   message: string;
+  relatedType: string;
+  relatedId: string;
   createdAt: Date;
   readAt: Date | null;
 }
@@ -79,6 +94,24 @@ export interface ConversationRecord {
   workspaceId: string;
   visitorKey: string;
   waitingOnHuman: boolean;
+  visitorName: string;
+  visitorEmail: string;
+  visitorPhone: string;
+  channel: "website" | "email" | "social";
+  customerIntent:
+    | "general_question"
+    | "product_interest"
+    | "service_interest"
+    | "pricing_inquiry"
+    | "purchase_intent"
+    | "quote_request"
+    | "appointment_request"
+    | "support_issue";
+  inboxStatus: "open" | "resolved";
+  ownerLastReadAt: Date | null;
+  lastMessageAt: Date;
+  aiSummary: string;
+  detectedLanguage: string;
   createdAt: Date;
 }
 

@@ -21,7 +21,7 @@ export const WIDGET_SECRET_WARNING =
 
 export const WIDGET_VERIFY_STEPS = [
   "Open your public website in a new browser tab — the live site visitors use, not this BizPilot page.",
-  "Look in the bottom-right corner for the BizPilot chat launcher.",
+  "Look in the corner you chose in Appearance — bottom-right by default, or bottom-left if you moved it — for the BizPilot chat launcher.",
   "Tap or click it and send a short test question. If the chat opens, the widget is installed.",
 ];
 

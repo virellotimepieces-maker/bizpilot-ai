@@ -1,0 +1,138 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { describe, it } from "node:test";
+import {
+  FAQ_ITEMS,
+  formatPlanPriceUsd,
+  HOME_METADATA,
+  INTEGRATION_ITEMS,
+  LANDING_DEMO,
+  LANDING_HERO,
+  LANDING_NAV,
+  LANDING_PRIMARY_CTA,
+  LANDING_SECONDARY_CTA,
+  LANDING_SECTIONS,
+  PRICING_FEATURES,
+  PRODUCT_PREVIEW_LABEL,
+} from "./copy";
+import { BIZPILOT_PRO } from "@/lib/plan";
+import { publicSitemapUrls } from "./site";
+import { PRODUCTION_PUBLIC_ORIGIN } from "@/lib/public-origin";
+
+const FORBIDDEN = [
+  "Start Free",
+  "Start free",
+  "free trial",
+  "24/7 staff",
+  "guaranteed sales",
+  "Shopify is connected",
+  "WooCommerce is connected",
+];
+
+const LANDING_FILES = [
+  "lib/marketing/copy.ts",
+  "components/marketing-home.tsx",
+  "components/site-header.tsx",
+  "components/site-footer.tsx",
+  "components/product-preview.tsx",
+  "components/marketing-faq.tsx",
+];
+
+describe("V2 public landing copy", () => {
+  it("keeps seventeen landing sections with stable ids", () => {
+    assert.equal(LANDING_SECTIONS.length, 17);
+    assert.deepEqual(
+      LANDING_SECTIONS.map((section) => section.id),
+      [
+        "hero",
+        "problem",
+        "solution",
+        "product",
+        "customer-service",
+        "sales-assistant",
+        "lead-capture",
+        "knowledge",
+        "inbox",
+        "handoff",
+        "how-it-works",
+        "widget",
+        "integrations",
+        "analytics",
+        "pricing",
+        "faq",
+        "final-cta",
+      ],
+    );
+  });
+
+  it("uses honest CTAs that match signup and the in-page walkthrough", () => {
+    assert.equal(LANDING_PRIMARY_CTA.href, "/signup");
+    assert.equal(LANDING_PRIMARY_CTA.label, "Get started");
+    assert.equal(LANDING_SECONDARY_CTA.href, "#how-it-works");
+    assert.equal(LANDING_SECONDARY_CTA.label, "See how it works");
+    assert.equal(LANDING_DEMO.href, "/demo");
+    assert.deepEqual(
+      LANDING_NAV.map((item) => item.href),
+      ["#product", "#pricing", "#faq"],
+    );
+  });
+
+  it("keeps BizPilot Pro at $29 with 500 replies and no overage", () => {
+    assert.equal(BIZPILOT_PRO.amountCents, 2900);
+    assert.equal(formatPlanPriceUsd(), "$29");
+    assert.equal(BIZPILOT_PRO.replyLimit, 500);
+    assert.equal(BIZPILOT_PRO.automaticOverageCharges, false);
+    assert.match(PRICING_FEATURES.join(" "), /500 AI-generated customer replies/);
+    assert.match(PRICING_FEATURES.join(" "), /Cancel anytime/);
+    assert.match(PRICING_FEATURES.join(" "), /No automatic overage charges/);
+  });
+
+  it("labels the product preview as sample layout and keeps future apps disconnected", () => {
+    assert.equal(PRODUCT_PREVIEW_LABEL, "Sample layout. Not live customer data.");
+    const future = INTEGRATION_ITEMS.filter((item) => !item.live);
+    assert.deepEqual(
+      future.map((item) => item.name),
+      ["Shopify", "WooCommerce", "Calendar"],
+    );
+    assert.ok(future.every((item) => item.status === "Not connected"));
+  });
+
+  it("does not invent a free plan or fake social proof in marketing sources", () => {
+    for (const file of LANDING_FILES) {
+      const source = readFileSync(file, "utf8");
+      for (const phrase of FORBIDDEN) {
+        assert.equal(source.includes(phrase), false, `${file} contains "${phrase}"`);
+      }
+      assert.doesNotMatch(source, /[★⭐]|4\.\d+\/5|as seen in|trusted by \d/i);
+    }
+    const home = readFileSync("components/marketing-home.tsx", "utf8");
+    assert.doesNotMatch(home, /href="\/billing"/);
+    assert.match(home, /id="hero"/);
+    assert.match(home, /id="how-it-works"/);
+    assert.match(home, /id="pricing"/);
+    assert.match(home, /LANDING_PRIMARY_CTA/);
+    assert.match(home, /LANDING_SECONDARY_CTA/);
+    assert.match(home, /ProductPreview/);
+    assert.match(home, /MarketingFaq/);
+    const header = readFileSync("components/site-header.tsx", "utf8");
+    assert.match(header, /LANDING_PRIMARY_CTA/);
+    assert.doesNotMatch(header, />Subscribe</);
+    assert.match(LANDING_HERO.demoNote, /browser-only preview/);
+    assert.match(LANDING_HERO.title, /24\/7 AI Customer Service & Sales Assistant/);
+    assert.match(LANDING_HERO.subtitle, /does not invent prices/);
+    assert.match(FAQ_ITEMS.find((item) => item.id === "appointments")!.answer, /does not confirm a booking/);
+    assert.equal(FAQ_ITEMS.length >= 6, true);
+    assert.match(HOME_METADATA.description, /\$29 per month/);
+  });
+
+  it("lists only public marketing URLs on the sitemap", () => {
+    const urls = publicSitemapUrls().map((entry) => entry.url);
+    assert.ok(urls.includes(PRODUCTION_PUBLIC_ORIGIN));
+    assert.ok(urls.includes(`${PRODUCTION_PUBLIC_ORIGIN}/signup`));
+    assert.ok(urls.includes(`${PRODUCTION_PUBLIC_ORIGIN}/privacy`));
+    assert.equal(
+      urls.some((url) => url.includes("/app") || url.includes("/api")),
+      false,
+    );
+  });
+});
