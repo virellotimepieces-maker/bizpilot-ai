@@ -15,7 +15,7 @@ import {
   patchLead,
   patchQuoteRequest,
 } from "@/lib/v2/records";
-import { requireUnansweredStatus } from "@/lib/v2/assert";
+import { persistFutureIntegrationStatus, requireUnansweredStatus } from "@/lib/v2/assert";
 import type {
   AppointmentRequestRecord,
   AppointmentRequestWrite,
@@ -1092,7 +1092,7 @@ export class MemoryBillingStore implements BillingStore {
       this.integrationConnections.push(row);
       return row;
     }
-    existing.status = input.status ?? existing.status;
+    existing.status = persistFutureIntegrationStatus(input.status ?? existing.status);
     existing.updatedAt = new Date();
     return existing;
   }

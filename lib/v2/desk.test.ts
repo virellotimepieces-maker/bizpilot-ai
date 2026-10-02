@@ -244,7 +244,13 @@ describe("V2 desk store foundations", () => {
       provider: "shopify",
     });
     assert.equal(shopify.status, "disconnected");
-    assert.equal((await store.listIntegrationConnections(workspaceA.id))[0]?.provider, "shopify");
+    const forced = await store.upsertIntegrationConnection({
+      workspaceId: workspaceA.id,
+      provider: "shopify",
+      status: "connected",
+    });
+    assert.equal(forced.status, "disconnected");
+    assert.equal((await store.listIntegrationConnections(workspaceA.id))[0]?.status, "disconnected");
   });
 
   it("computes overview counts only from stored records", async () => {

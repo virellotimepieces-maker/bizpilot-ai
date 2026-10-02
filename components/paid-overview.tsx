@@ -308,6 +308,9 @@ export function PaidOverview() {
         <Button size="sm" variant="outline" render={<Link href="/app/social" />}>
           Social drafts
         </Button>
+        <Button size="sm" variant="outline" render={<Link href="/app/integrations" />}>
+          Open integrations
+        </Button>
       </div>
     </div>
   );

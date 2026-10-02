@@ -65,6 +65,15 @@ export function requireIntegrationStatus(value: string): IntegrationConnectionSt
   return value;
 }
 
+/**
+ * Shopify, WooCommerce, and Calendar cannot be stored as connected or pending
+ * until a live integration exists. Unknown values still throw.
+ */
+export function persistFutureIntegrationStatus(value?: string): "disconnected" {
+  if (value !== undefined) requireIntegrationStatus(value);
+  return "disconnected";
+}
+
 export function requireWidgetPosition(value: string): WidgetPosition {
   if (!isOneOf(value, WIDGET_POSITIONS)) invalid("Unknown widget position.");
   return value;

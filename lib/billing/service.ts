@@ -1,4 +1,5 @@
 import { chatAutoDecision, freezeVisitorText } from "@/lib/chat-auto";
+import { publicGmailStatus } from "@/lib/gmail/public";
 import { BIZPILOT_PRO, isPaidAccessStatus } from "@/lib/plan";
 import type { KnowledgeBase } from "@/lib/types";
 import { publishedKnowledgeBase } from "@/lib/v2/published-knowledge";
@@ -24,6 +25,8 @@ import {
   shouldPromoteToAppointmentIntent,
 } from "@/lib/v2/appointments";
 import { buildWorkspaceAnalytics } from "@/lib/v2/analytics";
+import { FUTURE_INTEGRATION_PROVIDERS } from "@/lib/v2/enums";
+import { buildWorkspaceIntegrations } from "@/lib/v2/integrations";
 import type { AppointmentRequestWrite, LeadInput, QuoteRequestWrite } from "@/lib/v2/types";
 import { groundedWebsiteAnswer } from "@/lib/website/answer";
 import type { WebsitePageRecord, WebsiteReplySource } from "@/lib/website/types";
@@ -289,6 +292,26 @@ export class BillingService {
       knowledgeEntries,
       websitePages: websitePages.length,
       usage,
+    });
+  }
+
+  async listWorkspaceIntegrations(workspaceId: string) {
+    const workspace = await this.store.getWorkspace(workspaceId);
+    if (!workspace) throw new BillingError("Workspace not found.", "not_found");
+    for (const provider of FUTURE_INTEGRATION_PROVIDERS) {
+      await this.store.upsertIntegrationConnection({
+        workspaceId,
+        provider,
+        status: "disconnected",
+      });
+    }
+    const [gmailRow, connections] = await Promise.all([
+      this.store.getGmailConnection(workspaceId),
+      this.store.listIntegrationConnections(workspaceId),
+    ]);
+    return buildWorkspaceIntegrations({
+      gmail: publicGmailStatus(gmailRow),
+      connections,
     });
   }
 

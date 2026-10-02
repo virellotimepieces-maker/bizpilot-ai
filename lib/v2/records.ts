@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { parseCustomerIntent } from "./intents";
 import {
+  persistFutureIntegrationStatus,
   requireAppointmentStatus,
   requireIntegrationProvider,
-  requireIntegrationStatus,
   requireKnowledgeKind,
   requireKnowledgeSourceType,
   requireLeadStatus,
@@ -223,7 +223,7 @@ export function newIntegrationConnection(input: {
     id: randomUUID(),
     workspaceId: input.workspaceId,
     provider: requireIntegrationProvider(input.provider),
-    status: requireIntegrationStatus(input.status ?? "disconnected"),
+    status: persistFutureIntegrationStatus(input.status),
     createdAt: now,
     updatedAt: now,
   };

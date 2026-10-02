@@ -101,6 +101,7 @@ Open [http://localhost:43127](http://localhost:43127).
 - `/app/quotes` Quote requests from widget questions (quote or estimate language). Status is owner-marked (requested, in review, marked sent, closed). Marked sent means you recorded that you sent a quote — BizPilot does not issue prices or quote documents. Also listed under Leads.
 - `/app/appointments` Appointment requests from widget questions (appointment or booking language). Status is owner-marked (requested, in review, declined, closed). There is no confirmed status. BizPilot does not write to a calendar. Also listed under Leads.
 - `/app/analytics` Stored workspace counts only: AI replies this billing period, conversations, leads, quote and appointment requests, unanswered questions, and knowledge facts. No sample traffic or invented conversion rates.
+- `/app/integrations` Live Gmail status plus social drafts. Shopify, WooCommerce, and Calendar are stored as not connected. There is no fake Connect button for those.
 - `/app/email` Connect Gmail inbox. AI drafts a relevant reply from the incoming email, using Knowledge as optional business or personal context. Review before sending. Email never auto-sends. Optional “Add email manually” fallback.
 - `/account` change password while signed in (no reset email)
 
