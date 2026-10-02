@@ -79,7 +79,7 @@ export function StoreLivePublicStrip() {
             : "border-t bg-muted/70"
       }
     >
-      <p className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-2 px-4 py-2 text-sm sm:px-6">
+      <p className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-2 px-4 py-2 text-sm sm:px-6">
         <StoreLivePill status={status} />
         <span className="font-medium">{status.detail}</span>
       </p>

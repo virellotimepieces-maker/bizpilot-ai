@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { HOME_METADATA } from "@/lib/marketing/copy";
+import { PRODUCTION_PUBLIC_ORIGIN } from "@/lib/public-origin";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,9 +16,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BizPilot AI",
-  description:
-    "BizPilot AI customer support for any business. One knowledge base powers website chat, a Gmail inbox with replies you confirm, and social drafts you post yourself.",
+  metadataBase: new URL(PRODUCTION_PUBLIC_ORIGIN),
+  title: {
+    default: HOME_METADATA.title,
+    template: "%s",
+  },
+  description: HOME_METADATA.description,
+  applicationName: "BizPilot AI",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    siteName: "BizPilot AI",
+    title: HOME_METADATA.title,
+    description: HOME_METADATA.description,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: HOME_METADATA.title,
+    description: HOME_METADATA.description,
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

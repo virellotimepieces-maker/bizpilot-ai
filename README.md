@@ -1,6 +1,6 @@
 # BizPilot AI
 
-Customer support for one business at a time, billed as **BizPilot Pro**.
+24/7 AI customer service and sales assistance for one business, billed as **BizPilot Pro**.
 
 ## Two modes (keep them separate)
 
