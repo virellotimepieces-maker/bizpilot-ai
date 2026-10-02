@@ -1,4 +1,18 @@
 import type { KnowledgeBase, ReplySource } from "@/lib/types";
+import type { ConversationV2Patch } from "@/lib/v2/conversation";
+import type {
+  AppointmentRequestRecord,
+  IntegrationConnectionRecord,
+  KnowledgeEntryFilters,
+  KnowledgeEntryInput,
+  KnowledgeEntryRecord,
+  LeadInput,
+  LeadRecord,
+  QuoteRequestRecord,
+  UnansweredQuestionRecord,
+  WidgetSettingsInput,
+  WidgetSettingsRecord,
+} from "@/lib/v2/types";
 import type { WebsitePageRecord, WebsiteSourceRecord } from "@/lib/website/types";
 import type {
   ConversationRecord,
@@ -84,8 +98,11 @@ export interface BillingStore {
     workspaceId: string;
     type: NotificationRecord["type"];
     message: string;
+    relatedType?: string;
+    relatedId?: string;
   }): Promise<NotificationRecord>;
   listNotifications(userId: string, workspaceId: string): Promise<NotificationRecord[]>;
+  markNotificationRead(id: string, userId: string, workspaceId: string, now?: Date): Promise<NotificationRecord>;
 
   createConversation(input: {
     workspaceId: string;
@@ -100,6 +117,8 @@ export interface BillingStore {
   listConversations(workspaceId: string): Promise<ConversationRecord[]>;
   countWaitingConversations(workspaceId: string): Promise<number>;
   setConversationWaiting(id: string, workspaceId: string, waiting: boolean): Promise<ConversationRecord>;
+  updateConversation(id: string, workspaceId: string, patch: ConversationV2Patch): Promise<ConversationRecord>;
+  markConversationRead(id: string, workspaceId: string, now?: Date): Promise<ConversationRecord>;
   addMessage(input: {
     workspaceId: string;
     conversationId: string;
@@ -278,4 +297,90 @@ export interface BillingStore {
     gmailMessageId: string,
     now?: Date,
   ): Promise<GmailReplyDraftRecord>;
+
+  listKnowledgeEntries(workspaceId: string, filters?: KnowledgeEntryFilters): Promise<KnowledgeEntryRecord[]>;
+  getKnowledgeEntry(id: string, workspaceId: string): Promise<KnowledgeEntryRecord | null>;
+  createKnowledgeEntry(workspaceId: string, input: KnowledgeEntryInput): Promise<KnowledgeEntryRecord>;
+  updateKnowledgeEntry(
+    id: string,
+    workspaceId: string,
+    patch: Partial<KnowledgeEntryInput>,
+  ): Promise<KnowledgeEntryRecord>;
+  deleteKnowledgeEntry(id: string, workspaceId: string): Promise<void>;
+
+  listUnansweredQuestions(workspaceId: string): Promise<UnansweredQuestionRecord[]>;
+  createUnansweredQuestion(input: {
+    workspaceId: string;
+    conversationId?: string | null;
+    question: string;
+    detectedLanguage?: string;
+  }): Promise<UnansweredQuestionRecord>;
+  updateUnansweredQuestion(
+    id: string,
+    workspaceId: string,
+    patch: Partial<Pick<UnansweredQuestionRecord, "status" | "resolvedAt">>,
+  ): Promise<UnansweredQuestionRecord>;
+
+  listLeads(workspaceId: string): Promise<LeadRecord[]>;
+  getLead(id: string, workspaceId: string): Promise<LeadRecord | null>;
+  createLead(workspaceId: string, input?: LeadInput): Promise<LeadRecord>;
+  updateLead(id: string, workspaceId: string, patch: LeadInput): Promise<LeadRecord>;
+
+  listQuoteRequests(workspaceId: string): Promise<QuoteRequestRecord[]>;
+  createQuoteRequest(
+    workspaceId: string,
+    input?: Partial<
+      Pick<
+        QuoteRequestRecord,
+        | "conversationId"
+        | "leadId"
+        | "customerName"
+        | "email"
+        | "phone"
+        | "productService"
+        | "requirements"
+        | "notes"
+        | "status"
+      >
+    >,
+  ): Promise<QuoteRequestRecord>;
+  updateQuoteRequest(
+    id: string,
+    workspaceId: string,
+    patch: Partial<Pick<QuoteRequestRecord, "status" | "notes" | "requirements" | "productService">>,
+  ): Promise<QuoteRequestRecord>;
+
+  listAppointmentRequests(workspaceId: string): Promise<AppointmentRequestRecord[]>;
+  createAppointmentRequest(
+    workspaceId: string,
+    input?: Partial<
+      Pick<
+        AppointmentRequestRecord,
+        | "conversationId"
+        | "leadId"
+        | "customerName"
+        | "email"
+        | "phone"
+        | "requestedService"
+        | "preferredAt"
+        | "notes"
+        | "status"
+      >
+    >,
+  ): Promise<AppointmentRequestRecord>;
+  updateAppointmentRequest(
+    id: string,
+    workspaceId: string,
+    patch: Partial<Pick<AppointmentRequestRecord, "status" | "notes" | "preferredAt" | "requestedService">>,
+  ): Promise<AppointmentRequestRecord>;
+
+  getWidgetSettings(workspaceId: string): Promise<WidgetSettingsRecord | null>;
+  upsertWidgetSettings(workspaceId: string, patch?: WidgetSettingsInput): Promise<WidgetSettingsRecord>;
+
+  listIntegrationConnections(workspaceId: string): Promise<IntegrationConnectionRecord[]>;
+  upsertIntegrationConnection(input: {
+    workspaceId: string;
+    provider: IntegrationConnectionRecord["provider"];
+    status?: IntegrationConnectionRecord["status"];
+  }): Promise<IntegrationConnectionRecord>;
 }

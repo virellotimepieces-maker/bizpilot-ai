@@ -1,6 +1,33 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { BIZPILOT_PRO } from "@/lib/plan";
 import type { KnowledgeBase, ReplySource } from "@/lib/types";
+import { applyConversationPatch, newConversationRecord, type ConversationV2Patch } from "@/lib/v2/conversation";
+import { knowledgeEntryMatchesQuery } from "@/lib/v2/knowledge-entries";
+import {
+  newAppointmentRequest,
+  newIntegrationConnection,
+  newKnowledgeEntry,
+  newLead,
+  newQuoteRequest,
+  newUnansweredQuestion,
+  patchKnowledgeEntry,
+  patchLead,
+} from "@/lib/v2/records";
+import { requireAppointmentStatus, requireQuoteStatus, requireUnansweredStatus } from "@/lib/v2/assert";
+import type {
+  AppointmentRequestRecord,
+  IntegrationConnectionRecord,
+  KnowledgeEntryFilters,
+  KnowledgeEntryInput,
+  KnowledgeEntryRecord,
+  LeadInput,
+  LeadRecord,
+  QuoteRequestRecord,
+  UnansweredQuestionRecord,
+  WidgetSettingsInput,
+  WidgetSettingsRecord,
+} from "@/lib/v2/types";
+import { defaultWidgetSettings, mergeWidgetSettings } from "@/lib/v2/widget-settings";
 import type { WebsitePageKind, WebsitePageRecord, WebsiteSourceRecord } from "@/lib/website/types";
 import type { BillingStore, CreateUserInput, UpsertSubscriptionInput } from "./store";
 import type {
@@ -40,6 +67,13 @@ export class MemoryBillingStore implements BillingStore {
   emailDrafts: EmailDraftRecord[] = [];
   gmailConnections = new Map<string, GmailConnectionRecord>();
   gmailReplyDrafts: GmailReplyDraftRecord[] = [];
+  knowledgeEntries: KnowledgeEntryRecord[] = [];
+  unansweredQuestions: UnansweredQuestionRecord[] = [];
+  leads: LeadRecord[] = [];
+  quoteRequests: QuoteRequestRecord[] = [];
+  appointmentRequests: AppointmentRequestRecord[] = [];
+  widgetSettings = new Map<string, WidgetSettingsRecord>();
+  integrationConnections: IntegrationConnectionRecord[] = [];
   private locks = new Map<string, Promise<void>>();
 
   private async withLock<T>(key: string, fn: () => Promise<T> | T): Promise<T> {
@@ -281,6 +315,8 @@ export class MemoryBillingStore implements BillingStore {
     workspaceId: string;
     type: NotificationRecord["type"];
     message: string;
+    relatedType?: string;
+    relatedId?: string;
   }) {
     const row: NotificationRecord = {
       id: randomUUID(),
@@ -288,6 +324,8 @@ export class MemoryBillingStore implements BillingStore {
       workspaceId: input.workspaceId,
       type: input.type,
       message: input.message,
+      relatedType: input.relatedType ?? "",
+      relatedId: input.relatedId ?? "",
       createdAt: new Date(),
       readAt: null,
     };
@@ -301,14 +339,21 @@ export class MemoryBillingStore implements BillingStore {
     );
   }
 
+  async markNotificationRead(id: string, userId: string, workspaceId: string, now = new Date()) {
+    const row = this.notifications.find(
+      (item) => item.id === id && item.userId === userId && item.workspaceId === workspaceId,
+    );
+    if (!row) throw new Error("notification_missing");
+    row.readAt = now;
+    return row;
+  }
+
   async createConversation(input: { workspaceId: string; visitorKey: string }) {
-    const row: ConversationRecord = {
+    const row = newConversationRecord({
       id: randomUUID(),
       workspaceId: input.workspaceId,
       visitorKey: input.visitorKey,
-      waitingOnHuman: false,
-      createdAt: new Date(),
-    };
+    });
     this.conversations.set(row.id, row);
     return row;
   }
@@ -339,7 +384,7 @@ export class MemoryBillingStore implements BillingStore {
   async listConversations(workspaceId: string) {
     return [...this.conversations.values()]
       .filter((row) => row.workspaceId === workspaceId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
   }
 
   async countWaitingConversations(workspaceId: string) {
@@ -355,6 +400,18 @@ export class MemoryBillingStore implements BillingStore {
     return row;
   }
 
+  async updateConversation(id: string, workspaceId: string, patch: ConversationV2Patch) {
+    const row = await this.getConversation(id, workspaceId);
+    if (!row) throw new Error("conversation_missing");
+    const next = applyConversationPatch(row, patch);
+    this.conversations.set(id, next);
+    return next;
+  }
+
+  async markConversationRead(id: string, workspaceId: string, now = new Date()) {
+    return this.updateConversation(id, workspaceId, { ownerLastReadAt: now });
+  }
+
   async addMessage(input: {
     workspaceId: string;
     conversationId: string;
@@ -365,6 +422,7 @@ export class MemoryBillingStore implements BillingStore {
   }) {
     const conversation = await this.getConversation(input.conversationId, input.workspaceId);
     if (!conversation) throw new Error("conversation_missing");
+    const createdAt = new Date();
     const row: MessageRecord = {
       id: randomUUID(),
       workspaceId: input.workspaceId,
@@ -373,9 +431,10 @@ export class MemoryBillingStore implements BillingStore {
       content: input.content,
       usageCounted: input.usageCounted,
       sources: input.sources ?? null,
-      createdAt: new Date(),
+      createdAt,
     };
     this.messages.push(row);
+    this.conversations.set(conversation.id, { ...conversation, lastMessageAt: createdAt });
     return row;
   }
 
@@ -830,5 +889,243 @@ export class MemoryBillingStore implements BillingStore {
     row.sendLockAt = now;
     row.updatedAt = now;
     return row;
+  }
+
+  async listKnowledgeEntries(workspaceId: string, filters?: KnowledgeEntryFilters) {
+    return this.knowledgeEntries
+      .filter((row) => row.workspaceId === workspaceId)
+      .filter((row) => (filters?.kind ? row.kind === filters.kind : true))
+      .filter((row) => (filters?.enabled === undefined ? true : row.enabled === filters.enabled))
+      .filter((row) => knowledgeEntryMatchesQuery(row.title, row.content, filters?.query ?? ""))
+      .sort((a, b) => b.lastUpdatedAt.getTime() - a.lastUpdatedAt.getTime());
+  }
+
+  async getKnowledgeEntry(id: string, workspaceId: string) {
+    return this.knowledgeEntries.find((row) => row.id === id && row.workspaceId === workspaceId) ?? null;
+  }
+
+  async createKnowledgeEntry(workspaceId: string, input: KnowledgeEntryInput) {
+    const row = newKnowledgeEntry(workspaceId, input);
+    this.knowledgeEntries.push(row);
+    return row;
+  }
+
+  async updateKnowledgeEntry(id: string, workspaceId: string, patch: Partial<KnowledgeEntryInput>) {
+    const current = await this.getKnowledgeEntry(id, workspaceId);
+    if (!current) throw new Error("knowledge_entry_missing");
+    const next = patchKnowledgeEntry(current, patch);
+    this.knowledgeEntries = this.knowledgeEntries.map((row) => (row.id === id ? next : row));
+    return next;
+  }
+
+  async deleteKnowledgeEntry(id: string, workspaceId: string) {
+    const current = await this.getKnowledgeEntry(id, workspaceId);
+    if (!current) throw new Error("knowledge_entry_missing");
+    this.knowledgeEntries = this.knowledgeEntries.filter((row) => row.id !== id);
+  }
+
+  async listUnansweredQuestions(workspaceId: string) {
+    return this.unansweredQuestions
+      .filter((row) => row.workspaceId === workspaceId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createUnansweredQuestion(input: {
+    workspaceId: string;
+    conversationId?: string | null;
+    question: string;
+    detectedLanguage?: string;
+  }) {
+    if (input.conversationId) {
+      const conversation = await this.getConversation(input.conversationId, input.workspaceId);
+      if (!conversation) throw new Error("conversation_missing");
+    }
+    const row = newUnansweredQuestion(input);
+    this.unansweredQuestions.push(row);
+    return row;
+  }
+
+  async updateUnansweredQuestion(
+    id: string,
+    workspaceId: string,
+    patch: Partial<Pick<UnansweredQuestionRecord, "status" | "resolvedAt">>,
+  ) {
+    const row = this.unansweredQuestions.find((item) => item.id === id && item.workspaceId === workspaceId);
+    if (!row) throw new Error("unanswered_question_missing");
+    if (patch.status !== undefined) row.status = requireUnansweredStatus(patch.status);
+    if (patch.resolvedAt !== undefined) row.resolvedAt = patch.resolvedAt;
+    if (row.status !== "open" && !row.resolvedAt) row.resolvedAt = new Date();
+    return row;
+  }
+
+  async listLeads(workspaceId: string) {
+    return this.leads
+      .filter((row) => row.workspaceId === workspaceId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getLead(id: string, workspaceId: string) {
+    return this.leads.find((row) => row.id === id && row.workspaceId === workspaceId) ?? null;
+  }
+
+  async createLead(workspaceId: string, input: LeadInput = {}) {
+    if (input.conversationId) {
+      const conversation = await this.getConversation(input.conversationId, workspaceId);
+      if (!conversation) throw new Error("conversation_missing");
+    }
+    const row = newLead(workspaceId, input);
+    this.leads.push(row);
+    return row;
+  }
+
+  async updateLead(id: string, workspaceId: string, patch: LeadInput) {
+    const current = await this.getLead(id, workspaceId);
+    if (!current) throw new Error("lead_missing");
+    if (patch.conversationId) {
+      const conversation = await this.getConversation(patch.conversationId, workspaceId);
+      if (!conversation) throw new Error("conversation_missing");
+    }
+    const next = patchLead(current, patch);
+    this.leads = this.leads.map((row) => (row.id === id ? next : row));
+    return next;
+  }
+
+  async listQuoteRequests(workspaceId: string) {
+    return this.quoteRequests
+      .filter((row) => row.workspaceId === workspaceId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createQuoteRequest(
+    workspaceId: string,
+    input: Partial<
+      Pick<
+        QuoteRequestRecord,
+        | "conversationId"
+        | "leadId"
+        | "customerName"
+        | "email"
+        | "phone"
+        | "productService"
+        | "requirements"
+        | "notes"
+        | "status"
+      >
+    > = {},
+  ) {
+    if (input.conversationId) {
+      const conversation = await this.getConversation(input.conversationId, workspaceId);
+      if (!conversation) throw new Error("conversation_missing");
+    }
+    if (input.leadId) {
+      const lead = await this.getLead(input.leadId, workspaceId);
+      if (!lead) throw new Error("lead_missing");
+    }
+    const row = newQuoteRequest(workspaceId, input);
+    this.quoteRequests.push(row);
+    return row;
+  }
+
+  async updateQuoteRequest(
+    id: string,
+    workspaceId: string,
+    patch: Partial<Pick<QuoteRequestRecord, "status" | "notes" | "requirements" | "productService">>,
+  ) {
+    const row = this.quoteRequests.find((item) => item.id === id && item.workspaceId === workspaceId);
+    if (!row) throw new Error("quote_request_missing");
+    if (patch.status !== undefined) row.status = requireQuoteStatus(patch.status);
+    if (patch.notes !== undefined) row.notes = patch.notes;
+    if (patch.requirements !== undefined) row.requirements = patch.requirements;
+    if (patch.productService !== undefined) row.productService = patch.productService;
+    row.updatedAt = new Date();
+    return row;
+  }
+
+  async listAppointmentRequests(workspaceId: string) {
+    return this.appointmentRequests
+      .filter((row) => row.workspaceId === workspaceId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createAppointmentRequest(
+    workspaceId: string,
+    input: Partial<
+      Pick<
+        AppointmentRequestRecord,
+        | "conversationId"
+        | "leadId"
+        | "customerName"
+        | "email"
+        | "phone"
+        | "requestedService"
+        | "preferredAt"
+        | "notes"
+        | "status"
+      >
+    > = {},
+  ) {
+    if (input.conversationId) {
+      const conversation = await this.getConversation(input.conversationId, workspaceId);
+      if (!conversation) throw new Error("conversation_missing");
+    }
+    if (input.leadId) {
+      const lead = await this.getLead(input.leadId, workspaceId);
+      if (!lead) throw new Error("lead_missing");
+    }
+    const row = newAppointmentRequest(workspaceId, input);
+    this.appointmentRequests.push(row);
+    return row;
+  }
+
+  async updateAppointmentRequest(
+    id: string,
+    workspaceId: string,
+    patch: Partial<Pick<AppointmentRequestRecord, "status" | "notes" | "preferredAt" | "requestedService">>,
+  ) {
+    const row = this.appointmentRequests.find((item) => item.id === id && item.workspaceId === workspaceId);
+    if (!row) throw new Error("appointment_request_missing");
+    if (patch.status !== undefined) row.status = requireAppointmentStatus(patch.status);
+    if (patch.notes !== undefined) row.notes = patch.notes;
+    if (patch.preferredAt !== undefined) row.preferredAt = patch.preferredAt;
+    if (patch.requestedService !== undefined) row.requestedService = patch.requestedService;
+    row.updatedAt = new Date();
+    return row;
+  }
+
+  async getWidgetSettings(workspaceId: string) {
+    return this.widgetSettings.get(workspaceId) ?? null;
+  }
+
+  async upsertWidgetSettings(workspaceId: string, patch: WidgetSettingsInput = {}) {
+    const current = this.widgetSettings.get(workspaceId);
+    const base: WidgetSettingsRecord = current ?? {
+      id: randomUUID(),
+      ...defaultWidgetSettings(workspaceId),
+    };
+    const next = mergeWidgetSettings(base, patch);
+    this.widgetSettings.set(workspaceId, next);
+    return next;
+  }
+
+  async listIntegrationConnections(workspaceId: string) {
+    return this.integrationConnections.filter((row) => row.workspaceId === workspaceId);
+  }
+
+  async upsertIntegrationConnection(input: {
+    workspaceId: string;
+    provider: IntegrationConnectionRecord["provider"];
+    status?: IntegrationConnectionRecord["status"];
+  }) {
+    const existing = this.integrationConnections.find(
+      (row) => row.workspaceId === input.workspaceId && row.provider === input.provider,
+    );
+    if (!existing) {
+      const row = newIntegrationConnection(input);
+      this.integrationConnections.push(row);
+      return row;
+    }
+    existing.status = input.status ?? existing.status;
+    existing.updatedAt = new Date();
+    return existing;
   }
 }
