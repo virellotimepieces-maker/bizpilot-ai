@@ -10,6 +10,7 @@ import { missingPaidEnv } from "@/lib/env";
 import { operatorSetup } from "@/lib/operator-setup";
 import { leadCounts } from "@/lib/v2/leads";
 import { quoteCounts } from "@/lib/v2/quotes";
+import { appointmentCounts } from "@/lib/v2/appointments";
 
 export async function GET() {
   try {
@@ -42,6 +43,8 @@ export async function GET() {
     const leads = leadCounts(leadRows);
     const quoteRows = workspace ? await store.listQuoteRequests(workspace.id) : [];
     const quotes = quoteCounts(quoteRows);
+    const appointmentRows = workspace ? await store.listAppointmentRequests(workspace.id) : [];
+    const appointments = appointmentCounts(appointmentRows);
     const setup = workspaceSetup({
       knowledge: workspace?.knowledge ?? null,
       websiteVerified: Boolean(website?.verifiedAt),
@@ -58,6 +61,7 @@ export async function GET() {
       waitingOnHuman,
       leads,
       quotes,
+      appointments,
       plan: BIZPILOT_PRO,
       paidAccess: hasPaidDashboardAccess(subscription),
       missingEnv: missingPaidEnv(),

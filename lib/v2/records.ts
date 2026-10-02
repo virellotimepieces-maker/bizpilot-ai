@@ -12,6 +12,7 @@ import {
 import { parseWidgetPosition } from "./widget-settings";
 import type {
   AppointmentRequestRecord,
+  AppointmentRequestWrite,
   IntegrationConnectionRecord,
   KnowledgeEntryInput,
   KnowledgeEntryRecord,
@@ -170,20 +171,7 @@ export function patchQuoteRequest(
 
 export function newAppointmentRequest(
   workspaceId: string,
-  input: Partial<
-    Pick<
-      AppointmentRequestRecord,
-      | "conversationId"
-      | "leadId"
-      | "customerName"
-      | "email"
-      | "phone"
-      | "requestedService"
-      | "preferredAt"
-      | "notes"
-      | "status"
-    >
-  > = {},
+  input: AppointmentRequestWrite = {},
   now = new Date(),
 ): AppointmentRequestRecord {
   return {
@@ -199,6 +187,27 @@ export function newAppointmentRequest(
     notes: (input.notes ?? "").trim(),
     status: requireAppointmentStatus(input.status ?? "requested"),
     createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function patchAppointmentRequest(
+  row: AppointmentRequestRecord,
+  patch: AppointmentRequestWrite,
+  now = new Date(),
+): AppointmentRequestRecord {
+  return {
+    ...row,
+    conversationId: patch.conversationId === undefined ? row.conversationId : patch.conversationId,
+    leadId: patch.leadId === undefined ? row.leadId : patch.leadId,
+    customerName: patch.customerName === undefined ? row.customerName : patch.customerName.trim(),
+    email: patch.email === undefined ? row.email : patch.email.trim().toLowerCase(),
+    phone: patch.phone === undefined ? row.phone : patch.phone.trim(),
+    requestedService:
+      patch.requestedService === undefined ? row.requestedService : patch.requestedService.trim(),
+    preferredAt: patch.preferredAt === undefined ? row.preferredAt : patch.preferredAt.trim(),
+    notes: patch.notes === undefined ? row.notes : patch.notes.trim(),
+    status: patch.status === undefined ? row.status : requireAppointmentStatus(patch.status),
     updatedAt: now,
   };
 }

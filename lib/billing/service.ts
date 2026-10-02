@@ -14,7 +14,16 @@ import {
   quotesForConversation,
   shouldPromoteToQuoteIntent,
 } from "@/lib/v2/quotes";
-import type { LeadInput, QuoteRequestWrite } from "@/lib/v2/types";
+import {
+  appointmentsForConversation,
+  extractPreferredAt,
+  extractRequestedService,
+  filterAppointmentRequests,
+  findOpenAppointmentForConversation,
+  isAppointmentRequestQuestion,
+  shouldPromoteToAppointmentIntent,
+} from "@/lib/v2/appointments";
+import type { AppointmentRequestWrite, LeadInput, QuoteRequestWrite } from "@/lib/v2/types";
 import { groundedWebsiteAnswer } from "@/lib/website/answer";
 import type { WebsitePageRecord, WebsiteReplySource } from "@/lib/website/types";
 import type { BillingStore } from "./store";
@@ -175,6 +184,10 @@ export class BillingService {
       workspaceId: workspace.id,
       conversation,
     });
+    await this.syncAppointmentContactFromConversation({
+      workspaceId: workspace.id,
+      conversation,
+    });
     return conversation;
   }
 
@@ -230,6 +243,28 @@ export class BillingService {
     }
   }
 
+  async listWorkspaceAppointmentRequests(
+    workspaceId: string,
+    filters: { status?: string | null; query?: string | null } = {},
+  ) {
+    return filterAppointmentRequests(await this.store.listAppointmentRequests(workspaceId), filters);
+  }
+
+  async updateWorkspaceAppointmentRequest(
+    workspaceId: string,
+    appointmentId: string,
+    patch: AppointmentRequestWrite,
+  ) {
+    try {
+      return await this.store.updateAppointmentRequest(appointmentId, workspaceId, patch);
+    } catch (error) {
+      if (error instanceof Error && error.message === "appointment_request_missing") {
+        throw new BillingError("Appointment request not found.", "not_found");
+      }
+      throw error;
+    }
+  }
+
   async generateCountedAiReply(options: {
     widgetKey: string;
     visitorKey: string;
@@ -271,6 +306,12 @@ export class BillingService {
       }));
 
     await this.captureQuoteRequestIfNeeded({
+      workspaceId: workspace.id,
+      userId: workspace.ownerUserId,
+      conversationId: thread.id,
+      question: options.question,
+    });
+    await this.captureAppointmentRequestIfNeeded({
       workspaceId: workspace.id,
       userId: workspace.ownerUserId,
       conversationId: thread.id,
@@ -724,6 +765,114 @@ export class BillingService {
         "A visitor asked for a quote. This is a request to review — BizPilot did not issue a price or a quote document.",
       relatedType: "quote_request",
       relatedId: input.quoteId,
+    });
+  }
+
+  private async captureAppointmentRequestIfNeeded(input: {
+    workspaceId: string;
+    userId: string;
+    conversationId: string;
+    question: string;
+  }) {
+    if (!isAppointmentRequestQuestion(input.question)) return;
+    const conversation = await this.store.getConversation(input.conversationId, input.workspaceId);
+    if (!conversation) return;
+    const appointments = await this.store.listAppointmentRequests(input.workspaceId);
+    const open = findOpenAppointmentForConversation(appointments, conversation.id);
+    const lead = findLeadForConversation(
+      await this.store.listLeads(input.workspaceId),
+      conversation.id,
+    );
+    const requestedService =
+      extractRequestedService(input.question) || input.question.trim().slice(0, 160);
+    const preferredAt = extractPreferredAt(input.question);
+    const contact = {
+      customerName: conversation.visitorName,
+      email: conversation.visitorEmail,
+      phone: conversation.visitorPhone,
+      leadId: lead?.id ?? null,
+    };
+    if (open) {
+      await this.store.updateAppointmentRequest(open.id, input.workspaceId, {
+        requestedService: open.requestedService || requestedService,
+        preferredAt: preferredAt || open.preferredAt,
+        customerName: contact.customerName || open.customerName,
+        email: contact.email || open.email,
+        phone: contact.phone || open.phone,
+        leadId: contact.leadId ?? open.leadId,
+      });
+    } else {
+      const row = await this.store.createAppointmentRequest(input.workspaceId, {
+        conversationId: conversation.id,
+        ...contact,
+        requestedService,
+        preferredAt,
+        status: "requested",
+      });
+      await this.notifyAppointmentRequest({
+        workspaceId: input.workspaceId,
+        userId: input.userId,
+        appointmentId: row.id,
+      });
+    }
+    if (shouldPromoteToAppointmentIntent(conversation.customerIntent)) {
+      await this.store.updateConversation(conversation.id, input.workspaceId, {
+        customerIntent: "appointment_request",
+      });
+    }
+    if (lead && shouldPromoteToAppointmentIntent(lead.intent)) {
+      await this.store.updateLead(lead.id, input.workspaceId, {
+        intent: "appointment_request",
+        request: lead.request || input.question.trim().slice(0, 2000),
+      });
+    }
+  }
+
+  private async syncAppointmentContactFromConversation(input: {
+    workspaceId: string;
+    conversation: ConversationRecord;
+  }) {
+    const appointments = appointmentsForConversation(
+      await this.store.listAppointmentRequests(input.workspaceId),
+      input.conversation.id,
+    );
+    if (appointments.length === 0) return;
+    const lead = findLeadForConversation(
+      await this.store.listLeads(input.workspaceId),
+      input.conversation.id,
+    );
+    for (const row of appointments) {
+      await this.store.updateAppointmentRequest(row.id, input.workspaceId, {
+        customerName: input.conversation.visitorName || row.customerName,
+        email: input.conversation.visitorEmail || row.email,
+        phone: input.conversation.visitorPhone || row.phone,
+        leadId: lead?.id ?? row.leadId,
+      });
+    }
+  }
+
+  private async notifyAppointmentRequest(input: {
+    workspaceId: string;
+    userId: string;
+    appointmentId: string;
+  }) {
+    const existing = await this.store.listNotifications(input.userId, input.workspaceId);
+    if (
+      existing.some(
+        (row) =>
+          row.type === "appointment_request" && row.relatedId === input.appointmentId && !row.readAt,
+      )
+    ) {
+      return;
+    }
+    await this.store.addNotification({
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+      type: "appointment_request",
+      message:
+        "A visitor asked for an appointment. This is a request to review — BizPilot did not confirm a booking or write to a calendar.",
+      relatedType: "appointment_request",
+      relatedId: input.appointmentId,
     });
   }
 

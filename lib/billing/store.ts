@@ -2,6 +2,7 @@ import type { KnowledgeBase, ReplySource } from "@/lib/types";
 import type { ConversationV2Patch } from "@/lib/v2/conversation";
 import type {
   AppointmentRequestRecord,
+  AppointmentRequestWrite,
   IntegrationConnectionRecord,
   KnowledgeEntryFilters,
   KnowledgeEntryInput,
@@ -338,25 +339,12 @@ export interface BillingStore {
   listAppointmentRequests(workspaceId: string): Promise<AppointmentRequestRecord[]>;
   createAppointmentRequest(
     workspaceId: string,
-    input?: Partial<
-      Pick<
-        AppointmentRequestRecord,
-        | "conversationId"
-        | "leadId"
-        | "customerName"
-        | "email"
-        | "phone"
-        | "requestedService"
-        | "preferredAt"
-        | "notes"
-        | "status"
-      >
-    >,
+    input?: AppointmentRequestWrite,
   ): Promise<AppointmentRequestRecord>;
   updateAppointmentRequest(
     id: string,
     workspaceId: string,
-    patch: Partial<Pick<AppointmentRequestRecord, "status" | "notes" | "preferredAt" | "requestedService">>,
+    patch: AppointmentRequestWrite,
   ): Promise<AppointmentRequestRecord>;
 
   getWidgetSettings(workspaceId: string): Promise<WidgetSettingsRecord | null>;

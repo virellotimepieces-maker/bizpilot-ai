@@ -15,6 +15,7 @@ import {
   newLead,
   newQuoteRequest,
   newUnansweredQuestion,
+  patchAppointmentRequest,
   patchKnowledgeEntry,
   patchLead,
   patchQuoteRequest,
@@ -22,6 +23,7 @@ import {
 import { requireAppointmentStatus, requireQuoteStatus, requireUnansweredStatus } from "@/lib/v2/assert";
 import type {
   AppointmentRequestRecord,
+  AppointmentRequestWrite,
   IntegrationConnectionRecord,
   KnowledgeEntryFilters,
   KnowledgeEntryInput,
@@ -1573,23 +1575,7 @@ export class PrismaBillingStore implements BillingStore {
     return rows.map((row) => ({ ...row, status: requireAppointmentStatus(row.status) }));
   }
 
-  async createAppointmentRequest(
-    workspaceId: string,
-    input: Partial<
-      Pick<
-        AppointmentRequestRecord,
-        | "conversationId"
-        | "leadId"
-        | "customerName"
-        | "email"
-        | "phone"
-        | "requestedService"
-        | "preferredAt"
-        | "notes"
-        | "status"
-      >
-    > = {},
-  ) {
+  async createAppointmentRequest(workspaceId: string, input: AppointmentRequestWrite = {}) {
     await this.assertOwnedConversation(workspaceId, input.conversationId);
     await this.assertOwnedLead(workspaceId, input.leadId);
     const draft = newAppointmentRequest(workspaceId, input);
@@ -1610,20 +1596,27 @@ export class PrismaBillingStore implements BillingStore {
     return { ...row, status: draft.status };
   }
 
-  async updateAppointmentRequest(
-    id: string,
-    workspaceId: string,
-    patch: Partial<Pick<AppointmentRequestRecord, "status" | "notes" | "preferredAt" | "requestedService">>,
-  ) {
+  async updateAppointmentRequest(id: string, workspaceId: string, patch: AppointmentRequestWrite) {
     const existing = await this.prisma().appointmentRequest.findFirst({ where: { id, workspaceId } });
     if (!existing) throw new Error("appointment_request_missing");
+    if (patch.leadId) await this.assertOwnedLead(workspaceId, patch.leadId);
+    const current: AppointmentRequestRecord = {
+      ...existing,
+      status: requireAppointmentStatus(existing.status),
+    };
+    const next = patchAppointmentRequest(current, patch);
     const row = await this.prisma().appointmentRequest.update({
       where: { id },
       data: {
-        status: patch.status ? requireAppointmentStatus(patch.status) : undefined,
-        notes: patch.notes,
-        preferredAt: patch.preferredAt,
-        requestedService: patch.requestedService,
+        conversationId: next.conversationId,
+        leadId: next.leadId,
+        customerName: next.customerName,
+        email: next.email,
+        phone: next.phone,
+        requestedService: next.requestedService,
+        preferredAt: next.preferredAt,
+        notes: next.notes,
+        status: next.status,
       },
     });
     return { ...row, status: requireAppointmentStatus(row.status) };

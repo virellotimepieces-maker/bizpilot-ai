@@ -10,13 +10,15 @@ import {
   newLead,
   newQuoteRequest,
   newUnansweredQuestion,
+  patchAppointmentRequest,
   patchKnowledgeEntry,
   patchLead,
   patchQuoteRequest,
 } from "@/lib/v2/records";
-import { requireAppointmentStatus, requireUnansweredStatus } from "@/lib/v2/assert";
+import { requireUnansweredStatus } from "@/lib/v2/assert";
 import type {
   AppointmentRequestRecord,
+  AppointmentRequestWrite,
   IntegrationConnectionRecord,
   KnowledgeEntryFilters,
   KnowledgeEntryInput,
@@ -1030,23 +1032,7 @@ export class MemoryBillingStore implements BillingStore {
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
-  async createAppointmentRequest(
-    workspaceId: string,
-    input: Partial<
-      Pick<
-        AppointmentRequestRecord,
-        | "conversationId"
-        | "leadId"
-        | "customerName"
-        | "email"
-        | "phone"
-        | "requestedService"
-        | "preferredAt"
-        | "notes"
-        | "status"
-      >
-    > = {},
-  ) {
+  async createAppointmentRequest(workspaceId: string, input: AppointmentRequestWrite = {}) {
     if (input.conversationId) {
       const conversation = await this.getConversation(input.conversationId, workspaceId);
       if (!conversation) throw new Error("conversation_missing");
@@ -1060,19 +1046,18 @@ export class MemoryBillingStore implements BillingStore {
     return row;
   }
 
-  async updateAppointmentRequest(
-    id: string,
-    workspaceId: string,
-    patch: Partial<Pick<AppointmentRequestRecord, "status" | "notes" | "preferredAt" | "requestedService">>,
-  ) {
-    const row = this.appointmentRequests.find((item) => item.id === id && item.workspaceId === workspaceId);
-    if (!row) throw new Error("appointment_request_missing");
-    if (patch.status !== undefined) row.status = requireAppointmentStatus(patch.status);
-    if (patch.notes !== undefined) row.notes = patch.notes;
-    if (patch.preferredAt !== undefined) row.preferredAt = patch.preferredAt;
-    if (patch.requestedService !== undefined) row.requestedService = patch.requestedService;
-    row.updatedAt = new Date();
-    return row;
+  async updateAppointmentRequest(id: string, workspaceId: string, patch: AppointmentRequestWrite) {
+    const current = this.appointmentRequests.find(
+      (item) => item.id === id && item.workspaceId === workspaceId,
+    );
+    if (!current) throw new Error("appointment_request_missing");
+    if (patch.leadId) {
+      const lead = await this.getLead(patch.leadId, workspaceId);
+      if (!lead) throw new Error("lead_missing");
+    }
+    const next = patchAppointmentRequest(current, patch);
+    this.appointmentRequests = this.appointmentRequests.map((row) => (row.id === id ? next : row));
+    return next;
   }
 
   async getWidgetSettings(workspaceId: string) {

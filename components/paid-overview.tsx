@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { OperatorCheck } from "@/lib/operator-setup";
 import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS } from "@/lib/ui/type-scale";
-import { ClipboardList, Inbox } from "lucide-react";
+import { CalendarClock, ClipboardList, Inbox } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -29,6 +29,7 @@ type Bootstrap = {
   waitingOnHuman?: number;
   leads?: { total: number; new: number; qualified: number };
   quotes?: { total: number; open: number; requested: number; in_review: number };
+  appointments?: { total: number; open: number; requested: number; in_review: number };
   paidAccess: boolean;
   missingEnv: string[];
   operator?: { items: OperatorCheck[]; readyForSubscribers: boolean };
@@ -109,6 +110,7 @@ export function PaidOverview() {
   const waiting = data.waitingOnHuman ?? 0;
   const leadStats = data.leads ?? { total: 0, new: 0, qualified: 0 };
   const quoteStats = data.quotes ?? { total: 0, open: 0, requested: 0, in_review: 0 };
+  const appointmentStats = data.appointments ?? { total: 0, open: 0, requested: 0, in_review: 0 };
 
   return (
     <div className={PAGE_SHELL_CLASS}>
@@ -171,7 +173,7 @@ export function PaidOverview() {
         </Card>
       </section>
 
-      <section className="grid gap-3 lg:grid-cols-2">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Leads</CardTitle>
@@ -210,6 +212,26 @@ export function PaidOverview() {
             <Button size="sm" variant="outline" render={<Link href="/app/quotes" />}>
               <ClipboardList className="size-4" />
               Open quote requests
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Appointment requests</CardTitle>
+            <CardDescription>
+              Visitor asks to book a visit. These are requests to review — not calendar bookings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <p className="text-2xl font-semibold tracking-tight">{appointmentStats.open} to review</p>
+            <p className={HELPER_TEXT_CLASS}>
+              {appointmentStats.total === 0
+                ? "No appointment requests stored yet. The widget will not confirm a booking."
+                : `${appointmentStats.total} stored. There is no confirmed booking status.`}
+            </p>
+            <Button size="sm" variant="outline" render={<Link href="/app/appointments" />}>
+              <CalendarClock className="size-4" />
+              Open appointment requests
             </Button>
           </CardContent>
         </Card>

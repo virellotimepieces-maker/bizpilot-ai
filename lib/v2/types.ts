@@ -133,6 +133,21 @@ export interface AppointmentRequestRecord {
   updatedAt: Date;
 }
 
+export type AppointmentRequestWrite = Partial<
+  Pick<
+    AppointmentRequestRecord,
+    | "conversationId"
+    | "leadId"
+    | "customerName"
+    | "email"
+    | "phone"
+    | "requestedService"
+    | "preferredAt"
+    | "notes"
+    | "status"
+  >
+>;
+
 export interface WidgetSettingsRecord {
   id: string;
   workspaceId: string;

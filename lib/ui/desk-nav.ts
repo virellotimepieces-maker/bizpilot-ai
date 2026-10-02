@@ -34,7 +34,7 @@ export interface DeskNavItem {
 export const DESK_NAV: readonly DeskNavItem[] = [
   { id: "overview", href: "/app", label: "Overview", short: "Overview", icon: LayoutDashboard },
   { id: "inbox", href: "/app/inbox", label: "Inbox", short: "Inbox", icon: Inbox },
-  { id: "leads", href: "/app/leads", label: "Leads", short: "Leads", icon: UserRoundPlus, aliases: ["/app/quotes"] },
+  { id: "leads", href: "/app/leads", label: "Leads", short: "Leads", icon: UserRoundPlus, aliases: ["/app/quotes", "/app/appointments"] },
   { id: "knowledge", href: "/app/knowledge", label: "Knowledge", short: "Knowledge", icon: BookOpen },
   { id: "analytics", href: "/app/analytics", label: "Analytics", short: "Analytics", icon: BarChart3 },
   {
