@@ -4,10 +4,13 @@ import type { KnowledgeBase } from "@/lib/types";
 import { publishedKnowledgeBase } from "@/lib/v2/published-knowledge";
 import { answerLacksPublishedKnowledge, normalizeUnansweredQuestion } from "@/lib/v2/unanswered";
 import { defaultWidgetSettings, looksLikeEmail, publicWidgetAppearance } from "@/lib/v2/widget-settings";
+import { findLeadForConversation, filterLeads } from "@/lib/v2/leads";
+import { isHighIntent } from "@/lib/v2/intents";
+import type { LeadInput } from "@/lib/v2/types";
 import { groundedWebsiteAnswer } from "@/lib/website/answer";
 import type { WebsitePageRecord, WebsiteReplySource } from "@/lib/website/types";
 import type { BillingStore } from "./store";
-import { BillingError, type SubscriptionRecord, type UsagePeriodRecord } from "./types";
+import { BillingError, type ConversationRecord, type SubscriptionRecord, type UsagePeriodRecord } from "./types";
 
 export function hasPaidDashboardAccess(subscription: SubscriptionRecord | null, now = new Date()) {
   if (!subscription) return false;
@@ -150,11 +153,51 @@ export class BillingService {
         workspaceId: workspace.id,
         visitorKey,
       }));
-    return this.store.updateConversation(thread.id, workspace.id, {
+    const conversation = await this.store.updateConversation(thread.id, workspace.id, {
       visitorName: name || thread.visitorName,
       visitorEmail: email || thread.visitorEmail,
       visitorPhone: phone || thread.visitorPhone,
     });
+    await this.upsertLeadFromConversation({
+      workspaceId: workspace.id,
+      userId: workspace.ownerUserId,
+      conversation,
+    });
+    return conversation;
+  }
+
+  async listWorkspaceLeads(
+    workspaceId: string,
+    filters: { status?: string | null; query?: string | null } = {},
+  ) {
+    return filterLeads(await this.store.listLeads(workspaceId), filters);
+  }
+
+  async updateWorkspaceLead(workspaceId: string, leadId: string, patch: LeadInput) {
+    const current = await this.store.getLead(leadId, workspaceId);
+    if (!current) throw new BillingError("Lead not found.", "not_found");
+    let next;
+    try {
+      next = await this.store.updateLead(leadId, workspaceId, patch);
+    } catch (error) {
+      if (error instanceof Error && error.message === "lead_missing") {
+        throw new BillingError("Lead not found.", "not_found");
+      }
+      throw error;
+    }
+    if (current.status !== "qualified" && next.status === "qualified") {
+      const workspace = await this.store.getWorkspace(workspaceId);
+      if (workspace) {
+        await this.notifyLeadEvent({
+          workspaceId,
+          userId: workspace.ownerUserId,
+          type: "qualified_lead",
+          leadId: next.id,
+          message: "A lead was marked qualified. This is an owner status, not a confirmed sale.",
+        });
+      }
+    }
+    return next;
   }
 
   async generateCountedAiReply(options: {
@@ -493,6 +536,80 @@ export class BillingService {
       type: "usage_limit",
       message:
         "BizPilot Pro has used all 500 AI customer replies for this billing month. The website widget will not generate more AI replies until the next billing period. Visitors are offered a human handoff. There are no overage charges.",
+    });
+  }
+
+  private async upsertLeadFromConversation(input: {
+    workspaceId: string;
+    userId: string;
+    conversation: ConversationRecord;
+  }) {
+    const conversation = input.conversation;
+    const existing = findLeadForConversation(
+      await this.store.listLeads(input.workspaceId),
+      conversation.id,
+    );
+    const contact = {
+      name: conversation.visitorName,
+      email: conversation.visitorEmail,
+      phone: conversation.visitorPhone,
+      conversationId: conversation.id,
+      source: "website" as const,
+      intent: conversation.customerIntent,
+    };
+    if (existing) {
+      return this.store.updateLead(existing.id, input.workspaceId, {
+        name: contact.name || existing.name,
+        email: contact.email || existing.email,
+        phone: contact.phone || existing.phone,
+        intent: existing.intent === "general_question" ? contact.intent : existing.intent,
+      });
+    }
+    const lead = await this.store.createLead(input.workspaceId, {
+      ...contact,
+      status: "new",
+    });
+    await this.notifyLeadEvent({
+      workspaceId: input.workspaceId,
+      userId: input.userId,
+      type: "new_lead",
+      leadId: lead.id,
+      message: "A website visitor left contact details. Open Leads to review them.",
+    });
+    if (isHighIntent(lead.intent)) {
+      await this.notifyLeadEvent({
+        workspaceId: input.workspaceId,
+        userId: input.userId,
+        type: "high_intent",
+        leadId: lead.id,
+        message: "A captured lead was stored with a high-intent conversation tag. This is not a confirmed purchase.",
+      });
+    }
+    return lead;
+  }
+
+  private async notifyLeadEvent(input: {
+    workspaceId: string;
+    userId: string;
+    type: "new_lead" | "qualified_lead" | "high_intent";
+    leadId: string;
+    message: string;
+  }) {
+    const existing = await this.store.listNotifications(input.userId, input.workspaceId);
+    if (
+      existing.some(
+        (row) => row.type === input.type && row.relatedId === input.leadId && !row.readAt,
+      )
+    ) {
+      return;
+    }
+    await this.store.addNotification({
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+      type: input.type,
+      message: input.message,
+      relatedType: "lead",
+      relatedId: input.leadId,
     });
   }
 

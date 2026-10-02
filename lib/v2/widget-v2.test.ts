@@ -147,7 +147,7 @@ describe("Widget V2 appearance", () => {
 });
 
 describe("Widget V2 conversation contact capture", () => {
-  it("stores name and email on the conversation and does not create a Lead", async () => {
+  it("stores name and email on the conversation and creates one Lead", async () => {
     const { store, workspace, service } = await paidWorkspace();
     await store.upsertWidgetSettings(workspace.id, { leadCaptureEnabled: true, collectPhone: true });
     const conversation = await service.saveWidgetVisitorContact({
@@ -160,7 +160,21 @@ describe("Widget V2 conversation contact capture", () => {
     assert.equal(conversation.visitorName, "Pat Rivera");
     assert.equal(conversation.visitorEmail, "pat@example.com");
     assert.equal(conversation.visitorPhone, "555-0100");
-    assert.equal((await store.listLeads(workspace.id)).length, 0);
+    const leads = await store.listLeads(workspace.id);
+    assert.equal(leads.length, 1);
+    assert.equal(leads[0].email, "pat@example.com");
+    assert.equal(leads[0].conversationId, conversation.id);
+    assert.equal(leads[0].source, "website");
+    assert.equal(leads[0].status, "new");
+    await service.saveWidgetVisitorContact({
+      widgetKey: workspace.widgetKey,
+      visitorKey: "visitor-harbor",
+      conversationId: conversation.id,
+      name: "Pat Rivera",
+      email: "pat@example.com",
+      phone: "555-0100",
+    });
+    assert.equal((await store.listLeads(workspace.id)).length, 1);
     assert.equal(looksLikeEmail("pat@example.com"), true);
     assert.equal(looksLikeEmail("not-an-email"), false);
   });
@@ -176,6 +190,7 @@ describe("Widget V2 conversation contact capture", () => {
       phone: "555-0199",
     });
     assert.equal(conversation.visitorPhone, "");
+    assert.equal((await store.listLeads(workspace.id)).length, 1);
     await store.upsertWidgetSettings(workspace.id, { leadCaptureEnabled: false });
     await assert.rejects(
       () =>
@@ -186,12 +201,12 @@ describe("Widget V2 conversation contact capture", () => {
         }),
       (error: unknown) => error instanceof BillingError && error.code === "forbidden",
     );
-    assert.equal((await store.listLeads(workspace.id)).length, 0);
+    assert.equal((await store.listLeads(workspace.id)).length, 1);
   });
 });
 
 describe("Widget V2 UI wiring", () => {
-  it("adds appearance controls without showing a live Leads capture page", () => {
+  it("adds appearance controls and points contact capture at Leads", () => {
     const paid = readFileSync("components/paid-widget.tsx", "utf8");
     const form = readFileSync("components/widget-appearance-form.tsx", "utf8");
     const chat = readFileSync("components/widget-chat.tsx", "utf8");
@@ -201,15 +216,15 @@ describe("Widget V2 UI wiring", () => {
     assert.match(paid, /WIDGET_APP_SETTINGS_PATH/);
     assert.match(form, /Identify as an AI assistant/);
     assert.match(form, /Ask for name and email/);
-    assert.match(form, /Does not create a Lead row/);
+    assert.match(form, /creates a Lead/);
     assert.match(form, /DEFAULT_WIDGET_ACCENT/);
     assert.match(chat, /WIDGET_PUBLIC_SETTINGS_PATH/);
     assert.match(chat, /suggestedQuestions/);
     assert.match(chat, /leadCaptureEnabled/);
     assert.match(chat, /identifyAsAi/);
     assert.doesNotMatch(chat, /createLead|listLeads/);
-    assert.match(leads, /DeskPlaceholderPage/);
-    assert.match(leads, /No leads stored yet/);
+    assert.match(leads, /PaidLeads/);
+    assert.doesNotMatch(leads, /DeskPlaceholderPage/);
   });
 
   it("does not put secrets in widget appearance files", () => {

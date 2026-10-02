@@ -71,8 +71,8 @@ export function WidgetAppearanceForm({
     >
       <p className={HELPER_TEXT_CLASS}>
         These settings change the live website widget. They do not change the $29 BizPilot Pro
-        price, Stripe, or Gmail. Contact details a visitor leaves are stored on that conversation
-        only — this screen does not create a Leads list.
+        price, Stripe, or Gmail. When a visitor leaves a name or email, BizPilot stores it on the
+        conversation and creates a Lead you can review on Leads.
       </p>
       <Field
         label="Business name in the chat"
@@ -203,8 +203,8 @@ export function WidgetAppearanceForm({
           <span>
             Ask for name and email
             <span className={`mt-1 block font-normal ${HELPER_TEXT_CLASS}`}>
-              Optional for visitors. Saves on the conversation so you can follow up from Inbox.
-              Does not create a Lead row.
+              Optional for visitors. Saves on the conversation and creates a Lead for follow-up.
+              Does not invent names, emails, or sales.
             </span>
           </span>
           <Switch

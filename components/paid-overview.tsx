@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { OperatorCheck } from "@/lib/operator-setup";
 import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS } from "@/lib/ui/type-scale";
-import { Inbox, MessageCircleQuestion, UserRoundPlus } from "lucide-react";
+import { Inbox, MessageCircleQuestion } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -28,6 +28,7 @@ type Bootstrap = {
   notifications: { id: string; type: string; message: string }[];
   setup?: { items: SetupItem[]; readyForWidget: boolean };
   waitingOnHuman?: number;
+  leads?: { total: number; new: number; qualified: number };
   paidAccess: boolean;
   missingEnv: string[];
   operator?: { items: OperatorCheck[]; readyForSubscribers: boolean };
@@ -106,6 +107,7 @@ export function PaidOverview() {
     (row) => row.type === "usage_limit" || row.type === "payment_failed" || row.type === "human_needed",
   ).slice(0, 3);
   const waiting = data.waitingOnHuman ?? 0;
+  const leadStats = data.leads ?? { total: 0, new: 0, qualified: 0 };
 
   return (
     <div className={PAGE_SHELL_CLASS}>
@@ -169,16 +171,27 @@ export function PaidOverview() {
       </section>
 
       <section className="grid gap-3 lg:grid-cols-2">
-        <EmptyState
-          icon={UserRoundPlus}
-          title="New and qualified leads"
-          description="No lead list is shown here yet. When widget lead capture is connected, new and qualified leads will appear on Leads — this card will not invent counts."
-          action={
+        <Card>
+          <CardHeader>
+            <CardTitle>Leads</CardTitle>
+            <CardDescription>
+              Contacts stored from the website widget. Counts are from this workspace only.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <p className="text-2xl font-semibold tracking-tight">
+              {leadStats.new} new
+            </p>
+            <p className={HELPER_TEXT_CLASS}>
+              {leadStats.total === 0
+                ? "No contacts stored yet. The widget will not invent names or emails."
+                : `${leadStats.qualified} qualified · ${leadStats.total} total. Status is owner-marked, not a payment.`}
+            </p>
             <Button size="sm" variant="outline" render={<Link href="/app/leads" />}>
               Open leads
             </Button>
-          }
-        />
+          </CardContent>
+        </Card>
         <EmptyState
           icon={MessageCircleQuestion}
           title="Unanswered questions"

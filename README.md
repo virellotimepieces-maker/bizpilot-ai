@@ -96,7 +96,8 @@ Open [http://localhost:43127](http://localhost:43127).
 - `/billing` Stripe Checkout and Customer Portal. After Checkout, the page waits for the webhook to unlock `/app`. If a payment failed, update the card in Customer Portal — do not start a second subscription.
 - `/app` paid dashboard (blocked unless the subscription is active)
 - `/app/knowledge` Knowledge engine: searchable facts, unanswered questions, website sync, and the structured knowledge form
-- `/app/widget` Widget appearance (welcome, suggested questions, indigo accent, left/right launcher) plus the unique install snippet. Optional visitor name/email is stored on the conversation, not as a Lead.
+- `/app/widget` Widget appearance (welcome, suggested questions, indigo accent, left/right launcher) plus the unique install snippet. Optional visitor name/email is stored on the conversation and as a Lead.
+- `/app/leads` Contacts captured from the website widget. Status is owner-marked (new, qualified, follow up, converted, closed). Converted is not a Stripe payment.
 - `/app/email` Connect Gmail inbox. AI drafts a relevant reply from the incoming email, using Knowledge as optional business or personal context. Review before sending. Email never auto-sends. Optional “Add email manually” fallback.
 - `/account` change password while signed in (no reset email)
 
