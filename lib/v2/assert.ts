@@ -8,6 +8,7 @@ import {
   LEAD_STATUSES,
   QUOTE_REQUEST_STATUSES,
   UNANSWERED_STATUSES,
+  WIDGET_POSITIONS,
   isOneOf,
   type AppointmentRequestStatus,
   type FutureIntegrationProvider,
@@ -17,6 +18,7 @@ import {
   type LeadStatus,
   type QuoteRequestStatus,
   type UnansweredStatus,
+  type WidgetPosition,
 } from "./enums";
 
 function invalid(message: string): never {
@@ -60,5 +62,10 @@ export function requireIntegrationProvider(value: string): FutureIntegrationProv
 
 export function requireIntegrationStatus(value: string): IntegrationConnectionStatus {
   if (!isOneOf(value, INTEGRATION_CONNECTION_STATUSES)) invalid("Unknown integration status.");
+  return value;
+}
+
+export function requireWidgetPosition(value: string): WidgetPosition {
+  if (!isOneOf(value, WIDGET_POSITIONS)) invalid("Unknown widget position.");
   return value;
 }

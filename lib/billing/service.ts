@@ -3,6 +3,7 @@ import { BIZPILOT_PRO, isPaidAccessStatus } from "@/lib/plan";
 import type { KnowledgeBase } from "@/lib/types";
 import { publishedKnowledgeBase } from "@/lib/v2/published-knowledge";
 import { answerLacksPublishedKnowledge, normalizeUnansweredQuestion } from "@/lib/v2/unanswered";
+import { defaultWidgetSettings, looksLikeEmail, publicWidgetAppearance } from "@/lib/v2/widget-settings";
 import { groundedWebsiteAnswer } from "@/lib/website/answer";
 import type { WebsitePageRecord, WebsiteReplySource } from "@/lib/website/types";
 import type { BillingStore } from "./store";
@@ -85,6 +86,75 @@ export class BillingService {
       );
     }
     return { workspace, subscription: subscription!, period };
+  }
+
+  async assertPaidWidgetWorkspace(widgetKey: string, now = new Date()) {
+    const workspace = await this.store.getWorkspaceByWidgetKey(widgetKey);
+    if (!workspace) {
+      throw new BillingError("Unknown website widget.", "not_found");
+    }
+    const subscription = await this.store.getSubscriptionByWorkspace(workspace.id);
+    if (!hasPaidDashboardAccess(subscription, now)) {
+      throw new BillingError("This business’s BizPilot Pro subscription is not active.", "inactive");
+    }
+    return { workspace, subscription: subscription! };
+  }
+
+  async loadPublicWidgetAppearance(widgetKey: string, now = new Date()) {
+    const { workspace } = await this.assertPaidWidgetWorkspace(widgetKey, now);
+    const settings = await this.store.getWidgetSettings(workspace.id);
+    return publicWidgetAppearance(settings, workspace.name);
+  }
+
+  async saveWidgetVisitorContact(options: {
+    widgetKey: string;
+    visitorKey: string;
+    conversationId?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    now?: Date;
+  }) {
+    const visitorKey = options.visitorKey.trim();
+    if (!visitorKey) throw new BillingError("Missing visitor key.", "invalid");
+    const { workspace } = await this.assertPaidWidgetWorkspace(options.widgetKey, options.now);
+    const stored = await this.store.getWidgetSettings(workspace.id);
+    const settings = stored ?? { id: "default", ...defaultWidgetSettings(workspace.id) };
+    if (!settings.leadCaptureEnabled) {
+      throw new BillingError("This widget is not collecting visitor contact details.", "forbidden");
+    }
+    const name = (options.name ?? "").trim().slice(0, 80);
+    const email = (options.email ?? "").trim().slice(0, 120);
+    const phone = settings.collectPhone ? (options.phone ?? "").trim().slice(0, 32) : "";
+    if (email && !looksLikeEmail(email)) {
+      throw new BillingError("Enter a valid email address.", "invalid");
+    }
+    if (!name && !email && !phone) {
+      throw new BillingError("Enter a name or email so the team can follow up.", "invalid");
+    }
+    if (options.conversationId) {
+      const existing = await this.store.getConversationForVisitor(
+        workspace.id,
+        visitorKey,
+        options.conversationId,
+      );
+      if (!existing) throw new BillingError("Conversation not found.", "not_found");
+    }
+    const thread =
+      (await this.store.getConversationForVisitor(
+        workspace.id,
+        visitorKey,
+        options.conversationId,
+      )) ??
+      (await this.store.createConversation({
+        workspaceId: workspace.id,
+        visitorKey,
+      }));
+    return this.store.updateConversation(thread.id, workspace.id, {
+      visitorName: name || thread.visitorName,
+      visitorEmail: email || thread.visitorEmail,
+      visitorPhone: phone || thread.visitorPhone,
+    });
   }
 
   async generateCountedAiReply(options: {
@@ -356,12 +426,7 @@ export class BillingService {
   }
 
   async loadWidgetThread(widgetKey: string, visitorKey: string, conversationId?: string) {
-    const workspace = await this.store.getWorkspaceByWidgetKey(widgetKey);
-    if (!workspace) throw new BillingError("Unknown website widget.", "not_found");
-    const subscription = await this.store.getSubscriptionByWorkspace(workspace.id);
-    if (!hasPaidDashboardAccess(subscription)) {
-      throw new BillingError("This business’s BizPilot Pro subscription is not active.", "inactive");
-    }
+    const { workspace } = await this.assertPaidWidgetWorkspace(widgetKey);
     const conversation = await this.store.getConversationForVisitor(
       workspace.id,
       visitorKey,
