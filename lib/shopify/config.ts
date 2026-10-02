@@ -65,5 +65,6 @@ export function shopifyAuthorizeUrl(input: {
     redirect_uri: input.redirectUri,
     state: input.state,
   });
-  return `https://${input.shop}/admin/oauth/authorize?${params.toString()}`;
+  const handle = input.shop.replace(/\.myshopify\.com$/, "");
+  return `https://admin.shopify.com/store/${handle}/oauth/authorize?${params.toString()}`;
 }

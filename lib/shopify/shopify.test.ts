@@ -107,6 +107,19 @@ describe("Shopify OAuth helpers", () => {
       redirectUri: shopifyCallbackUrl("https://www.mybizpilotai.com"),
       state: "signed-state",
     });
+    const parsed = new URL(url);
+    assert.equal(parsed.origin, "https://admin.shopify.com");
+    assert.equal(parsed.pathname, "/store/virello-timepieces/oauth/authorize");
+    assert.equal(parsed.searchParams.get("redirect_uri"), "https://www.mybizpilotai.com/api/app/shopify/callback");
+    assert.equal(parsed.searchParams.get("scope"), "read_products,read_inventory");
+    assert.doesNotMatch(url, /myshopify\.com\/admin\/oauth/);
+    const gfd = shopifyAuthorizeUrl({
+      shop: "gfd1cp-1v.myshopify.com",
+      apiKey: "key_public",
+      redirectUri: shopifyCallbackUrl("https://www.mybizpilotai.com"),
+      state: "signed-state",
+    });
+    assert.equal(new URL(gfd).pathname, "/store/gfd1cp-1v/oauth/authorize");
     assert.equal(shopifyCallbackUrl("https://www.mybizpilotai.com/"), "https://www.mybizpilotai.com/api/app/shopify/callback");
     assert.match(url, /read_products/);
     assert.match(url, /read_inventory/);
