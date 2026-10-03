@@ -83,4 +83,60 @@ export const ENV_DOCS = [
     name: "SHOPIFY_API_SECRET",
     why: "Optional. Shopify app Client secret. Server-only. Never expose it in the browser.",
   },
+  {
+    name: "META_APP_ID",
+    why: "Optional. Meta app ID for Facebook Pages, Instagram professional accounts, and Threads. Server-only.",
+  },
+  {
+    name: "META_APP_SECRET",
+    why: "Optional. Meta app secret. Server-only. Never expose it in the browser.",
+  },
+  {
+    name: "META_PUBLISH_ENABLED",
+    why: "Optional. Set to true only after Meta App Review approves pages_manage_posts for Facebook Page publishing.",
+  },
+  {
+    name: "META_INSTAGRAM_PUBLISH_ENABLED",
+    why: "Optional. Set to true only after Meta App Review approves instagram_content_publish.",
+  },
+  {
+    name: "THREADS_PUBLISH_ENABLED",
+    why: "Optional. Set to true only after Threads API access review approves threads_content_publish.",
+  },
+  {
+    name: "LINKEDIN_CLIENT_ID",
+    why: "Optional. LinkedIn app client ID for member posting. Server-only.",
+  },
+  {
+    name: "LINKEDIN_CLIENT_SECRET",
+    why: "Optional. LinkedIn app client secret. Server-only. Never expose it in the browser.",
+  },
+  {
+    name: "LINKEDIN_PUBLISH_ENABLED",
+    why: "Optional. Set to true only after LinkedIn approves w_member_social.",
+  },
+  {
+    name: "X_CLIENT_ID",
+    why: "Optional. X OAuth 2.0 client ID. Server-only.",
+  },
+  {
+    name: "X_CLIENT_SECRET",
+    why: "Optional. X OAuth 2.0 client secret. Server-only. Never expose it in the browser.",
+  },
+  {
+    name: "X_POSTING_ENABLED",
+    why: "Optional. Set to true only after a paid X API tier allows POST /2/tweets.",
+  },
+  {
+    name: "PINTEREST_APP_ID",
+    why: "Optional. Pinterest app ID. Server-only.",
+  },
+  {
+    name: "PINTEREST_APP_SECRET",
+    why: "Optional. Pinterest app secret. Server-only. Never expose it in the browser.",
+  },
+  {
+    name: "PINTEREST_PUBLISH_ENABLED",
+    why: "Optional. Set to true only after Pinterest standard access approves pins:write.",
+  },
 ] as const;

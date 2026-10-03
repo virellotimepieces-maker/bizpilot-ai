@@ -69,7 +69,7 @@ export const PRICING_FEATURES = [
   "Inbox with human handoff when a person is needed",
   "Lead, quote, and appointment requests you review",
   "Gmail replies send only after you confirm",
-  "Social drafts you post yourself",
+  "Social drafts you approve before anything is published",
   "Cancel anytime",
   "No automatic overage charges",
 ] as const;
@@ -170,8 +170,8 @@ export const INBOX_POINTS = [
     body: "Connect Gmail to draft a reply from the incoming email. Send goes through that Gmail account only after you confirm. Email never auto-sends.",
   },
   {
-    title: "Social is drafts only",
-    body: "Suggested social replies are never posted. There is no live Instagram, Facebook, TikTok, or Messenger connection.",
+    title: "Social posts wait for confirmation",
+    body: "Drafts stay in BizPilot until you approve them. Publishing runs only after that platform is connected and you confirm. Copy stays available when a platform is not set up.",
   },
 ] as const;
 
@@ -213,10 +213,10 @@ export const INTEGRATION_ITEMS = [
     body: "Connect a mailbox. AI drafts a reply. You confirm before anything is sent.",
   },
   {
-    name: "Social drafts",
-    status: "Drafts only",
+    name: "Social",
+    status: "Drafts ready",
     live: true,
-    body: "Suggested copy for you to paste. BizPilot does not post.",
+    body: "Create and approve drafts. A post is published only after you connect that account and confirm. Copy stays available.",
   },
   {
     name: "Shopify",
@@ -260,7 +260,7 @@ export const FAQ_ITEMS = [
     id: "what-is-it",
     question: "What is BizPilot AI?",
     answer:
-      "A paid desk for one business: website chat trained on your knowledge, an inbox, lead and request capture, Gmail drafts you confirm, and social drafts you post yourself. It is billed as BizPilot Pro.",
+      "A paid desk for one business: website chat trained on your knowledge, an inbox, lead and request capture, Gmail drafts you confirm, and social drafts you approve before anything is published. It is billed as BizPilot Pro.",
   },
   {
     id: "free-plan",

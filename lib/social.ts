@@ -57,6 +57,7 @@ export const SOCIAL_PLATFORM_LABEL: Record<SocialPlatform, string> = {
 export const SOCIAL_STATUS_LABEL: Record<SocialStatus, string> = {
   draft: "Draft",
   approved: "Approved",
+  publishing: "Publishing",
   published: "Published",
   failed: "Failed",
   draft_ready: "Draft",
@@ -189,6 +190,7 @@ export function isSocialStatus(value: string): value is SocialStatus {
   return (
     value === "draft" ||
     value === "approved" ||
+    value === "publishing" ||
     value === "published" ||
     value === "failed" ||
     value === "draft_ready" ||

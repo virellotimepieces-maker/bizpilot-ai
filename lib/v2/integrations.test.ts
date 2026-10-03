@@ -89,7 +89,9 @@ describe("Integration helpers", () => {
     assert.equal(snapshot.gmail.href, "/app/email");
     assert.equal(snapshot.shopify.connected, false);
     assert.equal(snapshot.shopify.label, "Not configured");
-    assert.equal(snapshot.social.status, "drafts_only");
+    assert.equal(snapshot.social.status, "setup_required");
+    assert.equal(snapshot.social.accounts.length, 6);
+    assert.ok(snapshot.social.accounts.every((account) => account.connection === "setup_required"));
     assert.equal(snapshot.social.href, "/app/social");
     assert.deepEqual(
       snapshot.future.map((row) => row.provider),
@@ -167,7 +169,7 @@ describe("Workspace integrations", () => {
     assert.equal(stored.find((row) => row.provider === "shopify")?.status, "disconnected");
     assert.equal(snapshot.gmail.connected, false);
     assert.equal(snapshot.shopify.connected, false);
-    assert.equal(snapshot.social.label, "Drafts only");
+    assert.equal(snapshot.social.label, "Setup required");
     assert.ok(snapshot.future.every((row) => row.status === "disconnected"));
   });
 

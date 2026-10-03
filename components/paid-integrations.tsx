@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS } from "@/lib/ui/type-scale";
 import { INTEGRATIONS_HINT, type SerializedWorkspaceIntegrations } from "@/lib/v2/integrations";
 import { CalendarIntegrationCard } from "@/components/calendar-integration-card";
+import { SocialAccounts } from "@/components/social-accounts";
 import { CalendarClock, Mail, MessagesSquare, ShoppingBag, Store } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -51,6 +52,18 @@ function calendarQueryNotice(flag: string) {
   return "";
 }
 
+function socialQueryNotice(flag: string, platform: string) {
+  const name = platform || "that platform";
+  if (flag === "connected") return `${name} is connected for this workspace. Publishing still waits for your confirmation.`;
+  if (flag === "select") return `Choose the ${name} page or account authorized for this workspace.`;
+  if (flag === "denied") return "Social connection was cancelled. Nothing was connected.";
+  if (flag === "none") return `No publishable ${name} destination was authorized.`;
+  if (flag === "setup") return `${name} still needs server setup before Connect is available.`;
+  if (flag === "inactive") return "An active subscription is required before connecting a social account.";
+  if (flag === "error" || flag === "signin") return "Social connection error. Try Connect again.";
+  return "";
+}
+
 function shopifyQueryNotice(flag: string, sync: string) {
   if (flag === "connected" && sync === "error") {
     return "Shopify is connected, but the first catalog sync failed. Use Sync now.";
@@ -77,6 +90,7 @@ export function PaidIntegrations() {
   const gmailNotice = gmailActionNotice || gmailQueryNotice(searchParams.get("gmail") ?? "");
   const shopifyNotice = shopifyActionNotice || shopifyQueryNotice(searchParams.get("shopify") ?? "", searchParams.get("sync") ?? "");
   const calendarNotice = calendarActionNotice || calendarQueryNotice(searchParams.get("calendar") ?? "");
+  const socialNotice = socialQueryNotice(searchParams.get("social") ?? "", searchParams.get("platform") ?? "");
 
   const load = useCallback(async () => {
     const response = await fetch("/api/app/integrations");
@@ -360,17 +374,17 @@ export function PaidIntegrations() {
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2">
                 <MessagesSquare className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                <CardTitle>Social drafts</CardTitle>
+                <CardTitle>Social Accounts</CardTitle>
               </div>
               <Badge variant="outline">{data.social.label}</Badge>
             </div>
-            <CardDescription>Drafts wait for you. BizPilot does not post on your behalf.</CardDescription>
+            <CardDescription>
+              Connect a platform only after its app is approved. Publishing still waits for your confirmation.
+            </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
-            <p className={HELPER_TEXT_CLASS}>
-              There is no Instagram, Facebook, TikTok, or Messenger connection. Suggested copy is for
-              you to paste.
-            </p>
+            {socialNotice ? <p className={HELPER_TEXT_CLASS}>{socialNotice}</p> : null}
+            <SocialAccounts accounts={data.social.accounts} onChanged={load} />
             <Button size="sm" variant="outline" render={<Link href="/app/social" />}>
               Open social drafts
             </Button>

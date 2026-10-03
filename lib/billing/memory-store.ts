@@ -54,6 +54,8 @@ import type {
   EmailDraftRecord,
   GmailConnectionRecord,
   GmailReplyDraftRecord,
+  SocialAccountRecord,
+  SocialMediaAssetRecord,
   SocialMessageRecord,
   StripeEventRecord,
   SubscriptionRecord,
@@ -80,6 +82,8 @@ export class MemoryBillingStore implements BillingStore {
   conversations = new Map<string, ConversationRecord>();
   messages: MessageRecord[] = [];
   socialMessages: SocialMessageRecord[] = [];
+  socialAccounts: SocialAccountRecord[] = [];
+  socialMediaAssets: SocialMediaAssetRecord[] = [];
   emailDrafts: EmailDraftRecord[] = [];
   gmailConnections = new Map<string, GmailConnectionRecord>();
   googleCalendarConnections = new Map<string, GoogleCalendarConnectionRecord>();
@@ -595,6 +599,13 @@ export class MemoryBillingStore implements BillingStore {
       operatorNote: input.operatorNote,
       usedInternalKnowledge: input.usedInternalKnowledge,
       postedAt: null,
+      destinationName: "",
+      destinationId: "",
+      platformPostId: "",
+      publishError: "",
+      publishMeta: "",
+      mediaAssetId: "",
+      publishLockId: "",
       createdAt: now,
       updatedAt: now,
     };
@@ -609,7 +620,14 @@ export class MemoryBillingStore implements BillingStore {
     patch: Partial<
       Pick<
         SocialMessageRecord,
-        "draftBody" | "status" | "postedAt" | "operatorNote" | "intent" | "sources" | "usedInternalKnowledge"
+        | "draftBody"
+        | "status"
+        | "postedAt"
+        | "operatorNote"
+        | "intent"
+        | "sources"
+        | "usedInternalKnowledge"
+        | "mediaAssetId"
       >
     >,
   ) {
@@ -624,6 +642,7 @@ export class MemoryBillingStore implements BillingStore {
     if (patch.usedInternalKnowledge !== undefined) {
       row.usedInternalKnowledge = patch.usedInternalKnowledge;
     }
+    if (patch.mediaAssetId !== undefined) row.mediaAssetId = patch.mediaAssetId;
     row.updatedAt = new Date();
     return row;
   }
@@ -635,6 +654,167 @@ export class MemoryBillingStore implements BillingStore {
     if (!row || row.workspaceId !== workspaceId || row.widgetKey !== widgetKey) return false;
     this.socialMessages.splice(index, 1);
     return true;
+  }
+
+  async listSocialAccounts(workspaceId: string) {
+    return this.socialAccounts.filter((row) => row.workspaceId === workspaceId);
+  }
+
+  async getSocialAccount(workspaceId: string, platform: string) {
+    return (
+      this.socialAccounts.find((row) => row.workspaceId === workspaceId && row.platform === platform) ?? null
+    );
+  }
+
+  async upsertSocialAccount(input: {
+    workspaceId: string;
+    platform: string;
+    status: string;
+    externalAccountId?: string;
+    accountName?: string;
+    accountType?: string;
+    scopes?: string;
+    encryptedAccessToken?: string;
+    encryptedRefreshToken?: string;
+    accessTokenExpiresAt?: Date | null;
+    pendingDestinationsEnc?: string;
+    metadataJson?: string;
+  }) {
+    const now = new Date();
+    const existing = await this.getSocialAccount(input.workspaceId, input.platform);
+    if (existing) {
+      existing.status = input.status;
+      existing.externalAccountId = input.externalAccountId ?? "";
+      existing.accountName = input.accountName ?? "";
+      existing.accountType = input.accountType ?? "";
+      existing.scopes = input.scopes ?? "";
+      existing.encryptedAccessToken = input.encryptedAccessToken ?? "";
+      existing.encryptedRefreshToken = input.encryptedRefreshToken ?? "";
+      existing.accessTokenExpiresAt = input.accessTokenExpiresAt ?? null;
+      existing.pendingDestinationsEnc = input.pendingDestinationsEnc ?? "";
+      existing.metadataJson = input.metadataJson ?? "{}";
+      existing.updatedAt = now;
+      return existing;
+    }
+    const row: SocialAccountRecord = {
+      id: randomUUID(),
+      workspaceId: input.workspaceId,
+      platform: input.platform,
+      status: input.status,
+      externalAccountId: input.externalAccountId ?? "",
+      accountName: input.accountName ?? "",
+      accountType: input.accountType ?? "",
+      scopes: input.scopes ?? "",
+      encryptedAccessToken: input.encryptedAccessToken ?? "",
+      encryptedRefreshToken: input.encryptedRefreshToken ?? "",
+      accessTokenExpiresAt: input.accessTokenExpiresAt ?? null,
+      pendingDestinationsEnc: input.pendingDestinationsEnc ?? "",
+      metadataJson: input.metadataJson ?? "{}",
+      connectedAt: now,
+      updatedAt: now,
+    };
+    this.socialAccounts.push(row);
+    return row;
+  }
+
+  async deleteSocialAccount(workspaceId: string, platform: string) {
+    const index = this.socialAccounts.findIndex(
+      (row) => row.workspaceId === workspaceId && row.platform === platform,
+    );
+    if (index < 0) return false;
+    this.socialAccounts.splice(index, 1);
+    return true;
+  }
+
+  async claimSocialPublish(id: string, workspaceId: string, widgetKey: string, lockId: string, now: Date) {
+    return this.withLock(`social-publish:${id}`, () => {
+      const row = this.socialMessages.find((item) => item.id === id);
+      if (!row || row.workspaceId !== workspaceId || row.widgetKey !== widgetKey) return null;
+      if (row.platformPostId) return null;
+      const stale =
+        row.status === "publishing" &&
+        Boolean(row.publishLockId) &&
+        now.getTime() - row.updatedAt.getTime() > 120_000;
+      const open =
+        (row.status === "approved" || row.status === "failed") && row.publishLockId === "";
+      if (!open && !stale) return null;
+      row.status = "publishing";
+      row.publishLockId = lockId;
+      row.publishError = "";
+      row.updatedAt = now;
+      return row;
+    });
+  }
+
+  async finishSocialPublish(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+    lockId: string,
+    result: {
+      platformPostId: string;
+      destinationId: string;
+      destinationName: string;
+      publishMeta: string;
+      postedAt: Date;
+    },
+  ) {
+    return this.withLock(`social-publish:${id}`, () => {
+      const row = this.socialMessages.find((item) => item.id === id);
+      if (!row || row.workspaceId !== workspaceId || row.widgetKey !== widgetKey) return null;
+      if (row.status !== "publishing" || row.publishLockId !== lockId) return null;
+      row.status = "published";
+      row.platformPostId = result.platformPostId;
+      row.destinationId = result.destinationId;
+      row.destinationName = result.destinationName;
+      row.publishMeta = result.publishMeta;
+      row.postedAt = result.postedAt;
+      row.publishLockId = "";
+      row.publishError = "";
+      row.updatedAt = result.postedAt;
+      return row;
+    });
+  }
+
+  async failSocialPublish(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+    lockId: string,
+    publishError: string,
+  ) {
+    return this.withLock(`social-publish:${id}`, () => {
+      const row = this.socialMessages.find((item) => item.id === id);
+      if (!row || row.workspaceId !== workspaceId || row.widgetKey !== widgetKey) return null;
+      if (row.status !== "publishing" || row.publishLockId !== lockId) return null;
+      row.status = "failed";
+      row.publishError = publishError;
+      row.publishLockId = "";
+      row.updatedAt = new Date();
+      return row;
+    });
+  }
+
+  async createSocialMediaAsset(input: { workspaceId: string; token: string; mimeType: string; bytes: Buffer }) {
+    const row: SocialMediaAssetRecord = {
+      id: randomUUID(),
+      workspaceId: input.workspaceId,
+      token: input.token,
+      mimeType: input.mimeType,
+      byteSize: input.bytes.byteLength,
+      bytes: input.bytes,
+      createdAt: new Date(),
+    };
+    this.socialMediaAssets.push(row);
+    return row;
+  }
+
+  async getSocialMediaAsset(id: string, workspaceId: string) {
+    return this.socialMediaAssets.find((row) => row.id === id && row.workspaceId === workspaceId) ?? null;
+  }
+
+  async getSocialMediaAssetByToken(token: string) {
+    return this.socialMediaAssets.find((row) => row.token === token) ?? null;
   }
 
   async listEmailDrafts(workspaceId: string, widgetKey: string) {

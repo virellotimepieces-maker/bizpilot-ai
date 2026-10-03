@@ -199,9 +199,12 @@ describe("social content drafts", () => {
     assert.equal(clientMaySetSocialStatus("approved"), true);
     assert.match(socialPublishBlockedReason(), /Connect the social account/);
     const route = readFileSync("app/api/app/social/route.ts", "utf8");
-    assert.match(route, /selectOperatingWorkspace/);
+    const context = readFileSync("lib/social/context.ts", "utf8");
+    assert.match(context, /selectOperatingWorkspace/);
+    assert.match(route, /requireSocialWorkspace|socialReadContext/);
     assert.doesNotMatch(route, /status:\s*"published"/);
-    assert.match(route, /socialPublishBlockedReason/);
+    assert.match(route, /evaluateSocialPublish/);
+    assert.doesNotMatch(route, /graph\.facebook|access_token/);
     const facts = verifiedSocialFacts({
       knowledge: { ...emptyKnowledge("custom"), name: "North Studio" } as KnowledgeBase,
       instruction: "Spotlight the public class",

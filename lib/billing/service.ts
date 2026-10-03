@@ -312,10 +312,11 @@ export class BillingService {
         status: provider === "shopify" ? shopifyConnectionStatusForRow(shopifyRow) : "disconnected",
       });
     }
-    const [gmailRow, calendarRow, connections] = await Promise.all([
+    const [gmailRow, calendarRow, connections, socialAccounts] = await Promise.all([
       this.store.getGmailConnection(workspaceId),
       this.store.getGoogleCalendarConnection(workspaceId),
       this.store.listIntegrationConnections(workspaceId),
+      this.store.listSocialAccounts(workspaceId),
     ]);
     const calendarSettings = calendarRow ? await this.store.getCalendarBookingSettings(workspaceId) : null;
     return buildWorkspaceIntegrations({
@@ -323,6 +324,7 @@ export class BillingService {
       shopify: publicShopifyStatus(shopifyRow),
       calendar: publicCalendarStatus(calendarRow, calendarSettings),
       connections,
+      socialAccounts,
     });
   }
 

@@ -214,8 +214,43 @@ export interface SocialMessageRecord {
   operatorNote: string;
   usedInternalKnowledge: boolean;
   postedAt: Date | null;
+  destinationName: string;
+  destinationId: string;
+  platformPostId: string;
+  publishError: string;
+  publishMeta: string;
+  mediaAssetId: string;
+  publishLockId: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface SocialAccountRecord {
+  id: string;
+  workspaceId: string;
+  platform: string;
+  status: string;
+  externalAccountId: string;
+  accountName: string;
+  accountType: string;
+  scopes: string;
+  encryptedAccessToken: string;
+  encryptedRefreshToken: string;
+  accessTokenExpiresAt: Date | null;
+  pendingDestinationsEnc: string;
+  metadataJson: string;
+  connectedAt: Date;
+  updatedAt: Date;
+}
+
+export interface SocialMediaAssetRecord {
+  id: string;
+  workspaceId: string;
+  token: string;
+  mimeType: string;
+  byteSize: number;
+  bytes: Buffer;
+  createdAt: Date;
 }
 
 export interface StripeEventRecord {

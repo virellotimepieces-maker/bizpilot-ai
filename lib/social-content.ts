@@ -67,8 +67,11 @@ export function isSocialContentGoal(value: string): value is (typeof SOCIAL_CONT
   return (SOCIAL_CONTENT_GOALS as readonly string[]).includes(value);
 }
 
-export function socialWorkflowStatus(status: string): "Draft" | "Approved" | "Published" | "Failed" {
+export function socialWorkflowStatus(
+  status: string,
+): "Draft" | "Approved" | "Publishing" | "Published" | "Failed" {
   if (status === "published") return "Published";
+  if (status === "publishing") return "Publishing";
   if (status === "failed") return "Failed";
   if (status === "approved" || status === "posted") return "Approved";
   return "Draft";

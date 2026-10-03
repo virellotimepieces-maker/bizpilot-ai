@@ -134,6 +134,7 @@ export type SocialPlatform =
 export type SocialStatus =
   | "draft"
   | "approved"
+  | "publishing"
   | "published"
   | "failed"
   | "draft_ready"

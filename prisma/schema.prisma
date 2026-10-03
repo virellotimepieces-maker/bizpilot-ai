@@ -33,6 +33,8 @@ model Workspace {
   websiteSource WebsiteSource?
   websitePages  WebsitePage[]
   socialMessages SocialMessage[]
+  socialAccounts SocialAccount[]
+  socialMediaAssets SocialMediaAsset[]
   emailDrafts    EmailDraft[]
   gmailConnection GmailConnection?
   gmailReplyDrafts GmailReplyDraft[]
@@ -224,12 +226,54 @@ model SocialMessage {
   operatorNote          String
   usedInternalKnowledge Boolean   @default(false)
   postedAt              DateTime?
+  destinationName       String    @default("")
+  destinationId         String    @default("")
+  platformPostId        String    @default("")
+  publishError          String    @default("")
+  publishMeta           String    @default("")
+  mediaAssetId          String    @default("")
+  publishLockId         String    @default("")
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
   @@index([workspaceId, widgetKey])
+}
+
+model SocialAccount {
+  id                     String    @id @default(cuid())
+  workspaceId            String
+  platform               String
+  status                 String
+  externalAccountId      String    @default("")
+  accountName            String    @default("")
+  accountType            String    @default("")
+  scopes                 String    @default("")
+  encryptedAccessToken   String    @default("")
+  encryptedRefreshToken  String    @default("")
+  accessTokenExpiresAt   DateTime?
+  pendingDestinationsEnc String    @default("")
+  metadataJson           String    @default("{}")
+  connectedAt            DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  workspace              Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, platform])
+  @@index([workspaceId])
+}
+
+model SocialMediaAsset {
+  id          String    @id @default(cuid())
+  workspaceId String
+  token       String    @unique
+  mimeType    String
+  byteSize    Int
+  bytes       Bytes
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
 }
 
 model EmailDraft {

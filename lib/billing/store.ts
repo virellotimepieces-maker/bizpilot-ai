@@ -35,6 +35,8 @@ import type {
   GmailConnectionRecord,
   GoogleCalendarConnectionRecord,
   GmailReplyDraftRecord,
+  SocialAccountRecord,
+  SocialMediaAssetRecord,
   SocialMessageRecord,
   StripeEventRecord,
   SubscriptionRecord,
@@ -188,11 +190,70 @@ export interface BillingStore {
     patch: Partial<
       Pick<
         SocialMessageRecord,
-        "draftBody" | "status" | "postedAt" | "operatorNote" | "intent" | "sources" | "usedInternalKnowledge"
+        | "draftBody"
+        | "status"
+        | "postedAt"
+        | "operatorNote"
+        | "intent"
+        | "sources"
+        | "usedInternalKnowledge"
+        | "mediaAssetId"
       >
     >,
   ): Promise<SocialMessageRecord>;
   deleteSocialMessage(id: string, workspaceId: string, widgetKey: string): Promise<boolean>;
+  listSocialAccounts(workspaceId: string): Promise<SocialAccountRecord[]>;
+  getSocialAccount(workspaceId: string, platform: string): Promise<SocialAccountRecord | null>;
+  upsertSocialAccount(input: {
+    workspaceId: string;
+    platform: string;
+    status: string;
+    externalAccountId?: string;
+    accountName?: string;
+    accountType?: string;
+    scopes?: string;
+    encryptedAccessToken?: string;
+    encryptedRefreshToken?: string;
+    accessTokenExpiresAt?: Date | null;
+    pendingDestinationsEnc?: string;
+    metadataJson?: string;
+  }): Promise<SocialAccountRecord>;
+  deleteSocialAccount(workspaceId: string, platform: string): Promise<boolean>;
+  claimSocialPublish(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+    lockId: string,
+    now: Date,
+  ): Promise<SocialMessageRecord | null>;
+  finishSocialPublish(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+    lockId: string,
+    result: {
+      platformPostId: string;
+      destinationId: string;
+      destinationName: string;
+      publishMeta: string;
+      postedAt: Date;
+    },
+  ): Promise<SocialMessageRecord | null>;
+  failSocialPublish(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+    lockId: string,
+    publishError: string,
+  ): Promise<SocialMessageRecord | null>;
+  createSocialMediaAsset(input: {
+    workspaceId: string;
+    token: string;
+    mimeType: string;
+    bytes: Buffer;
+  }): Promise<SocialMediaAssetRecord>;
+  getSocialMediaAsset(id: string, workspaceId: string): Promise<SocialMediaAssetRecord | null>;
+  getSocialMediaAssetByToken(token: string): Promise<SocialMediaAssetRecord | null>;
 
   listEmailDrafts(workspaceId: string, widgetKey: string): Promise<EmailDraftRecord[]>;
   getEmailDraft(

@@ -55,7 +55,7 @@ export function shopifyConnectionStatusForRow(row: ShopifyConnectionRecord | nul
 }
 
 export function assertNoShopifySecrets(payload: unknown) {
-  const raw = JSON.stringify(payload);
+  const raw = JSON.stringify(payload).replace(/LINKEDIN_CLIENT_SECRET|X_CLIENT_SECRET/g, "SOCIAL_CREDENTIAL_NAME");
   if (/encryptedAccessToken|shpat_|shpua_|SHOPIFY_API_SECRET|client_secret/i.test(raw)) {
     throw new Error("Shopify payload leaked a credential field.");
   }

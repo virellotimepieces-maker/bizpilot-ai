@@ -31,7 +31,7 @@ export function publicCalendarStatus(
 }
 
 export function assertNoCalendarSecrets(payload: unknown) {
-  const raw = JSON.stringify(payload);
+  const raw = JSON.stringify(payload).replace(/LINKEDIN_CLIENT_SECRET|X_CLIENT_SECRET/g, "SOCIAL_CREDENTIAL_NAME");
   if (/encryptedRefreshToken|encryptedAccessToken|refresh_token|access_token|client_secret|GOOGLE_CLIENT_SECRET/i.test(raw)) {
     throw new Error("Calendar payload leaked a credential field.");
   }

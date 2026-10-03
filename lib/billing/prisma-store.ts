@@ -63,6 +63,8 @@ import type {
   EmailDraftRecord,
   GmailConnectionRecord,
   GmailReplyDraftRecord,
+  SocialAccountRecord,
+  SocialMediaAssetRecord,
   SocialMessageRecord,
   StripeEventRecord,
   SubscriptionRecord,
@@ -160,12 +162,38 @@ function mapSocialMessage(row: {
   operatorNote: string;
   usedInternalKnowledge: boolean;
   postedAt: Date | null;
+  destinationName: string;
+  destinationId: string;
+  platformPostId: string;
+  publishError: string;
+  publishMeta: string;
+  mediaAssetId: string;
+  publishLockId: string;
   createdAt: Date;
   updatedAt: Date;
 }): SocialMessageRecord {
   return {
     ...row,
     sources: asReplySources(row.sources),
+  };
+}
+
+function mapSocialAccount(row: SocialAccountRecord): SocialAccountRecord {
+  return { ...row };
+}
+
+function mapSocialMedia(row: {
+  id: string;
+  workspaceId: string;
+  token: string;
+  mimeType: string;
+  byteSize: number;
+  bytes: Uint8Array | Buffer;
+  createdAt: Date;
+}): SocialMediaAssetRecord {
+  return {
+    ...row,
+    bytes: Buffer.isBuffer(row.bytes) ? row.bytes : Buffer.from(row.bytes),
   };
 }
 
@@ -1132,7 +1160,14 @@ export class PrismaBillingStore implements BillingStore {
     patch: Partial<
       Pick<
         SocialMessageRecord,
-        "draftBody" | "status" | "postedAt" | "operatorNote" | "intent" | "sources" | "usedInternalKnowledge"
+        | "draftBody"
+        | "status"
+        | "postedAt"
+        | "operatorNote"
+        | "intent"
+        | "sources"
+        | "usedInternalKnowledge"
+        | "mediaAssetId"
       >
     >,
   ) {
@@ -1152,6 +1187,7 @@ export class PrismaBillingStore implements BillingStore {
         ...(patch.usedInternalKnowledge !== undefined
           ? { usedInternalKnowledge: patch.usedInternalKnowledge }
           : {}),
+        ...(patch.mediaAssetId !== undefined ? { mediaAssetId: patch.mediaAssetId } : {}),
       },
     });
     return mapSocialMessage(row);
@@ -1162,6 +1198,146 @@ export class PrismaBillingStore implements BillingStore {
     if (!existing) return false;
     await this.prisma().socialMessage.delete({ where: { id } });
     return true;
+  }
+
+  async listSocialAccounts(workspaceId: string) {
+    const rows = await this.prisma().socialAccount.findMany({ where: { workspaceId } });
+    return rows.map(mapSocialAccount);
+  }
+
+  async getSocialAccount(workspaceId: string, platform: string) {
+    const row = await this.prisma().socialAccount.findUnique({
+      where: { workspaceId_platform: { workspaceId, platform } },
+    });
+    return row ? mapSocialAccount(row) : null;
+  }
+
+  async upsertSocialAccount(input: {
+    workspaceId: string;
+    platform: string;
+    status: string;
+    externalAccountId?: string;
+    accountName?: string;
+    accountType?: string;
+    scopes?: string;
+    encryptedAccessToken?: string;
+    encryptedRefreshToken?: string;
+    accessTokenExpiresAt?: Date | null;
+    pendingDestinationsEnc?: string;
+    metadataJson?: string;
+  }) {
+    const data = {
+      status: input.status,
+      externalAccountId: input.externalAccountId ?? "",
+      accountName: input.accountName ?? "",
+      accountType: input.accountType ?? "",
+      scopes: input.scopes ?? "",
+      encryptedAccessToken: input.encryptedAccessToken ?? "",
+      encryptedRefreshToken: input.encryptedRefreshToken ?? "",
+      accessTokenExpiresAt: input.accessTokenExpiresAt ?? null,
+      pendingDestinationsEnc: input.pendingDestinationsEnc ?? "",
+      metadataJson: input.metadataJson ?? "{}",
+    };
+    const row = await this.prisma().socialAccount.upsert({
+      where: { workspaceId_platform: { workspaceId: input.workspaceId, platform: input.platform } },
+      create: { workspaceId: input.workspaceId, platform: input.platform, ...data },
+      update: data,
+    });
+    return mapSocialAccount(row);
+  }
+
+  async deleteSocialAccount(workspaceId: string, platform: string) {
+    const existing = await this.getSocialAccount(workspaceId, platform);
+    if (!existing) return false;
+    await this.prisma().socialAccount.delete({ where: { id: existing.id } });
+    return true;
+  }
+
+  async claimSocialPublish(id: string, workspaceId: string, widgetKey: string, lockId: string, now: Date) {
+    const staleBefore = new Date(now.getTime() - 120_000);
+    const claimed = await this.prisma().socialMessage.updateMany({
+      where: {
+        id,
+        workspaceId,
+        widgetKey,
+        platformPostId: "",
+        OR: [
+          { status: { in: ["approved", "failed"] }, publishLockId: "" },
+          { status: "publishing", updatedAt: { lt: staleBefore } },
+        ],
+      },
+      data: { status: "publishing", publishLockId: lockId, publishError: "" },
+    });
+    if (claimed.count !== 1) return null;
+    return this.getSocialMessage(id, workspaceId, widgetKey);
+  }
+
+  async finishSocialPublish(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+    lockId: string,
+    result: {
+      platformPostId: string;
+      destinationId: string;
+      destinationName: string;
+      publishMeta: string;
+      postedAt: Date;
+    },
+  ) {
+    const finished = await this.prisma().socialMessage.updateMany({
+      where: { id, workspaceId, widgetKey, status: "publishing", publishLockId: lockId },
+      data: {
+        status: "published",
+        platformPostId: result.platformPostId,
+        destinationId: result.destinationId,
+        destinationName: result.destinationName,
+        publishMeta: result.publishMeta,
+        postedAt: result.postedAt,
+        publishLockId: "",
+        publishError: "",
+      },
+    });
+    if (finished.count !== 1) return null;
+    return this.getSocialMessage(id, workspaceId, widgetKey);
+  }
+
+  async failSocialPublish(
+    id: string,
+    workspaceId: string,
+    widgetKey: string,
+    lockId: string,
+    publishError: string,
+  ) {
+    const failed = await this.prisma().socialMessage.updateMany({
+      where: { id, workspaceId, widgetKey, status: "publishing", publishLockId: lockId },
+      data: { status: "failed", publishError, publishLockId: "" },
+    });
+    if (failed.count !== 1) return null;
+    return this.getSocialMessage(id, workspaceId, widgetKey);
+  }
+
+  async createSocialMediaAsset(input: { workspaceId: string; token: string; mimeType: string; bytes: Buffer }) {
+    const row = await this.prisma().socialMediaAsset.create({
+      data: {
+        workspaceId: input.workspaceId,
+        token: input.token,
+        mimeType: input.mimeType,
+        byteSize: input.bytes.byteLength,
+        bytes: Uint8Array.from(input.bytes),
+      },
+    });
+    return mapSocialMedia(row);
+  }
+
+  async getSocialMediaAsset(id: string, workspaceId: string) {
+    const row = await this.prisma().socialMediaAsset.findFirst({ where: { id, workspaceId } });
+    return row ? mapSocialMedia(row) : null;
+  }
+
+  async getSocialMediaAssetByToken(token: string) {
+    const row = await this.prisma().socialMediaAsset.findUnique({ where: { token } });
+    return row ? mapSocialMedia(row) : null;
   }
 
   async listEmailDrafts(workspaceId: string, widgetKey: string) {

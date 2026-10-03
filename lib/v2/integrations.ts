@@ -6,11 +6,18 @@ import {
   shopifyStatusLabel,
   type PublicShopifyStatus,
 } from "@/lib/shopify/public";
+import type { SocialAccountRecord } from "@/lib/billing/types";
+import {
+  assertNoSocialSecrets,
+  publicSocialAccounts,
+  summarizeSocialAccounts,
+  type PublicSocialAccount,
+} from "@/lib/social/public";
 import { type FutureIntegrationProvider } from "./enums";
 import type { IntegrationConnectionRecord } from "./types";
 
 export const INTEGRATIONS_HINT =
-  "Gmail is the live inbox connection. Social is drafts you post yourself. Shopify catalog sync is available when the store is connected. Google Calendar books appointments for this workspace when it is connected. WooCommerce stays not connected.";
+  "Gmail is the live inbox connection. Social drafts stay in BizPilot until you confirm a publish to a connected account. Shopify catalog sync is available when the store is connected. Google Calendar books appointments for this workspace when it is connected. WooCommerce stays not connected.";
 
 export const FUTURE_INTEGRATION_CATALOG = [
   {
@@ -34,9 +41,10 @@ export type ShopifyIntegrationStatus = PublicShopifyStatus & {
 };
 
 export type SocialIntegrationStatus = {
-  status: "drafts_only";
-  label: "Drafts only";
+  status: "setup_required" | "not_connected" | "connected" | "needs_reconnect" | "pending_selection";
+  label: string;
   href: "/app/social";
+  accounts: PublicSocialAccount[];
 };
 
 export type CalendarIntegrationStatus = PublicCalendarStatus & {
@@ -84,10 +92,13 @@ export function buildWorkspaceIntegrations(input: {
   shopify?: PublicShopifyStatus | null;
   calendar?: PublicCalendarStatus | null;
   connections?: IntegrationConnectionRecord[];
+  socialAccounts?: SocialAccountRecord[];
 }): WorkspaceIntegrations {
   const byProvider = new Map((input.connections ?? []).map((row) => [row.provider, row]));
   const shopify = input.shopify ?? publicShopifyStatus(null);
   const calendar = input.calendar ?? publicCalendarStatus(null, null);
+  const accounts = publicSocialAccounts(input.socialAccounts ?? []);
+  const social = summarizeSocialAccounts(accounts);
   return {
     gmail: {
       ...input.gmail,
@@ -99,9 +110,10 @@ export function buildWorkspaceIntegrations(input: {
       label: shopifyStatusLabel(shopify),
     },
     social: {
-      status: "drafts_only",
-      label: "Drafts only",
+      status: social.status,
+      label: social.label,
       href: "/app/social",
+      accounts,
     },
     calendar: {
       ...calendar,
@@ -146,6 +158,21 @@ export function serializeWorkspaceIntegrations(row: WorkspaceIntegrations) {
       status: row.social.status,
       label: row.social.label,
       href: row.social.href,
+      accounts: row.social.accounts.map((account) => ({
+        platform: account.platform,
+        label: account.label,
+        connection: account.connection,
+        configured: account.configured,
+        missing: account.missing,
+        setupNotes: account.setupNotes,
+        accountName: account.accountName,
+        accountType: account.accountType,
+        requiredPermission: account.requiredPermission,
+        hasPermission: account.hasPermission,
+        media: account.media,
+        destinations: account.destinations,
+        copyAvailable: account.copyAvailable,
+      })),
     },
     calendar: {
       configured: row.calendar.configured,
@@ -169,6 +196,7 @@ export function serializeWorkspaceIntegrations(row: WorkspaceIntegrations) {
   assertNoShopifySecrets(payload);
   assertNoTokenFields(payload);
   assertNoCalendarSecrets(payload);
+  assertNoSocialSecrets(payload);
   return payload;
 }
 

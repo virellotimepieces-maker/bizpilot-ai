@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUserId } from "@/lib/auth/session";
-import { getBillingStore } from "@/lib/billing/factory";
-import { selectOperatingWorkspace } from "@/lib/billing/operating-workspace";
-import { BillingService } from "@/lib/billing/service";
+import type { BillingStore } from "@/lib/billing/store";
 import { BillingError } from "@/lib/billing/types";
 import type { SocialMessageRecord } from "@/lib/billing/types";
 import { emptyKnowledge, normalizeKnowledge } from "@/lib/empty-knowledge";
@@ -20,21 +17,35 @@ import {
   rebuildSocialDraftAi,
 } from "@/lib/social";
 import {
-  canPublishSocialDraft,
   clientMaySetSocialStatus,
   contentTopic,
   isSocialContentGoal,
   isSocialContentLanguage,
   resolveSocialContentLanguage,
   socialLanguageInstruction,
-  socialPublishBlockedReason,
   socialWorkflowStatus,
   verifiedSocialFacts,
 } from "@/lib/social-content";
+import { requireSocialWorkspace, socialReadContext } from "@/lib/social/context";
+import { evaluateSocialPublish } from "@/lib/social/publish-policy";
+import { publicSocialAccount, publicSocialAccounts } from "@/lib/social/public";
+import { isSocialOAuthPlatform } from "@/lib/social/platforms";
 import type { SocialMessage } from "@/lib/types";
 
-function toClient(row: SocialMessageRecord) {
+function toClient(
+  row: SocialMessageRecord,
+  input: { subscriptionActive: boolean; accounts: ReturnType<typeof publicSocialAccounts> },
+) {
   const meta = readSocialDraftMeta(row.handle);
+  const account = isSocialOAuthPlatform(row.platform)
+    ? input.accounts.find((item) => item.platform === row.platform) ?? publicSocialAccount(row.platform, null)
+    : null;
+  const decision = evaluateSocialPublish({
+    status: row.status,
+    subscriptionActive: input.subscriptionActive,
+    hasMedia: Boolean(row.mediaAssetId),
+    account,
+  });
   return {
     id: row.id,
     platform: row.platform,
@@ -52,22 +63,17 @@ function toClient(row: SocialMessageRecord) {
     operatorNote: row.operatorNote,
     usedInternalKnowledge: row.usedInternalKnowledge,
     createdAt: row.createdAt,
-    publishAvailable: canPublishSocialDraft(row.status),
+    postedAt: row.postedAt,
+    destinationName: row.destinationName,
+    publishError: row.publishError,
+    mediaAttached: Boolean(row.mediaAssetId),
+    publishAvailable: decision.ok,
+    publishReason: decision.reason,
   };
 }
 
-async function paidContext() {
-  const userId = await getSessionUserId();
-  if (!userId) throw new BillingError("Sign in required.", "unauthorized");
-  const store = getBillingStore();
-  const workspace = await selectOperatingWorkspace(store, userId);
-  if (!workspace) throw new BillingError("No workspace found.", "not_found");
-  const paid = await new BillingService(store).requirePaidWorkspace(userId, workspace.id);
-  return { store, userId, service: new BillingService(store), ...paid };
-}
-
 async function workspaceFacts(
-  store: Awaited<ReturnType<typeof getBillingStore>>,
+  store: BillingStore,
   workspaceId: string,
   widgetKey: string,
   knowledge: ReturnType<typeof normalizeKnowledge>,
@@ -93,11 +99,17 @@ async function workspaceFacts(
 
 export async function GET() {
   try {
-    const { store, workspace } = await paidContext();
+    const { store, workspace, subscriptionActive } = await socialReadContext();
+    const accounts = publicSocialAccounts(await store.listSocialAccounts(workspace.id));
     const messages = await store.listSocialMessages(workspace.id, workspace.widgetKey);
+    const view = { subscriptionActive, accounts };
     return NextResponse.json({
-      messages: messages.map(toClient),
-      publishing: { connected: false, reason: socialPublishBlockedReason() },
+      messages: messages.map((row) => toClient(row, view)),
+      accounts,
+      publishing: {
+        connected: accounts.some((account) => account.connection === "connected"),
+        subscriptionActive,
+      },
     });
   } catch (error) {
     return jsonError(error, "Could not load social drafts.");
@@ -106,7 +118,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { store, workspace, userId, service } = await paidContext();
+    const { store, workspace, userId, service } = await requireSocialWorkspace();
     const body = (await request.json()) as {
       mode?: string;
       platform?: string;
@@ -202,7 +214,11 @@ export async function POST(request: NextRequest) {
       operatorNote: draft.operatorNote,
       usedInternalKnowledge: draft.usedInternalKnowledge,
     });
-    return NextResponse.json({ message: toClient(message), usage: counted.usage });
+    const accounts = publicSocialAccounts(await store.listSocialAccounts(workspace.id));
+    return NextResponse.json({
+      message: toClient(message, { subscriptionActive: true, accounts }),
+      usage: counted.usage,
+    });
   } catch (error) {
     return jsonError(error, "Could not create a social draft.");
   }
@@ -210,16 +226,22 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { store, workspace, userId, service } = await paidContext();
+    const { store, workspace, userId, service } = await requireSocialWorkspace();
     const body = (await request.json()) as {
       id?: string;
       draftBody?: string;
       status?: string;
       regenerate?: boolean;
+      mediaAssetId?: string;
     };
     if (!body.id) throw new BillingError("Message id is required.", "invalid");
-    if (body.status === "published" || body.status === "posted" || body.status === "failed") {
-      throw new BillingError(socialPublishBlockedReason(), "invalid");
+    if (
+      body.status === "published" ||
+      body.status === "posted" ||
+      body.status === "failed" ||
+      body.status === "publishing"
+    ) {
+      throw new BillingError("Approve the draft before publishing. Nothing is posted automatically.", "invalid");
     }
     if (body.status !== undefined && !clientMaySetSocialStatus(body.status)) {
       throw new BillingError("Choose Draft or Approved.", "invalid");
@@ -227,8 +249,14 @@ export async function PATCH(request: NextRequest) {
     const existing = await store.getSocialMessage(body.id, workspace.id, workspace.widgetKey);
     if (!existing) throw new BillingError("Social draft not found.", "not_found");
     if (body.regenerate) {
-      if (existing.status === "published" || existing.status === "posted" || existing.status === "discarded") {
-        return NextResponse.json({ message: toClient(existing) });
+      if (
+        existing.status === "published" ||
+        existing.status === "publishing" ||
+        existing.status === "posted" ||
+        existing.status === "discarded"
+      ) {
+        const accounts = publicSocialAccounts(await store.listSocialAccounts(workspace.id));
+        return NextResponse.json({ message: toClient(existing, { subscriptionActive: true, accounts }) });
       }
       if (!isSocialPlatform(existing.platform) || !isSocialStatus(existing.status)) {
         throw new BillingError("Stored social draft is invalid.", "invalid");
@@ -271,13 +299,26 @@ export async function PATCH(request: NextRequest) {
         sources: rebuilt.sources,
         usedInternalKnowledge: rebuilt.usedInternalKnowledge,
       });
-      return NextResponse.json({ message: toClient(message), usage: counted.usage });
+      const accounts = publicSocialAccounts(await store.listSocialAccounts(workspace.id));
+      return NextResponse.json({
+        message: toClient(message, { subscriptionActive: true, accounts }),
+        usage: counted.usage,
+      });
+    }
+    if (existing.status === "publishing" || existing.status === "published") {
+      throw new BillingError("This post can no longer be edited.", "conflict");
+    }
+    if (body.mediaAssetId !== undefined && body.mediaAssetId !== "") {
+      const asset = await store.getSocialMediaAsset(body.mediaAssetId, workspace.id);
+      if (!asset) throw new BillingError("The attached image is not in this workspace.", "invalid");
     }
     const message = await store.updateSocialMessage(body.id, workspace.id, workspace.widgetKey, {
       ...(body.draftBody !== undefined ? { draftBody: body.draftBody } : {}),
       ...(body.status !== undefined ? { status: body.status } : {}),
+      ...(body.mediaAssetId !== undefined ? { mediaAssetId: body.mediaAssetId } : {}),
     });
-    return NextResponse.json({ message: toClient(message) });
+    const accounts = publicSocialAccounts(await store.listSocialAccounts(workspace.id));
+    return NextResponse.json({ message: toClient(message, { subscriptionActive: true, accounts }) });
   } catch (error) {
     return jsonError(error, "Could not update the social draft.");
   }
@@ -285,9 +326,14 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { store, workspace } = await paidContext();
+    const { store, workspace } = await socialReadContext();
     const body = (await request.json()) as { id?: string };
     if (!body.id) throw new BillingError("Message id is required.", "invalid");
+    const existing = await store.getSocialMessage(body.id, workspace.id, workspace.widgetKey);
+    if (!existing) throw new BillingError("Social draft not found.", "not_found");
+    if (existing.status === "publishing") {
+      throw new BillingError("This post is already publishing.", "conflict");
+    }
     const removed = await store.deleteSocialMessage(body.id, workspace.id, workspace.widgetKey);
     if (!removed) throw new BillingError("Social draft not found.", "not_found");
     return NextResponse.json({ deleted: true });

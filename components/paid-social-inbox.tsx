@@ -54,6 +54,14 @@ import { Copy, RefreshCw, ShieldAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+type SocialAccountView = {
+  platform: string;
+  label: string;
+  connection: string;
+  accountName: string;
+  media: "required" | "optional" | "unsupported";
+};
+
 type PaidSocialMessage = {
   id: string;
   platform: SocialPlatform;
@@ -61,13 +69,18 @@ type PaidSocialMessage = {
   handle: string;
   body: string;
   status: SocialStatus;
-  workflow: "Draft" | "Approved" | "Published" | "Failed";
+  workflow: "Draft" | "Approved" | "Publishing" | "Published" | "Failed";
   language: string;
   goal: string;
   draftBody: string;
   operatorNote: string;
   createdAt: string;
+  postedAt?: string | null;
+  destinationName?: string;
+  publishError?: string;
+  mediaAttached?: boolean;
   publishAvailable: boolean;
+  publishReason?: string;
 };
 
 const emptyForm = {
@@ -90,6 +103,10 @@ export function PaidSocialInbox() {
   const [draftDirty, setDraftDirty] = useState(false);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmPublish, setConfirmPublish] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [accounts, setAccounts] = useState<SocialAccountView[]>([]);
+  const [mediaName, setMediaName] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -97,7 +114,7 @@ export function PaidSocialInbox() {
       .then(async (response) => {
         const payload = (await response.json()) as {
           messages?: PaidSocialMessage[];
-          publishing?: { reason?: string };
+          accounts?: SocialAccountView[];
           error?: string;
         };
         return { ok: response.ok, payload };
@@ -110,7 +127,9 @@ export function PaidSocialInbox() {
         }
         setError("");
         setMessages(payload.messages ?? []);
-        if (payload.publishing?.reason) setPublishReason(payload.publishing.reason);
+        setAccounts(payload.accounts ?? []);
+        const firstReason = payload.messages?.find((row) => row.publishReason)?.publishReason;
+        if (firstReason) setPublishReason(firstReason);
         setLoading(false);
       })
       .catch((loadError: unknown) => {
@@ -126,7 +145,10 @@ export function PaidSocialInbox() {
     [messages, selectedId],
   );
 
-  async function patch(id: string, body: { draftBody?: string; status?: SocialStatus; regenerate?: boolean }) {
+  async function patch(
+    id: string,
+    body: { draftBody?: string; status?: SocialStatus; regenerate?: boolean; mediaAssetId?: string },
+  ) {
     const response = await fetch("/api/app/social", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -205,6 +227,60 @@ export function PaidSocialInbox() {
     toast.success("Draft deleted.");
   }
 
+  async function attachImage(file: File) {
+    if (!selected || publishing) return;
+    const mimeType = file.type;
+    const dataBase64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const value = typeof reader.result === "string" ? reader.result.split(",")[1] || "" : "";
+        resolve(value);
+      };
+      reader.onerror = () => reject(new Error("read failed"));
+      reader.readAsDataURL(file);
+    });
+    const response = await fetch("/api/app/social/media", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ platform: selected.platform, mimeType, dataBase64 }),
+    });
+    const payload = (await response.json()) as { asset?: { id: string }; error?: string };
+    if (!response.ok || !payload.asset) {
+      toast.error(payload.error || "Could not attach the image.");
+      return;
+    }
+    setMediaName(file.name);
+    await patch(selected.id, { mediaAssetId: payload.asset.id });
+  }
+
+  async function publishDraft() {
+    if (!selected || publishing) return;
+    setPublishing(true);
+    try {
+      const response = await fetch("/api/app/social/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: selected.id, confirm: true }),
+      });
+      const payload = (await response.json()) as { message?: PaidSocialMessage; error?: string };
+      if (!response.ok || !payload.message) {
+        toast.error(payload.error || "The post was not published.");
+        setConfirmPublish(false);
+        const refresh = await fetch("/api/app/social");
+        const next = (await refresh.json()) as { messages?: PaidSocialMessage[] };
+        if (next.messages) setMessages(next.messages);
+        return;
+      }
+      setMessages((prev) => prev.map((row) => (row.id === payload.message!.id ? { ...row, ...payload.message } : row)));
+      setConfirmPublish(false);
+      toast.success("Published after the platform confirmed the post.");
+    } catch {
+      toast.error("The post was not published.");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   function requestRegenerate() {
     if (!selected || generating) return;
     if (draftDirty) {
@@ -222,7 +298,9 @@ export function PaidSocialInbox() {
     );
   }
 
-  const locked = selected?.workflow === "Published" || selected?.workflow === "Failed";
+  const locked = selected?.workflow === "Published" || selected?.workflow === "Publishing";
+  const selectedAccount = accounts.find((account) => account.platform === selected?.platform);
+  const mediaMode = selectedAccount?.media ?? "unsupported";
 
   return (
     <div className={PAGE_SHELL_CLASS}>
@@ -347,7 +425,7 @@ export function PaidSocialInbox() {
       ) : (
         <div className={SOCIAL_PANE_GRID_CLASS}>
           <div className={`${SOCIAL_CONTENT_BOX_CLASS} overflow-x-hidden rounded-2xl border bg-card shadow-sm`}>
-            <div className="border-b px-4 py-3 text-sm font-medium">Drafts</div>
+            <div className="border-b px-4 py-3 text-sm font-medium">History</div>
             <div className="max-h-[70vh] overflow-y-auto">
               {messages.map((row) => (
                 <button
@@ -372,7 +450,8 @@ export function PaidSocialInbox() {
                   </p>
                   <p className={`mt-1 text-xs text-muted-foreground ${SOCIAL_WRAP_INLINE_CLASS}`}>
                     {socialLanguageLabel(readSocialDraftMeta(row.handle).language || row.language)} ·{" "}
-                    {new Date(row.createdAt).toLocaleDateString()}
+                    {row.destinationName || "No destination"} · {new Date(row.createdAt).toLocaleDateString()}
+                    {row.postedAt ? ` · Published ${new Date(row.postedAt).toLocaleDateString()}` : ""}
                   </p>
                 </button>
               ))}
@@ -403,6 +482,31 @@ export function PaidSocialInbox() {
                   rows={12}
                 />
               </Field>
+              {mediaMode === "unsupported" ? (
+                <p className={`mt-3 ${HELPER_TEXT_CLASS}`}>Image posts are not available for this platform yet.</p>
+              ) : (
+                <Field label={mediaMode === "required" ? "Image required" : "Image (optional)"} htmlFor="social-media">
+                  <Input
+                    id="social-media"
+                    className={`mt-3 ${SOCIAL_FIELD_CONTROL_CLASS}`}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={locked || publishing}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void attachImage(file);
+                    }}
+                  />
+                  <p className={`mt-1 ${HELPER_TEXT_CLASS}`}>
+                    {selected.mediaAttached ? mediaName || "Image attached" : "JPEG, PNG, or WebP up to 8 MB."}
+                  </p>
+                </Field>
+              )}
+              {selected.publishError ? (
+                <p className={`mt-3 text-sm text-destructive ${SOCIAL_WRAP_TEXT_CLASS}`} role="alert">
+                  {selected.publishError}
+                </p>
+              ) : null}
               <div className={SOCIAL_ACTION_ROW_CLASS}>
                 <Button
                   className={SOCIAL_ACTION_BUTTON_CLASS}
@@ -443,10 +547,11 @@ export function PaidSocialInbox() {
                 <Button
                   variant="outline"
                   className={SOCIAL_ACTION_BUTTON_CLASS}
-                  disabled
-                  title={publishReason}
+                  disabled={!selected.publishAvailable || publishing || locked}
+                  title={selected.publishReason || publishReason}
+                  onClick={() => setConfirmPublish(true)}
                 >
-                  Publish
+                  {publishing ? "Publishing…" : selected.workflow === "Failed" ? "Retry" : "Publish"}
                 </Button>
                 <Button
                   variant="ghost"
@@ -456,7 +561,9 @@ export function PaidSocialInbox() {
                   Delete
                 </Button>
               </div>
-              <p className={`mt-3 text-sm text-muted-foreground ${SOCIAL_WRAP_TEXT_CLASS}`}>{publishReason}</p>
+              <p className={`mt-3 text-sm text-muted-foreground ${SOCIAL_WRAP_TEXT_CLASS}`}>
+                {selected.publishReason || publishReason}
+              </p>
             </div>
           ) : null}
         </div>
@@ -515,12 +622,55 @@ export function PaidSocialInbox() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={confirmPublish} onOpenChange={setConfirmPublish}>
+        <DialogContent className="w-[calc(100%-1.5rem)] max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Publish this post?</DialogTitle>
+            <DialogDescription className={SOCIAL_WRAP_INLINE_CLASS}>
+              BizPilot sends this text only after you confirm. It is not published until the platform accepts it.
+            </DialogDescription>
+          </DialogHeader>
+          {selected ? (
+            <div className={`grid gap-2 text-sm ${SOCIAL_WRAP_TEXT_CLASS}`}>
+              <p>Platform: {SOCIAL_PLATFORM_LABEL[selected.platform] ?? selected.platform}</p>
+              <p>Destination: {selectedAccount?.accountName || selected.destinationName || "Connected account"}</p>
+              <p>Caption: {selected.draftBody}</p>
+              <p>
+                Media:{" "}
+                {selected.mediaAttached
+                  ? mediaName || "Image attached"
+                  : mediaMode === "required"
+                    ? "An image is required"
+                    : "No image"}
+              </p>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className={SOCIAL_ACTION_BUTTON_CLASS}
+              disabled={publishing}
+              onClick={() => setConfirmPublish(false)}
+            >
+              Cancel
+            </Button>
+            <Button className={SOCIAL_ACTION_BUTTON_CLASS} disabled={publishing} onClick={() => void publishDraft()}>
+              {publishing ? "Publishing…" : "Confirm publish"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 function StatusBadge({ workflow }: { workflow: PaidSocialMessage["workflow"] }) {
   const variant =
-    workflow === "Failed" ? "destructive" : workflow === "Approved" || workflow === "Published" ? "secondary" : "default";
+    workflow === "Failed"
+      ? "destructive"
+      : workflow === "Approved" || workflow === "Published" || workflow === "Publishing"
+        ? "secondary"
+        : "default";
   return <Badge variant={variant}>{workflow}</Badge>;
 }
