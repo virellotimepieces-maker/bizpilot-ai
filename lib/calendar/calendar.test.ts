@@ -894,6 +894,7 @@ describe("Booking confirmation email", () => {
     });
     const slot = asked?.sources[0];
     assert.ok(slot?.slotStart);
+    assert.equal((await setup.store.listLeads(setup.workspace.id)).length, 0);
     const held = await handleCalendarWidgetTurn({
       store: setup.store,
       widgetKey: setup.workspace.widgetKey,
@@ -918,6 +919,10 @@ describe("Booking confirmation email", () => {
     assert.match(emailTurn?.answer ?? "", /Please send the name/);
     assert.doesNotMatch(emailTurn?.answer ?? "", /You're booked/);
     assert.equal((await setup.store.listCalendarAppointments(setup.workspace.id)).length, 0);
+    const emailLead = await setup.store.listLeads(setup.workspace.id);
+    assert.equal(emailLead.length, 1);
+    assert.equal(emailLead[0]?.email, "customer@example.com");
+    assert.equal(emailLead[0]?.name, "");
     const eventsBefore = google.calls.filter((call) => call.url.includes("/events")).length;
     const booked = await handleCalendarWidgetTurn({
       store: setup.store,
@@ -935,6 +940,12 @@ describe("Booking confirmation email", () => {
     assert.equal(rows.length, 1);
     assert.equal(rows[0]?.customerName, "Elmer Hidalgo ilumin");
     assert.equal(rows[0]?.email, "customer@example.com");
+    const leads = await setup.store.listLeads(setup.workspace.id);
+    assert.equal(leads.length, 1);
+    assert.equal(leads[0]?.name, "Elmer Hidalgo ilumin");
+    assert.equal(leads[0]?.email, "customer@example.com");
+    assert.equal(leads[0]?.workspaceId, setup.workspace.id);
+    assert.equal(leads[0]?.conversationId, conversation.id);
     assert.equal(google.calls.filter((call) => call.url.includes("/events")).length, eventsBefore + 1);
     const sends = google.calls.filter((call) => call.url.includes("/messages/send"));
     assert.equal(sends.length, 1);
@@ -1015,6 +1026,10 @@ describe("Booking confirmation email", () => {
     assert.equal(saved.length, 2);
     assert.equal(saved.filter((row) => row.email === "ada@example.com").length, 1);
     assert.equal(saved.find((row) => row.email === "grace@example.com")?.customerName, "Grace Hopper");
+    const leads = await setup.store.listLeads(setup.workspace.id);
+    assert.equal(leads.length, 2);
+    assert.equal(leads.find((row) => row.email === "ada@example.com")?.name, "Ada Lovelace");
+    assert.equal(leads.find((row) => row.email === "grace@example.com")?.name, "Grace Hopper");
     setup.restore();
   });
 

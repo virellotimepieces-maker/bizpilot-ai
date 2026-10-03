@@ -121,6 +121,33 @@ function chosenSlot(question: string, slotStart: string | undefined, offered: Ca
   return offered.find((slot) => slot.label === trimmed || slot.start === trimmed.replace(/^slot:/, "")) ?? null;
 }
 
+async function captureBookingLead(
+  store: BillingStore,
+  business: { id: string; ownerUserId: string },
+  conversationId: string,
+  contact: { customerName: string; email: string },
+) {
+  if (!contact.customerName.trim() && !contact.email.trim()) return;
+  try {
+    await new BillingService(store).captureBookingContact({
+      workspaceId: business.id,
+      userId: business.ownerUserId,
+      conversationId,
+      name: contact.customerName,
+      email: contact.email,
+    });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        source: "calendar-lead",
+        event: "booking_contact_capture_failed",
+        workspaceId: business.id,
+        code: error instanceof BillingError ? error.code : "invalid",
+      }),
+    );
+  }
+}
+
 async function rememberSession(
   store: BillingStore,
   session: CalendarBookingSessionRecord,
@@ -311,6 +338,10 @@ export async function handleCalendarWidgetTurn(input: {
       offeredSlots: [picked, ...rest],
       status: "collecting",
     });
+    await captureBookingLead(input.store, business, conversation.id, {
+      customerName: contact.customerName,
+      email: emailAccepted ? contact.email : "",
+    });
     return reply(missingContactPrompt(contact.customerName, emailAccepted ? contact.email : "", picked.label));
   }
 
@@ -460,6 +491,7 @@ export async function handleCalendarWidgetTurn(input: {
       offeredSlots: [],
       status: "booked",
     });
+    await captureBookingLead(input.store, business, conversation.id, contact);
     const confirmation = emailed
       ? ` A confirmation email was sent to ${contact.email}.`
       : " The appointment was booked, but the confirmation email could not be sent.";

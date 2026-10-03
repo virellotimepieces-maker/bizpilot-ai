@@ -9,7 +9,7 @@ import type { KnowledgeBase } from "@/lib/types";
 import { publishedKnowledgeBase } from "@/lib/v2/published-knowledge";
 import { answerLacksPublishedKnowledge, normalizeUnansweredQuestion } from "@/lib/v2/unanswered";
 import { defaultWidgetSettings, looksLikeEmail, publicWidgetAppearance } from "@/lib/v2/widget-settings";
-import { findLeadForConversation, filterLeads } from "@/lib/v2/leads";
+import { findLeadForContact, findLeadForConversation, filterLeads } from "@/lib/v2/leads";
 import { isHighIntent } from "@/lib/v2/intents";
 import {
   extractQuotedProductService,
@@ -692,34 +692,103 @@ export class BillingService {
     });
   }
 
+  async captureBookingContact(input: {
+    workspaceId: string;
+    userId: string;
+    conversationId?: string | null;
+    name?: string;
+    email?: string;
+  }) {
+    const name = (input.name ?? "").trim().slice(0, 80);
+    const email = (input.email ?? "").trim().toLowerCase().slice(0, 120);
+    if (email && !looksLikeEmail(email)) return null;
+    if (!name && !email) return null;
+    let conversation: ConversationRecord | null = null;
+    if (input.conversationId) {
+      const existing = await this.store.getConversation(input.conversationId, input.workspaceId);
+      if (existing && existing.workspaceId === input.workspaceId) {
+        conversation = await this.store.updateConversation(existing.id, input.workspaceId, {
+          visitorName: name || existing.visitorName,
+          visitorEmail: email || existing.visitorEmail,
+        });
+      }
+    }
+    return this.upsertCapturedLead({
+      workspaceId: input.workspaceId,
+      userId: input.userId,
+      conversationId: conversation?.id ?? null,
+      name: conversation?.visitorName || name,
+      email: conversation?.visitorEmail || email,
+      phone: conversation?.visitorPhone ?? "",
+      intent: "appointment_request",
+    });
+  }
+
+  async syncBookingContactsToLeads(workspaceId: string, userId: string) {
+    const appointments = (await this.store.listCalendarAppointments(workspaceId))
+      .filter((row) => row.workspaceId === workspaceId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    for (const row of appointments) {
+      await this.captureBookingContact({
+        workspaceId,
+        userId,
+        conversationId: row.conversationId,
+        name: row.customerName,
+        email: row.email,
+      });
+    }
+  }
+
   private async upsertLeadFromConversation(input: {
     workspaceId: string;
     userId: string;
     conversation: ConversationRecord;
   }) {
-    const conversation = input.conversation;
-    const existing = findLeadForConversation(
-      await this.store.listLeads(input.workspaceId),
-      conversation.id,
-    );
-    const contact = {
-      name: conversation.visitorName,
-      email: conversation.visitorEmail,
-      phone: conversation.visitorPhone,
-      conversationId: conversation.id,
-      source: "website" as const,
-      intent: conversation.customerIntent,
-    };
+    return this.upsertCapturedLead({
+      workspaceId: input.workspaceId,
+      userId: input.userId,
+      conversationId: input.conversation.id,
+      name: input.conversation.visitorName,
+      email: input.conversation.visitorEmail,
+      phone: input.conversation.visitorPhone,
+      intent: input.conversation.customerIntent,
+    });
+  }
+
+  private async upsertCapturedLead(input: {
+    workspaceId: string;
+    userId: string;
+    conversationId: string | null;
+    name: string;
+    email: string;
+    phone: string;
+    intent: ConversationRecord["customerIntent"];
+  }) {
+    const name = input.name.trim();
+    const email = input.email.trim().toLowerCase();
+    if (email && !looksLikeEmail(email)) return null;
+    if (!name && !email) return null;
+    const existing = findLeadForContact(await this.store.listLeads(input.workspaceId), {
+      workspaceId: input.workspaceId,
+      conversationId: input.conversationId,
+      email,
+    });
     if (existing) {
       return this.store.updateLead(existing.id, input.workspaceId, {
-        name: contact.name || existing.name,
-        email: contact.email || existing.email,
-        phone: contact.phone || existing.phone,
-        intent: existing.intent === "general_question" ? contact.intent : existing.intent,
+        name: name || existing.name,
+        email: email || existing.email,
+        phone: input.phone.trim() || existing.phone,
+        conversationId: input.conversationId ?? existing.conversationId,
+        intent: existing.intent === "general_question" ? input.intent : existing.intent,
       });
     }
     const lead = await this.store.createLead(input.workspaceId, {
-      ...contact,
+      name,
+      email,
+      phone: input.phone.trim(),
+      conversationId: input.conversationId,
+      source: "website",
+      intent: input.intent,
       status: "new",
     });
     await this.notifyLeadEvent({

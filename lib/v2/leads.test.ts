@@ -7,6 +7,7 @@ import { MemoryBillingStore } from "../billing/memory-store";
 import { applyStripeEvent } from "../billing/stripe-events";
 import {
   filterLeads,
+  findLeadForContact,
   leadCounts,
   leadDisplayName,
   parseLeadPatch,
@@ -171,5 +172,121 @@ describe("Widget contact creates a Lead", () => {
     const page = readFileSync("app/app/leads/page.tsx", "utf8");
     assert.match(page, /PaidSales/);
     assert.doesNotMatch(page, /DeskPlaceholderPage/);
+  });
+
+  it("keeps one workspace contact per email and ignores another workspace", async () => {
+    const { store, workspace, user, service } = await paidWorkspace();
+    const otherOwner = await store.createUser({
+      email: "other-leads@example.com",
+      passwordHash: "hash",
+      name: "Other",
+    });
+    const other = await store.createWorkspace({ ownerUserId: otherOwner.id, name: "Inland" });
+    await store.upsertWidgetSettings(workspace.id, { leadCaptureEnabled: true });
+    const form = await service.saveWidgetVisitorContact({
+      widgetKey: workspace.widgetKey,
+      visitorKey: "v-form",
+      name: "Pat",
+      email: "pat@example.com",
+    });
+    const booked = await store.createConversation({ workspaceId: workspace.id, visitorKey: "v-book" });
+    const otherConversation = await store.createConversation({ workspaceId: other.id, visitorKey: "v-other" });
+    await service.captureBookingContact({
+      workspaceId: workspace.id,
+      userId: user.id,
+      conversationId: booked.id,
+      name: "Pat Rivera",
+      email: "pat@example.com",
+    });
+    await service.captureBookingContact({
+      workspaceId: other.id,
+      userId: otherOwner.id,
+      conversationId: otherConversation.id,
+      name: "Pat Rivera",
+      email: "pat@example.com",
+    });
+    const leads = await service.listWorkspaceLeads(workspace.id);
+    assert.equal(leads.length, 1);
+    assert.equal(leads[0]?.name, "Pat Rivera");
+    assert.equal(leads[0]?.email, "pat@example.com");
+    assert.equal(leads[0]?.conversationId, booked.id);
+    assert.equal(leads[0]?.workspaceId, workspace.id);
+    assert.notEqual(form.id, otherConversation.id);
+    const inland = await store.listLeads(other.id);
+    assert.equal(inland.length, 1);
+    assert.equal(inland[0]?.workspaceId, other.id);
+    assert.equal(findLeadForContact([...leads, ...inland], {
+      workspaceId: workspace.id,
+      email: "pat@example.com",
+    })?.workspaceId, workspace.id);
+    const again = await service.captureBookingContact({
+      workspaceId: workspace.id,
+      userId: user.id,
+      conversationId: booked.id,
+      name: "Pat Rivera",
+      email: "pat@example.com",
+    });
+    assert.equal(again?.id, leads[0]?.id);
+    assert.equal((await store.listLeads(workspace.id)).length, 1);
+    assert.equal((await store.listNotifications(user.id, workspace.id)).filter((row) => row.type === "new_lead").length, 1);
+  });
+
+  it("syncs stored booking contacts once per email and skips availability-only visitors", async () => {
+    const { store, workspace, user, service } = await paidWorkspace();
+    const other = await store.createWorkspace({
+      ownerUserId: (await store.createUser({
+        email: "sync-other@example.com",
+        passwordHash: "hash",
+        name: "Sync",
+      })).id,
+      name: "Other Shop",
+    });
+    const first = await store.createConversation({ workspaceId: workspace.id, visitorKey: "sync-1" });
+    const second = await store.createConversation({ workspaceId: workspace.id, visitorKey: "sync-2" });
+    await store.createConversation({ workspaceId: workspace.id, visitorKey: "probe" });
+    await store.createCalendarAppointment({
+      workspaceId: workspace.id,
+      conversationId: first.id,
+      customerName: "Ada",
+      email: "ada@example.com",
+      service: "",
+      startsAt: new Date("2026-10-09T13:00:00.000Z"),
+      endsAt: new Date("2026-10-09T13:30:00.000Z"),
+      timezone: "America/New_York",
+      googleCalendarId: "primary",
+      holdKey: "2026-10-09T13:00:00.000Z",
+    });
+    await store.createCalendarAppointment({
+      workspaceId: workspace.id,
+      conversationId: second.id,
+      customerName: "Ada Lovelace",
+      email: "ADA@example.com",
+      service: "sizing",
+      startsAt: new Date("2026-10-09T14:00:00.000Z"),
+      endsAt: new Date("2026-10-09T14:30:00.000Z"),
+      timezone: "America/New_York",
+      googleCalendarId: "primary",
+      holdKey: "2026-10-09T14:00:00.000Z",
+    });
+    await store.createCalendarAppointment({
+      workspaceId: other.id,
+      conversationId: null,
+      customerName: "Other",
+      email: "other@example.com",
+      service: "",
+      startsAt: new Date("2026-10-09T15:00:00.000Z"),
+      endsAt: new Date("2026-10-09T15:30:00.000Z"),
+      timezone: "America/New_York",
+      googleCalendarId: "primary",
+      holdKey: "2026-10-09T15:00:00.000Z",
+    });
+    await service.syncBookingContactsToLeads(workspace.id, user.id);
+    await service.syncBookingContactsToLeads(workspace.id, user.id);
+    const leads = await store.listLeads(workspace.id);
+    assert.equal(leads.length, 1);
+    assert.equal(leads[0]?.name, "Ada Lovelace");
+    assert.equal(leads[0]?.email, "ada@example.com");
+    assert.equal((await store.listLeads(other.id)).length, 0);
+    assert.equal((await store.getConversation(first.id, workspace.id))?.visitorEmail, "ada@example.com");
   });
 });

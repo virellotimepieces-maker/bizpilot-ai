@@ -79,6 +79,25 @@ export function findLeadForConversation(rows: LeadRecord[], conversationId: stri
   return rows.find((row) => row.conversationId === conversationId) ?? null;
 }
 
+export function findLeadForContact(
+  rows: LeadRecord[],
+  input: { workspaceId: string; conversationId?: string | null; email?: string | null },
+) {
+  const scoped = rows.filter((row) => row.workspaceId === input.workspaceId);
+  const email = (input.email ?? "").trim().toLowerCase();
+  if (email) {
+    const byEmail = scoped.find((row) => row.email.trim().toLowerCase() === email);
+    if (byEmail) return byEmail;
+  }
+  if (!input.conversationId) return null;
+  const byConversation = scoped.find((row) => row.conversationId === input.conversationId) ?? null;
+  if (!byConversation) return null;
+  if (!email || !byConversation.email.trim() || byConversation.email.trim().toLowerCase() === email) {
+    return byConversation;
+  }
+  return null;
+}
+
 function asString(value: unknown) {
   return typeof value === "string" ? value : "";
 }
