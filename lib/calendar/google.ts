@@ -121,18 +121,32 @@ export async function exchangeCalendarAuthorizationCode(
   const refreshToken = typeof row?.refresh_token === "string" ? row.refresh_token : "";
   const expiresIn = typeof row?.expires_in === "number" ? row.expires_in : 3600;
   const scope = typeof row?.scope === "string" ? row.scope : "";
-  if (!accessToken || !refreshToken) {
+  if (!accessToken) {
     throw new BillingError(
-      "Google did not grant offline Calendar access. Connect Google Calendar again and approve the requested permissions.",
+      "Google did not grant Calendar access. Connect Google Calendar again and approve the requested permissions.",
       "invalid",
     );
   }
   if (!scope.includes("https://www.googleapis.com/auth/calendar.events")) {
+    logCalendarAuthFailure("token_exchange_rejected", {
+      reason: "calendar_scope_missing",
+      httpStatus: response.status,
+      googleStatus: null,
+      description: null,
+    });
     throw new BillingError("Google Calendar event access was not approved.", "invalid");
+  }
+  if (!refreshToken) {
+    logCalendarAuthFailure("token_exchange_refresh_absent", {
+      reason: "refresh_token_absent",
+      httpStatus: response.status,
+      googleStatus: null,
+      description: null,
+    });
   }
   return {
     accessToken,
-    refreshToken,
+    refreshToken: refreshToken || undefined,
     expiresAt: new Date(Date.now() + Math.max(60, expiresIn) * 1000),
     scope,
   };

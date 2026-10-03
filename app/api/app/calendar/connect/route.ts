@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/auth/session";
 import { getBillingStore } from "@/lib/billing/factory";
+import { selectOperatingWorkspace } from "@/lib/billing/operating-workspace";
 import { BillingService } from "@/lib/billing/service";
 import { BillingError } from "@/lib/billing/types";
 import { googleCalendarAuthUrl, isCalendarOAuthConfigured, requireCalendarOAuthConfig } from "@/lib/calendar/config";
@@ -16,8 +17,7 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL("/app/integrations?calendar=misconfigured", origin));
     }
     const store = getBillingStore();
-    const workspaces = await store.listWorkspacesForUser(userId);
-    const workspace = workspaces[0];
+    const workspace = await selectOperatingWorkspace(store, userId);
     if (!workspace) throw new BillingError("No workspace found.", "not_found");
     await new BillingService(store).requirePaidWorkspace(userId, workspace.id);
     const { clientId, redirectUri } = requireCalendarOAuthConfig();

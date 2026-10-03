@@ -20,6 +20,9 @@ const NOT_A_NAME_RE =
 export const DISCONNECTED_CALENDAR_REPLY =
   "I can't check live availability or book a time because this business hasn't connected a calendar. I can save an appointment request for the team. Please share your name, email, and what you'd like to book.";
 
+export const REVOKED_CALENDAR_REPLY =
+  "Google Calendar access was revoked or expired. Connect Google Calendar again.";
+
 export function isCalendarCustomerRequest(question: string) {
   const text = question.trim();
   if (!text || text.startsWith("slot:")) return false;
@@ -192,7 +195,7 @@ export async function handleCalendarWidgetTurn(input: {
       conversationId: conversation.id,
       question: input.question,
     });
-    return reply(DISCONNECTED_CALENDAR_REPLY);
+    return reply(connection ? REVOKED_CALENDAR_REPLY : DISCONNECTED_CALENDAR_REPLY);
   }
 
   const settings =
@@ -255,7 +258,7 @@ export async function handleCalendarWidgetTurn(input: {
           conversationId: conversation.id,
           question: input.question,
         });
-        return reply(DISCONNECTED_CALENDAR_REPLY);
+        return reply(error.code === "reconnect" ? REVOKED_CALENDAR_REPLY : error.message);
       }
       throw error;
     }
@@ -307,7 +310,7 @@ export async function handleCalendarWidgetTurn(input: {
           conversationId: conversation.id,
           question: input.question,
         });
-        return reply(DISCONNECTED_CALENDAR_REPLY);
+        return reply(error.code === "reconnect" ? REVOKED_CALENDAR_REPLY : error.message);
       }
       throw error;
     }
@@ -331,7 +334,7 @@ export async function handleCalendarWidgetTurn(input: {
       );
     } catch (error) {
       if (error instanceof BillingError && error.code === "reconnect") {
-        return reply(DISCONNECTED_CALENDAR_REPLY);
+        return reply(error.code === "reconnect" ? REVOKED_CALENDAR_REPLY : error.message);
       }
       throw error;
     }
@@ -458,24 +461,31 @@ export async function handleCalendarWidgetTurn(input: {
         conversationId: conversation.id,
         question: input.question,
       });
-      return reply(DISCONNECTED_CALENDAR_REPLY);
+      return reply(error.code === "reconnect" ? REVOKED_CALENDAR_REPLY : error.message);
     }
     throw error;
   }
-  const offered = await offerSlots({
-    store: input.store,
-    workspaceId: business.id,
-    session: active,
-    contact: freshAvailability ? { customerName: "", email: "", service: "" } : contact,
-    settings,
-    accessToken,
-    calendarId: connection.calendarId,
-    question: input.question,
-    now,
-    fetchImpl,
-    preface: "",
-  });
-  return reply(offered.answer, offered.sources);
+  try {
+    const offered = await offerSlots({
+      store: input.store,
+      workspaceId: business.id,
+      session: active,
+      contact: freshAvailability ? { customerName: "", email: "", service: "" } : contact,
+      settings,
+      accessToken,
+      calendarId: connection.calendarId,
+      question: input.question,
+      now,
+      fetchImpl,
+      preface: "",
+    });
+    return reply(offered.answer, offered.sources);
+  } catch (error) {
+    if (error instanceof BillingError && error.code === "reconnect") {
+      return reply(REVOKED_CALENDAR_REPLY);
+    }
+    throw error;
+  }
 }
 
 async function withFreshCalendarToken<T>(

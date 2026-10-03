@@ -43,13 +43,17 @@ export async function GET(request: NextRequest) {
     const store = getBillingStore();
     const membership = await store.getMembership(userId, state.workspaceId);
     if (!membership) return redirectAfter(origin, "calendar=error");
+    const existing = await store.getGoogleCalendarConnection(state.workspaceId);
+    if (!tokens.refreshToken && !existing?.encryptedRefreshToken) {
+      return redirectAfter(origin, "calendar=error");
+    }
     const calendars = await listGoogleCalendars(tokens.accessToken).catch(() => []);
     const selected = calendars.find((calendar) => calendar.primary) ?? calendars[0];
     await store.upsertGoogleCalendarConnection({
       workspaceId: state.workspaceId,
       googleEmail: profile.email,
       googleSub: profile.sub,
-      encryptedRefreshToken: encryptSecret(tokens.refreshToken!),
+      encryptedRefreshToken: tokens.refreshToken ? encryptSecret(tokens.refreshToken) : existing!.encryptedRefreshToken,
       encryptedAccessToken: encryptSecret(tokens.accessToken),
       accessTokenExpiresAt: tokens.expiresAt,
       scopes: tokens.scope || CALENDAR_SCOPES.join(" "),
@@ -57,8 +61,8 @@ export async function GET(request: NextRequest) {
       calendarId: selected?.id || "primary",
       calendarSummary: selected?.summary || "Primary",
     });
-    const existing = await store.getCalendarBookingSettings(state.workspaceId);
-    if (!existing) {
+    const settings = await store.getCalendarBookingSettings(state.workspaceId);
+    if (!settings) {
       await store.upsertCalendarBookingSettings({
         workspaceId: state.workspaceId,
         ...defaultCalendarSettings(selected?.timeZone),

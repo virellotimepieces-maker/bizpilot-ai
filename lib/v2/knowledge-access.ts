@@ -1,5 +1,6 @@
 import { getSessionUserId } from "@/lib/auth/session";
 import { getBillingStore } from "@/lib/billing/factory";
+import { selectOperatingWorkspace } from "@/lib/billing/operating-workspace";
 import type { BillingStore } from "@/lib/billing/store";
 import { BillingService } from "@/lib/billing/service";
 import { BillingError } from "@/lib/billing/types";
@@ -12,8 +13,7 @@ export async function requirePaidKnowledgeContext() {
   const userId = await getSessionUserId();
   if (!userId) throw new BillingError("Sign in required.", "unauthorized");
   const store = getBillingStore();
-  const workspaces = await store.listWorkspacesForUser(userId);
-  const workspace = workspaces[0];
+  const workspace = await selectOperatingWorkspace(store, userId);
   if (!workspace) throw new BillingError("No workspace found.", "not_found");
   const service = new BillingService(store);
   const paid = await service.requirePaidWorkspace(userId, workspace.id);

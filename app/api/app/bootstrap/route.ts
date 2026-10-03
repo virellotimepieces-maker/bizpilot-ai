@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/auth/session";
 import { getBillingStore } from "@/lib/billing/factory";
+import { selectOperatingWorkspace } from "@/lib/billing/operating-workspace";
 import { BillingService, hasPaidDashboardAccess } from "@/lib/billing/service";
 import { BillingError } from "@/lib/billing/types";
 import { jsonError } from "@/lib/http";
@@ -19,8 +20,7 @@ export async function GET() {
     const store = getBillingStore();
     const user = await store.findUserById(userId);
     if (!user) throw new BillingError("Sign in required.", "unauthorized");
-    const workspaces = await store.listWorkspacesForUser(userId);
-    const workspace = workspaces[0] ?? null;
+    const workspace = await selectOperatingWorkspace(store, userId);
     const subscription = workspace
       ? await store.getSubscriptionByWorkspace(workspace.id)
       : null;

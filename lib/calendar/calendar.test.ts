@@ -9,7 +9,9 @@ import { serializeWorkspaceIntegrations } from "@/lib/v2/integrations";
 import { publicGmailStatus } from "@/lib/gmail/public";
 import { publicShopifyStatus } from "@/lib/shopify/public";
 import { buildAvailableSlots, requestedWindow, zonedTimeToUtc } from "./availability";
-import { DISCONNECTED_CALENDAR_REPLY, handleCalendarWidgetTurn } from "./booking";
+import { DISCONNECTED_CALENDAR_REPLY, REVOKED_CALENDAR_REPLY, handleCalendarWidgetTurn } from "./booking";
+import { exchangeCalendarAuthorizationCode } from "./google";
+import { selectOperatingWorkspace } from "@/lib/billing/operating-workspace";
 import { sendBookingConfirmation } from "./confirmation";
 import { CALENDAR_SCOPES, calendarCallbackUrl, googleCalendarAuthUrl } from "./config";
 import { createCalendarOAuthState, readCalendarOAuthState } from "./oauth-state";
@@ -1136,7 +1138,8 @@ describe("Calendar access token refresh", () => {
     } finally {
       console.error = original;
     }
-    assert.equal(turn?.answer, DISCONNECTED_CALENDAR_REPLY);
+    assert.equal(turn?.answer, REVOKED_CALENDAR_REPLY);
+    assert.doesNotMatch(turn?.answer ?? "", /hasn't connected a calendar/);
     assert.equal(google.calls.filter((call) => call.url.includes("freeBusy")).length, 0);
     const calendar = await setup.store.getGoogleCalendarConnection(setup.workspace.id);
     assert.equal(calendar?.status, "needs_reconnect");
@@ -1239,6 +1242,113 @@ describe("Calendar access token refresh", () => {
     const calendarCallback = readFileSync("app/api/app/calendar/callback/route.ts", "utf8");
     assert.doesNotMatch(gmailCallback, /upsertGoogleCalendarConnection|revokeGoogleToken/);
     assert.doesNotMatch(calendarCallback, /upsertGmailConnection|revokeGoogleToken/);
+    assert.match(calendarCallback, /selectOperatingWorkspace|getGoogleCalendarConnection/);
     setup.restore();
+  });
+});
+
+describe("Widget calendar workspace lookup", () => {
+  it("reconnects the workspace the widget uses when an earlier membership has no calendar", async () => {
+    const previous = process.env.AUTH_SECRET;
+    process.env.AUTH_SECRET = previous && previous.length >= 16 ? previous : "test-auth-secret-value";
+    const { store, user, workspace: earlier } = await paidWorkspace("BizPilot Test", "widget-workspace-order@example.com");
+    const live = await store.createWorkspace({ ownerUserId: user.id, name: "Virello Timepieces" });
+    await store.upsertGoogleCalendarConnection({
+      workspaceId: live.id,
+      googleEmail: "owner@gmail.com",
+      encryptedRefreshToken: encryptSecret("refresh-live"),
+      encryptedAccessToken: encryptSecret("access-live"),
+      accessTokenExpiresAt: new Date("2026-10-10T18:00:00.000Z"),
+      scopes: CALENDAR_SCOPES.join(" "),
+      status: "needs_reconnect",
+      calendarId: "primary",
+      calendarSummary: "Primary",
+    });
+    await store.upsertGmailConnection({
+      workspaceId: live.id,
+      googleEmail: "owner@gmail.com",
+      encryptedRefreshToken: encryptSecret("refresh-gmail-live"),
+      encryptedAccessToken: encryptSecret("access-gmail-live"),
+      accessTokenExpiresAt: new Date("2026-10-10T18:00:00.000Z"),
+      scopes: "openid https://www.googleapis.com/auth/gmail.send",
+      status: "connected",
+    });
+    const listed = await store.listWorkspacesForUser(user.id);
+    assert.equal(listed[0]?.id, earlier.id);
+    const selected = await selectOperatingWorkspace(store, user.id);
+    assert.equal(selected?.id, live.id);
+    assert.equal(selected?.name, "Virello Timepieces");
+    const gmail = await store.getGmailConnection(live.id);
+    const calendar = await store.getGoogleCalendarConnection(live.id);
+    assert.equal(gmail?.status, "connected");
+    assert.equal(calendar?.status, "needs_reconnect");
+    assert.notEqual(gmail?.encryptedRefreshToken, calendar?.encryptedRefreshToken);
+    process.env.AUTH_SECRET = previous;
+  });
+
+  it("tells the widget the stored calendar token was rejected instead of saying no calendar is connected", async () => {
+    const previous = process.env.AUTH_SECRET;
+    process.env.AUTH_SECRET = previous && previous.length >= 16 ? previous : "test-auth-secret-value";
+    const { store, workspace } = await paidWorkspace("Virello Timepieces", "widget-revoked-calendar@example.com");
+    await store.upsertGoogleCalendarConnection({
+      workspaceId: workspace.id,
+      googleEmail: "owner@gmail.com",
+      encryptedRefreshToken: encryptSecret("refresh-live"),
+      encryptedAccessToken: encryptSecret("access-live"),
+      accessTokenExpiresAt: new Date("2026-10-10T18:00:00.000Z"),
+      scopes: CALENDAR_SCOPES.join(" "),
+      status: "needs_reconnect",
+      calendarId: "primary",
+      calendarSummary: "Primary",
+    });
+    const turn = await handleCalendarWidgetTurn({
+      store,
+      widgetKey: workspace.widgetKey,
+      visitorKey: "visitor-revoked-widget",
+      question: "What appointment times are available tomorrow?",
+      now: new Date("2026-10-08T15:00:00.000Z"),
+    });
+    assert.equal(turn?.answer, REVOKED_CALENDAR_REPLY);
+    assert.doesNotMatch(turn?.answer ?? "", /hasn't connected a calendar/);
+    assert.equal((await store.listCalendarAppointments(workspace.id)).length, 0);
+    assert.equal((await store.getGoogleCalendarConnection(workspace.id))?.status, "needs_reconnect");
+    process.env.AUTH_SECRET = previous;
+  });
+
+  it("keeps an existing calendar refresh token when Google omits a new one", async () => {
+    const logs: string[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => {
+      logs.push(args.map((item) => String(item)).join(" "));
+    };
+    try {
+      const tokens = await exchangeCalendarAuthorizationCode(
+        {
+          code: "auth-code",
+          clientId: "client",
+          clientSecret: "secret",
+          redirectUri: "https://www.mybizpilotai.com/api/app/calendar/callback",
+        },
+        async () =>
+          new Response(
+            JSON.stringify({
+              access_token: "access-new",
+              expires_in: 3600,
+              scope: CALENDAR_SCOPES.join(" "),
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+      );
+      assert.equal(tokens.accessToken, "access-new");
+      assert.equal(tokens.refreshToken, undefined);
+      assert.match(tokens.scope, /calendar\.events/);
+    } finally {
+      console.error = original;
+    }
+    assert.ok(logs.some((line) => line.includes("refresh_token_absent")));
+    assert.equal(logs.some((line) => /auth-code|secret|access-new/.test(line)), false);
+    const callback = await import("node:fs").then((fs) => fs.readFileSync("app/api/app/calendar/callback/route.ts", "utf8"));
+    assert.match(callback, /existing\?\.encryptedRefreshToken/);
+    assert.match(callback, /tokens\.refreshToken \? encryptSecret\(tokens\.refreshToken\) : existing!\.encryptedRefreshToken/);
   });
 });
