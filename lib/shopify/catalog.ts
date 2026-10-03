@@ -236,8 +236,46 @@ export function shopifyFactsForQuery(products: ShopifyProductRecord[], question:
   });
 }
 
+function catalogPriceLabel(product: ShopifyProductRecord) {
+  const amounts = product.variants
+    .map((row) => Number(row.price))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+  if (!amounts.length) return "";
+  const format = (value: number) => `$${value.toFixed(2)}`;
+  const min = Math.min(...amounts);
+  const max = Math.max(...amounts);
+  return min === max ? format(min) : `${format(min)} – ${format(max)}`;
+}
+
+function catalogDescriptionLabel(description: string) {
+  const clean = description.replace(/\s+/g, " ").trim();
+  if (!clean) return "";
+  const sentences = clean.match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g) ?? [clean];
+  let text = sentences
+    .slice(0, 2)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" ");
+  if (text.length > 220) {
+    const cut = text.slice(0, 220);
+    const boundary = cut.lastIndexOf(" ");
+    text = `${(boundary > 80 ? cut.slice(0, boundary) : cut).trimEnd()}…`;
+  }
+  return text;
+}
+
 export function catalogProductSources(products: ShopifyProductRecord[]) {
   return products
     .filter((row) => row.url)
-    .map((row) => ({ title: row.title, url: row.url, kind: "product" as const }));
+    .map((row) => {
+      const price = catalogPriceLabel(row);
+      const description = catalogDescriptionLabel(row.description);
+      return {
+        title: row.title,
+        url: row.url,
+        kind: "product" as const,
+        ...(price ? { price } : {}),
+        ...(description ? { description } : {}),
+      };
+    });
 }

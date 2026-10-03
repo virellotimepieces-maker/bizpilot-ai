@@ -31,6 +31,10 @@ export type WebsiteReplySource = {
   title: string;
   url: string;
   kind: WebsitePageKind;
+  /** Display-only Shopify price already stored on the product. */
+  price?: string;
+  /** Display-only Shopify description already stored on the product. */
+  description?: string;
 };
 
 export type WebsitePageRecord = {

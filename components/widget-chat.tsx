@@ -2,6 +2,11 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  presentAssistantMessage,
+  visibleProductCards,
+  type WidgetProductCard,
+} from "@/lib/widget-message-view";
 import { isNearBottom, scrollMessagesToLatest } from "@/lib/widget-chat-scroll";
 import { buildWidgetHostMessage } from "@/lib/widget-embed-script";
 import { WIDGET_CHAT_API_PATH, WIDGET_PUBLIC_SETTINGS_PATH } from "@/lib/widget-preview";
@@ -16,10 +21,19 @@ import type { WidgetPosition } from "@/lib/v2/enums";
 import { MessageCircle, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+type ChatSource = {
+  title?: string;
+  url?: string;
+  kind?: string;
+  price?: string;
+  description?: string;
+};
+
 type ChatRow = {
   id?: string;
   role: "visitor" | "assistant" | "human" | "system";
   content: string;
+  sources?: ChatSource[] | null;
 };
 
 const FALLBACK_APPEARANCE: PublicWidgetAppearance = {
@@ -41,7 +55,7 @@ function notifyHost(type: "open" | "close" | "config", position?: WidgetPosition
 }
 
 function rowsFromMessages(
-  messages: { id?: string; role?: string; content?: string }[],
+  messages: { id?: string; role?: string; content?: string; sources?: ChatSource[] | null }[],
 ): ChatRow[] {
   return messages
     .filter((row) => row.content?.trim())
@@ -56,7 +70,31 @@ function rowsFromMessages(
               ? "system"
               : "assistant",
       content: row.content ?? "",
+      sources: Array.isArray(row.sources) ? row.sources : null,
     }));
+}
+
+function ProductCard({ card, accent }: { card: WidgetProductCard; accent: string }) {
+  return (
+    <article className="min-w-0 rounded-lg border border-neutral-200 bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+      <h3 className="break-words text-sm font-semibold leading-snug text-neutral-950">{card.name}</h3>
+      {card.price ? <p className="mt-1 text-sm font-medium text-neutral-800">{card.price}</p> : null}
+      {card.description ? (
+        <p className="mt-1 break-words text-sm leading-relaxed text-neutral-600">{card.description}</p>
+      ) : null}
+      {card.href ? (
+        <a
+          href={card.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg border px-3 text-sm font-medium"
+          style={{ borderColor: accent, color: accent }}
+        >
+          View Product
+        </a>
+      ) : null}
+    </article>
+  );
 }
 
 function headerSubtitle(appearance: PublicWidgetAppearance, waitingOnHuman: boolean) {
@@ -91,6 +129,7 @@ export function WidgetChat({
   const [contactOpen, setContactOpen] = useState(false);
   const [contactSaved, setContactSaved] = useState(false);
   const [contactPending, setContactPending] = useState(false);
+  const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
   const scrollerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const bottomAnchorRef = useRef<HTMLDivElement>(null);
@@ -175,7 +214,7 @@ export function WidgetChat({
     const payload = (await response.json()) as {
       conversationId?: string | null;
       waitingOnHuman?: boolean;
-      messages?: { id?: string; role?: string; content?: string }[];
+      messages?: { id?: string; role?: string; content?: string; sources?: ChatSource[] | null }[];
       contact?: { name?: string; email?: string; phone?: string } | null;
     };
     if (!response.ok) return;
@@ -270,6 +309,7 @@ export function WidgetChat({
         waitingOnHuman?: boolean;
         error?: string;
         contactSaved?: boolean;
+        sources?: ChatSource[] | null;
       };
       if (payload.conversationId) setConversationId(payload.conversationId);
       setWaitingOnHuman(Boolean(payload.waitingOnHuman));
@@ -289,6 +329,7 @@ export function WidgetChat({
             {
               role: "assistant",
               content: payload.answer || payload.error || "I could not answer just now.",
+              sources: Array.isArray(payload.sources) ? payload.sources : null,
             },
           ];
         });
@@ -401,9 +442,9 @@ export function WidgetChat({
           if (scroller) pinToBottomRef.current = isNearBottom(scroller);
         }}
       >
-        <div ref={contentRef} className="space-y-2">
+        <div ref={contentRef} className="space-y-3">
           {showWelcome ? (
-            <p className="rounded-2xl bg-neutral-50 p-3 text-sm text-neutral-700">
+            <p className="rounded-2xl border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-sm leading-relaxed text-neutral-700">
               {appearance.welcomeMessage}
             </p>
           ) : null}
@@ -422,28 +463,62 @@ export function WidgetChat({
               ))}
             </div>
           ) : null}
-          {rows.map((row, index) => (
-            <div
-              key={row.id ?? `${row.role}-${index}`}
-              className={
-                row.role === "visitor"
-                  ? "ml-8 rounded-2xl bg-neutral-900 px-3 py-2 text-sm text-white"
-                  : row.role === "human"
-                    ? "mr-8 rounded-2xl px-3 py-2 text-sm"
-                    : row.role === "system"
-                      ? "rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900"
-                      : "mr-8 rounded-2xl bg-neutral-100 px-3 py-2 text-sm"
-              }
-              style={
-                row.role === "human"
-                  ? { backgroundColor: "color-mix(in srgb, var(--widget-accent) 14%, white)" }
-                  : undefined
-              }
-            >
-              {row.role === "human" ? <p className="mb-1 text-[11px] font-medium">Team</p> : null}
-              {row.content}
-            </div>
-          ))}
+          {rows.map((row, index) => {
+            const key = row.id ?? `${row.role}-${index}`;
+            const assistantView = row.role === "assistant" ? presentAssistantMessage(row.content, row.sources) : null;
+            const shownProducts = assistantView
+              ? visibleProductCards(assistantView.products, Boolean(expandedProducts[key]))
+              : [];
+            const hiddenProducts = assistantView ? assistantView.products.length - shownProducts.length : 0;
+            return (
+              <div
+                key={key}
+                className={
+                  row.role === "visitor"
+                    ? "ml-auto w-fit max-w-[85%] min-w-0 rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed break-words text-white"
+                    : row.role === "human"
+                      ? "mr-auto max-w-full min-w-0 rounded-2xl border border-neutral-200 px-3.5 py-2.5 text-sm leading-relaxed break-words text-neutral-900"
+                      : row.role === "system"
+                        ? "max-w-full min-w-0 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed break-words text-amber-950"
+                        : "mr-auto w-full max-w-full min-w-0 rounded-2xl border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-sm leading-relaxed break-words text-neutral-800"
+                }
+                style={
+                  row.role === "visitor"
+                    ? { backgroundColor: accent }
+                    : row.role === "human"
+                      ? { backgroundColor: "color-mix(in srgb, var(--widget-accent) 12%, white)" }
+                      : undefined
+                }
+              >
+                {row.role === "human" ? <p className="mb-1 text-[11px] font-medium">Team</p> : null}
+                {assistantView && (assistantView.prose || assistantView.products.length) ? (
+                  <div className="grid min-w-0 gap-2.5">
+                    {assistantView.prose ? (
+                      <p className="whitespace-pre-wrap break-words">{assistantView.prose}</p>
+                    ) : null}
+                    {shownProducts.length ? (
+                      <div className="grid min-w-0 gap-2.5">
+                        {shownProducts.map((card) => (
+                          <ProductCard key={`${card.name}-${card.href ?? "product"}`} card={card} accent={accent} />
+                        ))}
+                      </div>
+                    ) : null}
+                    {hiddenProducts > 0 ? (
+                      <button
+                        type="button"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-800"
+                        onClick={() => setExpandedProducts((current) => ({ ...current, [key]: true }))}
+                      >
+                        Show {hiddenProducts} more
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap break-words">{assistantView ? assistantView.prose : row.content}</p>
+                )}
+              </div>
+            );
+          })}
           {pending ? (
             <p className="text-xs text-neutral-500" aria-live="polite">
               Looking that up…
