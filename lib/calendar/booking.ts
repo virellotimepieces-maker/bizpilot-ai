@@ -1,6 +1,8 @@
 import { BillingService } from "@/lib/billing/service";
 import type { BillingStore } from "@/lib/billing/store";
 import { BillingError } from "@/lib/billing/types";
+import { asksForLiveAppointment, resolveConversationLanguage } from "@/lib/i18n/conversation-language";
+import { localizeAssistantText, type TranslateFn } from "@/lib/i18n/localize";
 import type { WebsiteReplySource } from "@/lib/website/types";
 import { extractRequestedService, isAppointmentRequestQuestion } from "@/lib/v2/appointments";
 import { calendarAccessToken, refreshStoredCalendarAccess } from "./access";
@@ -27,6 +29,7 @@ export function isCalendarCustomerRequest(question: string) {
   const text = question.trim();
   if (!text || text.startsWith("slot:")) return false;
   if (isAppointmentRequestQuestion(text)) return true;
+  if (asksForLiveAppointment(text)) return true;
   if (TIMES_RE.test(text) && (AVAILABILITY_RE.test(text) || WHEN_WORD_RE.test(text))) return true;
   return AVAILABILITY_RE.test(text) && WHEN_WORD_RE.test(text);
 }
@@ -180,6 +183,7 @@ export async function handleCalendarWidgetTurn(input: {
   slotStart?: string;
   now?: Date;
   fetchImpl?: typeof fetch;
+  translate?: TranslateFn;
 }): Promise<CalendarTurnResult | null> {
   const now = input.now ?? new Date();
   const fetchImpl = input.fetchImpl ?? fetch;
@@ -204,10 +208,15 @@ export async function handleCalendarWidgetTurn(input: {
       workspaceId: business.id,
       visitorKey: input.visitorKey,
     }));
+  const language = resolveConversationLanguage(conversation.detectedLanguage, input.question);
+  if (language !== conversation.detectedLanguage) {
+    await input.store.updateConversation(conversation.id, business.id, { detectedLanguage: language });
+  }
   const connection = await input.store.getGoogleCalendarConnection(business.id);
   const connected = connection?.status === "connected" && connection.workspaceId === business.id;
 
   async function reply(answer: string, sources: WebsiteReplySource[] = []) {
+    const localized = await localizeAssistantText(answer, language, input.translate);
     await input.store.addMessage({
       workspaceId: business.id,
       conversationId: conversation.id,
@@ -219,13 +228,13 @@ export async function handleCalendarWidgetTurn(input: {
       workspaceId: business.id,
       conversationId: conversation.id,
       role: "assistant",
-      content: answer,
+      content: localized,
       usageCounted: false,
       sources,
     });
     return {
       conversationId: conversation.id,
-      answer,
+      answer: localized,
       sources,
       waitingOnHuman: false as const,
     };
@@ -485,6 +494,7 @@ export async function handleCalendarWidgetTurn(input: {
       workspace: business,
       appointment,
       fetchImpl,
+      translate: input.translate,
     });
     await rememberSession(input.store, active, {
       ...contact,

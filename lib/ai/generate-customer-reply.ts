@@ -1,5 +1,6 @@
 import { knowledgePrompt, WIDGET_SYSTEM_RULES } from "@/lib/ai/knowledge-prompt";
 import { BillingError } from "@/lib/billing/types";
+import { isEnglishLanguage, languageName } from "@/lib/i18n/localize";
 import {
   CATALOG_NO_SOURCE_ANSWER,
   groundedCatalogAnswer,
@@ -17,6 +18,7 @@ export async function generateCustomerReply(
   question: string,
   pages: WebsitePageRecord[] = [],
   products: ShopifyProductRecord[] = [],
+  language = "",
 ): Promise<string> {
   const sample = pages[0];
   const workspaceId = sample?.workspaceId || products[0]?.workspaceId || "";
@@ -75,7 +77,7 @@ export async function generateCustomerReply(
       messages: [
         {
           role: "system",
-          content: `${WIDGET_SYSTEM_RULES}\n\nIndexed website pages (include facts only from these URLs):\n${websitePagesPrompt(relevant)}\n\nConnected Shopify catalog (active products for this workspace only; never invent missing fields):\n${shopifyCatalogPrompt(relevantProducts)}\n\nPublished knowledge:\n${knowledgePrompt(knowledge)}`,
+          content: `${WIDGET_SYSTEM_RULES}${languageInstruction(language)}\n\nIndexed website pages (include facts only from these URLs):\n${websitePagesPrompt(relevant)}\n\nConnected Shopify catalog (active products for this workspace only; never invent missing fields):\n${shopifyCatalogPrompt(relevantProducts)}\n\nPublished knowledge:\n${knowledgePrompt(knowledge)}`,
         },
         { role: "user", content: question },
       ],
@@ -92,4 +94,9 @@ export async function generateCustomerReply(
     throw new Error("model_empty");
   }
   return text;
+}
+
+function languageInstruction(language: string) {
+  if (isEnglishLanguage(language)) return "";
+  return `\n\nReply in ${languageName(language)}. Do not translate proper names, emails, prices, URLs, or dates into different facts. Do not invent store facts.`;
 }

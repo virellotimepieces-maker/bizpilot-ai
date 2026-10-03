@@ -32,6 +32,8 @@ import { buildWorkspaceAnalytics } from "@/lib/v2/analytics";
 import { FUTURE_INTEGRATION_PROVIDERS } from "@/lib/v2/enums";
 import { buildWorkspaceIntegrations } from "@/lib/v2/integrations";
 import type { AppointmentRequestWrite, LeadInput, QuoteRequestWrite } from "@/lib/v2/types";
+import { resolveConversationLanguage } from "@/lib/i18n/conversation-language";
+import { localizeAssistantText, type TranslateFn } from "@/lib/i18n/localize";
 import { groundedWebsiteAnswer } from "@/lib/website/answer";
 import type { WebsitePageRecord, WebsiteReplySource } from "@/lib/website/types";
 import type { BillingStore } from "./store";
@@ -344,7 +346,9 @@ export class BillingService {
       question: string,
       pages?: WebsitePageRecord[],
       products?: ShopifyProductRecord[],
+      language?: string,
     ) => Promise<string>;
+    translate?: TranslateFn;
   }) {
     const now = options.now ?? new Date();
     const workspace = await this.store.getWorkspaceByWidgetKey(options.widgetKey);
@@ -374,6 +378,11 @@ export class BillingService {
         visitorKey: options.visitorKey,
       }));
 
+    const language = resolveConversationLanguage(thread.detectedLanguage, options.question);
+    if (language !== thread.detectedLanguage) {
+      await this.store.updateConversation(thread.id, workspace.id, { detectedLanguage: language });
+    }
+
     await this.captureQuoteRequestIfNeeded({
       workspaceId: workspace.id,
       userId: workspace.ownerUserId,
@@ -395,9 +404,12 @@ export class BillingService {
         content: options.question,
         usageCounted: false,
       });
-      const handoff =
+      const handoff = await localizeAssistantText(
         workspace.knowledge?.escalation.handoffMessage ||
-        "A teammate is on this chat and will reply here. AI replies are paused.";
+          "A teammate is on this chat and will reply here. AI replies are paused.",
+        language,
+        options.translate,
+      );
       await this.store.addMessage({
         workspaceId: workspace.id,
         conversationId: thread.id,
@@ -427,7 +439,11 @@ export class BillingService {
       });
       await this.store.setConversationWaiting(thread.id, workspace.id, true);
       await this.notifyHumanNeeded(workspace.id, subscription!.userId);
-      const answer = freezeVisitorText(workspace.knowledge, decision.reply);
+      const answer = await localizeAssistantText(
+        freezeVisitorText(workspace.knowledge, decision.reply),
+        language,
+        options.translate,
+      );
       await this.store.addMessage({
         workspaceId: workspace.id,
         conversationId: thread.id,
@@ -462,7 +478,11 @@ export class BillingService {
         const handoff =
           workspace.knowledge?.escalation.handoffMessage ||
           "I want to make sure you get a precise answer. I’m looping in a teammate who can take it from here.";
-        const answer = `This business has used its monthly AI reply allowance. ${handoff}`;
+        const answer = await localizeAssistantText(
+          `This business has used its monthly AI reply allowance. ${handoff}`,
+          language,
+          options.translate,
+        );
         await this.store.addMessage({
           workspaceId: workspace.id,
           conversationId: thread.id,
@@ -505,7 +525,7 @@ export class BillingService {
 
     let answer: string;
     try {
-      answer = await options.generate(published, options.question, pages, products);
+      answer = await options.generate(published, options.question, pages, products, language);
     } catch (error) {
       await this.store.releaseReservedAiReply(gate.workspace.id, periodStartMs);
       throw error;
@@ -578,7 +598,10 @@ export class BillingService {
       workspaceId: workspace.id,
       conversationId,
       role: "system",
-      content: "A teammate has been asked to take over this conversation.",
+      content: await localizeAssistantText(
+        "A teammate has been asked to take over this conversation.",
+        conversation.detectedLanguage,
+      ),
       usageCounted: false,
     });
     await this.notifyHumanNeeded(workspace.id, subscription!.userId);
@@ -615,7 +638,10 @@ export class BillingService {
       workspaceId,
       conversationId,
       role: "system",
-      content: "AI replies are on again for this conversation.",
+      content: await localizeAssistantText(
+        "AI replies are on again for this conversation.",
+        conversation.detectedLanguage,
+      ),
       usageCounted: false,
     });
     return updated;

@@ -5,6 +5,8 @@ import { getBillingStore } from "@/lib/billing/factory";
 import { BillingService } from "@/lib/billing/service";
 import type { BillingStore } from "@/lib/billing/store";
 import { BillingError } from "@/lib/billing/types";
+import { resolveConversationLanguage } from "@/lib/i18n/conversation-language";
+import { localizeAssistantText } from "@/lib/i18n/localize";
 import { jsonError } from "@/lib/http";
 import { linkCatalogProductCards } from "@/lib/shopify/catalog";
 import type { WebsiteReplySource } from "@/lib/website/types";
@@ -121,13 +123,22 @@ export async function POST(request: NextRequest) {
       const visitorKey = body.visitorKey?.trim() || "anonymous";
       const thread = await service.loadWidgetThread(widgetKey, visitorKey, conversationId);
       if (!thread.conversation) throw new BillingError("Conversation not found.", "not_found");
+      const language = await rememberWidgetLanguage(
+        store,
+        widgetKey,
+        visitorKey,
+        thread.conversation.id,
+        question ?? "",
+      );
       const conversation = await service.handoffToHuman(widgetKey, thread.conversation.id);
       return cors(
         NextResponse.json({
           conversationId: conversation.id,
           waitingOnHuman: true,
-          answer:
+          answer: await localizeAssistantText(
             "I’m looping in a teammate who can take it from here. AI replies are paused for this conversation.",
+            language,
+          ),
         }),
       );
     }
@@ -169,12 +180,22 @@ export async function POST(request: NextRequest) {
         const handoff =
           workspace?.knowledge?.escalation.handoffMessage ||
           "I want to make sure you get a precise answer. I’m looping in a teammate who can take it from here.";
+        const language = await rememberWidgetLanguage(
+          store,
+          widgetKey,
+          body.visitorKey?.trim() || "anonymous",
+          conversationId,
+          question,
+        );
         return cors(
           NextResponse.json(
             {
               error: error.message,
               code: "limit",
-              answer: `This business has used its monthly AI reply allowance. ${handoff}`,
+              answer: await localizeAssistantText(
+                `This business has used its monthly AI reply allowance. ${handoff}`,
+                language,
+              ),
               waitingOnHuman: true,
             },
             { status: 429 },
@@ -187,4 +208,22 @@ export async function POST(request: NextRequest) {
     const response = jsonError(error, "Could not answer from the widget.");
     return cors(response);
   }
+}
+
+async function rememberWidgetLanguage(
+  store: BillingStore,
+  widgetKey: string,
+  visitorKey: string,
+  conversationId: string | undefined,
+  question: string,
+) {
+  if (!conversationId) return resolveConversationLanguage("", question);
+  const workspace = await store.getWorkspaceByWidgetKey(widgetKey);
+  if (!workspace) return resolveConversationLanguage("", question);
+  const conversation = await store.getConversationForVisitor(workspace.id, visitorKey, conversationId);
+  const language = resolveConversationLanguage(conversation?.detectedLanguage ?? "", question);
+  if (conversation && language !== conversation.detectedLanguage) {
+    await store.updateConversation(conversation.id, workspace.id, { detectedLanguage: language });
+  }
+  return language;
 }

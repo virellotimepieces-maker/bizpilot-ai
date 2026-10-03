@@ -2,6 +2,7 @@ import type { BillingStore } from "@/lib/billing/store";
 import { BillingError, type WorkspaceRecord } from "@/lib/billing/types";
 import { gmailPost } from "@/lib/gmail/access";
 import { buildReplyRfc822, toGmailRaw } from "@/lib/gmail/mime";
+import { localizeAssistantText, type TranslateFn } from "@/lib/i18n/localize";
 import type { CalendarAppointmentRecord } from "./types";
 
 const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
@@ -59,6 +60,7 @@ export async function sendBookingConfirmation(input: {
   workspace: WorkspaceRecord;
   appointment: CalendarAppointmentRecord;
   fetchImpl?: typeof fetch;
+  translate?: TranslateFn;
 }): Promise<boolean> {
   if (input.appointment.workspaceId !== input.workspace.id || !input.appointment.googleEventId) return false;
   const gmail = await input.store.getGmailConnection(input.workspace.id);
@@ -81,6 +83,12 @@ export async function sendBookingConfirmation(input: {
     timezone: claimed.timezone,
     service: claimed.service,
   });
+  const conversation = await input.store.getConversation(claimed.conversationId, input.workspace.id);
+  const body = await localizeAssistantText(
+    message.body,
+    conversation?.detectedLanguage ?? "",
+    input.translate,
+  );
   try {
     await gmailPost(
       input.store,
@@ -91,7 +99,7 @@ export async function sendBookingConfirmation(input: {
           fromEmail: gmail.googleEmail,
           toEmail: claimed.email,
           subject: message.subject,
-          body: message.body,
+          body,
         })),
       },
       input.fetchImpl,
