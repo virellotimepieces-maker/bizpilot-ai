@@ -121,9 +121,21 @@ export interface KnowledgeBase {
 
 export type ReplyChannel = "chat" | "email" | "social";
 
-export type SocialPlatform = "instagram" | "facebook" | "tiktok" | "messenger";
+export type SocialPlatform =
+  | "instagram"
+  | "facebook"
+  | "tiktok"
+  | "messenger"
+  | "linkedin"
+  | "threads"
+  | "x"
+  | "pinterest";
 
 export type SocialStatus =
+  | "draft"
+  | "approved"
+  | "published"
+  | "failed"
   | "draft_ready"
   | "needs_review"
   | "escalated"

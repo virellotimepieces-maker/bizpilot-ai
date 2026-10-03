@@ -998,6 +998,46 @@ export class BillingService {
     }
   }
 
+  async accountSocialGeneration<T>(workspaceId: string, userId: string, generate: () => Promise<T>, now = new Date()) {
+    const { subscription } = await this.requirePaidWorkspace(userId, workspaceId, now);
+    const period = await this.ensureCurrentPeriod(subscription);
+    const periodStartMs = period.periodStart.getTime();
+    if (period.replyLimit - period.repliesUsed - period.repliesReserved <= 0) {
+      throw new BillingError(
+        "This business has used all 500 AI replies for the current billing month.",
+        "limit",
+      );
+    }
+    const reserved = await this.store.reserveAiReply(workspaceId, periodStartMs);
+    if (!reserved) {
+      throw new BillingError(
+        "This business has used all 500 AI replies for the current billing month.",
+        "limit",
+      );
+    }
+    try {
+      const value = await generate();
+      const committed = await this.store.commitReservedAiReply(workspaceId, periodStartMs);
+      if (!committed) {
+        throw new BillingError(
+          "This business has used all 500 AI replies for the current billing month.",
+          "limit",
+        );
+      }
+      return {
+        value,
+        usage: {
+          used: committed.repliesUsed,
+          limit: committed.replyLimit,
+          remaining: Math.max(0, committed.replyLimit - committed.repliesUsed),
+        },
+      };
+    } catch (error) {
+      await this.store.releaseReservedAiReply(workspaceId, periodStartMs);
+      throw error;
+    }
+  }
+
   private async syncAppointmentContactFromConversation(input: {
     workspaceId: string;
     conversation: ConversationRecord;

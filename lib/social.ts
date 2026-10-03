@@ -26,23 +26,44 @@ export type { SocialHashtagMode, SocialMode, SocialPostGoal, SocialTone };
 export const SOCIAL_PLATFORMS: SocialPlatform[] = [
   "instagram",
   "facebook",
+  "linkedin",
+  "threads",
+  "x",
+  "pinterest",
   "tiktok",
   "messenger",
+];
+
+export const SOCIAL_CONTENT_PLATFORMS: SocialPlatform[] = [
+  "facebook",
+  "instagram",
+  "linkedin",
+  "threads",
+  "x",
+  "pinterest",
 ];
 
 export const SOCIAL_PLATFORM_LABEL: Record<SocialPlatform, string> = {
   instagram: "Instagram",
   facebook: "Facebook",
+  linkedin: "LinkedIn",
+  threads: "Threads",
+  x: "X",
+  pinterest: "Pinterest",
   tiktok: "TikTok",
   messenger: "Messenger",
 };
 
 export const SOCIAL_STATUS_LABEL: Record<SocialStatus, string> = {
-  draft_ready: "Draft ready",
-  needs_review: "Needs review",
-  escalated: "Escalated",
-  posted: "Posted by you",
-  discarded: "Discarded",
+  draft: "Draft",
+  approved: "Approved",
+  published: "Published",
+  failed: "Failed",
+  draft_ready: "Draft",
+  needs_review: "Draft",
+  escalated: "Draft",
+  posted: "Approved",
+  discarded: "Draft",
 };
 
 export const SOCIAL_MODES: SocialMode[] = ["reply", "post"];
@@ -77,6 +98,23 @@ export const SOCIAL_GOALS: SocialPostGoal[] = [
   "leads",
   "sales",
   "announcement",
+  "promote_product",
+  "educational",
+  "offer",
+  "product_spotlight",
+  "business_update",
+  "custom",
+];
+
+export const SOCIAL_CONTENT_GOALS: SocialPostGoal[] = [
+  "promote_product",
+  "announcement",
+  "educational",
+  "engagement",
+  "offer",
+  "product_spotlight",
+  "business_update",
+  "custom",
 ];
 
 export const SOCIAL_GOAL_LABEL: Record<SocialPostGoal, string> = {
@@ -86,6 +124,12 @@ export const SOCIAL_GOAL_LABEL: Record<SocialPostGoal, string> = {
   leads: "Leads",
   sales: "Sales",
   announcement: "Announcement",
+  promote_product: "Promote product/service",
+  educational: "Educational",
+  offer: "Offer/promotion",
+  product_spotlight: "Product spotlight",
+  business_update: "Business update",
+  custom: "Custom",
 };
 
 export const SOCIAL_HASHTAG_MODES: SocialHashtagMode[] = ["none", "suggested", "custom"];
@@ -97,10 +141,10 @@ export const SOCIAL_HASHTAG_LABEL: Record<SocialHashtagMode, string> = {
 };
 
 export const SOCIAL_NEVER_POST =
-  "Social replies stay drafts — copy and post them yourself. BizPilot never posts to Instagram, Facebook, TikTok, or Messenger.";
+  "Every social post starts as a draft. BizPilot never posts it automatically. Connect a social account before publishing is available.";
 
 export const SOCIAL_AI_HELPER_COPY =
-  "AI creates a relevant social reply or post using your instructions and Knowledge as context. Review and edit the draft before copying. BizPilot never posts automatically.";
+  "AI drafts a social post from this workspace’s Knowledge, website, and connected product facts, plus your instruction. Review and edit it before you copy it. BizPilot never posts automatically.";
 
 export const SOCIAL_CUSTOMER_FIELD_LABEL = "Customer name or username (optional)";
 
@@ -134,6 +178,7 @@ export type SocialComposeInput = {
   cta?: string;
   link?: string;
   language?: string;
+  extraFacts?: string[];
 };
 
 export function isSocialPlatform(value: string): value is SocialPlatform {
@@ -142,6 +187,10 @@ export function isSocialPlatform(value: string): value is SocialPlatform {
 
 export function isSocialStatus(value: string): value is SocialStatus {
   return (
+    value === "draft" ||
+    value === "approved" ||
+    value === "published" ||
+    value === "failed" ||
     value === "draft_ready" ||
     value === "needs_review" ||
     value === "escalated" ||
@@ -228,6 +277,7 @@ function toDraftInput(input: SocialComposeInput): SocialDraftInput {
     cta: input.cta,
     link: input.link || input.conversationUrl,
     language: input.language,
+    extraFacts: input.extraFacts,
   };
 }
 
@@ -346,7 +396,7 @@ export function rebuildSocialDraft(message: SocialMessage, kb: KnowledgeBase): S
 export async function rebuildSocialDraftAi(
   message: SocialMessage,
   kb: KnowledgeBase,
-  options?: { complete?: SocialChatComplete; workspaceId?: string },
+  options?: { complete?: SocialChatComplete; workspaceId?: string; extraFacts?: string[] },
 ): Promise<SocialMessage> {
   const locked = message.status === "posted" || message.status === "discarded";
   if (locked) return message;
@@ -367,6 +417,7 @@ export async function rebuildSocialDraftAi(
     cta: meta.cta,
     link: meta.link,
     language: meta.language,
+    extraFacts: options?.extraFacts,
     complete: options?.complete,
     workspaceId: options?.workspaceId,
   });

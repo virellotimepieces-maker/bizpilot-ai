@@ -15,7 +15,13 @@ export type SocialPostGoal =
   | "traffic"
   | "leads"
   | "sales"
-  | "announcement";
+  | "announcement"
+  | "promote_product"
+  | "educational"
+  | "offer"
+  | "product_spotlight"
+  | "business_update"
+  | "custom";
 export type SocialHashtagMode = "none" | "suggested" | "custom";
 
 export type SocialDraftChatMessage = {
@@ -118,6 +124,18 @@ export function platformFormattingBlock(platform: SocialPlatform, mode: SocialMo
     return mode === "post"
       ? "TikTok caption: opening hook, concise body, call to action. Hashtags only if requested. Never claim a video was created."
       : "TikTok reply: concise. Never claim a video was created.";
+  }
+  if (platform === "linkedin") {
+    return "LinkedIn post: professional paragraphs, a clear point, and at most three hashtags. Do not claim the post was published.";
+  }
+  if (platform === "threads") {
+    return "Threads post: short and conversational. At most two hashtags. Do not claim the post was published.";
+  }
+  if (platform === "x") {
+    return "X post: stay under 280 characters, direct wording, and at most two hashtags. Do not claim the post was published.";
+  }
+  if (platform === "pinterest") {
+    return "Pinterest description: specific and searchable, with a call to action. Use only verified product or page details. Do not claim the pin was published.";
   }
   return "Messenger: short, natural direct message. Do not include public-post hashtags.";
 }

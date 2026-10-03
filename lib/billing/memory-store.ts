@@ -628,6 +628,15 @@ export class MemoryBillingStore implements BillingStore {
     return row;
   }
 
+  async deleteSocialMessage(id: string, workspaceId: string, widgetKey: string) {
+    const index = this.socialMessages.findIndex((item) => item.id === id);
+    if (index < 0) return false;
+    const row = this.socialMessages[index];
+    if (!row || row.workspaceId !== workspaceId || row.widgetKey !== widgetKey) return false;
+    this.socialMessages.splice(index, 1);
+    return true;
+  }
+
   async listEmailDrafts(workspaceId: string, widgetKey: string) {
     return this.emailDrafts
       .filter((row) => row.workspaceId === workspaceId && row.widgetKey === widgetKey)

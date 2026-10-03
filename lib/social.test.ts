@@ -28,8 +28,8 @@ import { PRESETS } from "./presets";
 import {
   SOCIAL_AI_HELPER_COPY,
   SOCIAL_CUSTOMER_FIELD_LABEL,
+  SOCIAL_CONTENT_PLATFORMS,
   SOCIAL_NEVER_POST,
-  SOCIAL_PLATFORMS,
   draftSocialFromInbound,
   rebuildSocialDraft,
 } from "./social";
@@ -397,7 +397,7 @@ describe("social drafts", () => {
     assert.match(draft.operatorNote, /never posts automatically/i);
     for (const file of PRODUCTION_SOURCES) {
       const source = readFileSync(file, "utf8");
-      assert.doesNotMatch(source, /graph\.facebook|instagram\.com\/oauth|tiktok\.com\/oauth|twitter|linkedin/i);
+      assert.doesNotMatch(source, /graph\.facebook|instagram\.com\/oauth|tiktok\.com\/oauth|api\.twitter|linkedin\.com\/oauth|auto-?post/i);
       assert.doesNotMatch(source, /auto-?post/i);
     }
     const route = readFileSync("app/api/app/social/route.ts", "utf8");
@@ -417,12 +417,14 @@ describe("social drafts", () => {
     const paid = readFileSync("components/paid-social-inbox.tsx", "utf8");
     assert.match(paid, /SOCIAL_WRAP_TEXT_CLASS/);
     assert.match(paid, /SOCIAL_PANE_GRID_CLASS/);
-    assert.deepEqual([...SOCIAL_MODE_LABELS], ["Reply to message", "Create post"]);
+    assert.deepEqual([...SOCIAL_MODE_LABELS], ["Create post"]);
     assert.deepEqual([...SOCIAL_ACTION_LABELS], [
-      "Generate reply",
-      "Generate post",
-      "Copy draft",
+      "Generate",
+      "Save draft",
+      "Copy",
       "Regenerate",
+      "Delete",
+      "Mark approved",
     ]);
     for (const label of SOCIAL_ACTION_LABELS) {
       assert.ok(paid.includes(label), `missing ${label}`);
@@ -439,14 +441,16 @@ describe("social drafts", () => {
       assert.doesNotMatch(source, /@customer/);
     }
     assert.match(SOCIAL_SYSTEM_INSTRUCTIONS, /Do not assume ecommerce/);
-    assert.deepEqual([...SOCIAL_PLATFORMS], ["instagram", "facebook", "tiktok", "messenger"]);
     assert.equal(
       SOCIAL_AI_HELPER_COPY,
-      "AI creates a relevant social reply or post using your instructions and Knowledge as context. Review and edit the draft before copying. BizPilot never posts automatically.",
+      "AI drafts a social post from this workspace’s Knowledge, website, and connected product facts, plus your instruction. Review and edit it before you copy it. BizPilot never posts automatically.",
     );
     assert.equal(SOCIAL_CUSTOMER_FIELD_LABEL, "Customer name or username (optional)");
     const paid = readFileSync("components/paid-social-inbox.tsx", "utf8");
-    assert.match(paid, /SOCIAL_CUSTOMER_FIELD_LABEL/);
+    assert.deepEqual(
+      [...SOCIAL_CONTENT_PLATFORMS],
+      ["facebook", "instagram", "linkedin", "threads", "x", "pinterest"],
+    );
     assert.doesNotMatch(paid, /BizPilot will write a draft from your knowledge\. It still will not post\./);
   });
 

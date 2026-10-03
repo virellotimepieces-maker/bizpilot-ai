@@ -30,13 +30,15 @@ export const SOCIAL_ACTION_ROW_CLASS =
 export const SOCIAL_ACTION_BUTTON_CLASS =
   "h-11 min-h-11 w-full min-w-0 max-w-full justify-center text-sm sm:text-base lg:w-auto lg:text-lg";
 
-export const SOCIAL_MODE_LABELS = ["Reply to message", "Create post"] as const;
+export const SOCIAL_MODE_LABELS = ["Create post"] as const;
 
 export const SOCIAL_ACTION_LABELS = [
-  "Generate reply",
-  "Generate post",
-  "Copy draft",
+  "Generate",
+  "Save draft",
+  "Copy",
   "Regenerate",
+  "Delete",
+  "Mark approved",
 ] as const;
 
 const PAGE_GUTTER_PX = 24;

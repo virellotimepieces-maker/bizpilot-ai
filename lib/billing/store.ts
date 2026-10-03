@@ -192,6 +192,7 @@ export interface BillingStore {
       >
     >,
   ): Promise<SocialMessageRecord>;
+  deleteSocialMessage(id: string, workspaceId: string, widgetKey: string): Promise<boolean>;
 
   listEmailDrafts(workspaceId: string, widgetKey: string): Promise<EmailDraftRecord[]>;
   getEmailDraft(

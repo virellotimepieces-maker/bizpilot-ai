@@ -1157,6 +1157,13 @@ export class PrismaBillingStore implements BillingStore {
     return mapSocialMessage(row);
   }
 
+  async deleteSocialMessage(id: string, workspaceId: string, widgetKey: string) {
+    const existing = await this.getSocialMessage(id, workspaceId, widgetKey);
+    if (!existing) return false;
+    await this.prisma().socialMessage.delete({ where: { id } });
+    return true;
+  }
+
   async listEmailDrafts(workspaceId: string, widgetKey: string) {
     const rows = await this.prisma().emailDraft.findMany({
       where: { workspaceId, widgetKey },

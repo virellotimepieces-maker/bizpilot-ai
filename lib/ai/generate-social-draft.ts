@@ -31,6 +31,7 @@ export type SocialDraftInput = {
   cta?: string;
   link?: string;
   language?: string;
+  extraFacts?: string[];
   complete?: SocialChatComplete;
   workspaceId?: string;
 };
@@ -242,7 +243,12 @@ function suggestedHashtags(
     .filter((token) => token.length > 3)
     .slice(0, 8);
   const tags = Array.from(new Set(seeds.map((token) => `#${token}`)));
-  const limit = platform === "facebook" ? 2 : 5;
+  const limit =
+    platform === "facebook" || platform === "x" || platform === "threads"
+      ? 2
+      : platform === "linkedin"
+        ? 3
+        : 5;
   return tags.slice(0, limit);
 }
 
@@ -327,7 +333,7 @@ export function composeSocialDraft(input: SocialDraftInput) {
   const platform = input.platform;
   const hashtags = input.hashtags ?? "none";
   const query = [input.body, input.cta, input.link, input.language].filter(Boolean).join("\n");
-  const facts = pickRelevantSocialFacts(input.knowledge, query);
+  const facts = mergeSocialFacts(input.knowledge, query, input.extraFacts);
   const spanish = Boolean(input.language?.match(/spanish|español/i)) || looksSpanish(input.body);
   const opener = toneOpener(tone, mode, firstName(input.fromName), spanish);
   const linkSource = [input.body, input.link ?? ""].join("\n");
@@ -370,20 +376,28 @@ export function composeSocialDraft(input: SocialDraftInput) {
   const factLine = facts[0] && facts[0].length < 220 ? facts[0] : "";
   const cta =
     input.cta?.trim() ||
-    (input.goal === "traffic" || input.goal === "leads"
+    (input.goal === "traffic" || input.goal === "leads" || input.goal === "promote_product"
       ? "Send a message for details."
       : input.goal === "sales"
         ? "Shop or book through the link when you are ready."
-        : input.goal === "announcement"
+        : input.goal === "announcement" || input.goal === "business_update"
           ? "Save this note for later."
-          : "Let us know what you think.");
+          : input.goal === "educational"
+            ? "Save this if it is useful."
+            : input.goal === "offer"
+              ? "Ask us about what is currently available."
+              : input.goal === "product_spotlight"
+                ? "Tell us if you want the details we have published."
+                : "Let us know what you think.");
   let body: string;
   if (platform === "tiktok") {
     body = [tiktokHook(topic), "", factLine, "", cta].filter((row) => row !== undefined).join("\n");
-  } else if (platform === "instagram") {
+  } else if (platform === "instagram" || platform === "pinterest") {
     body = [topic, "", factLine, "", cta].filter(Boolean).join("\n");
-  } else if (platform === "facebook") {
+  } else if (platform === "facebook" || platform === "linkedin") {
     body = [topic, factLine, cta].filter(Boolean).join("\n\n");
+  } else if (platform === "threads" || platform === "x") {
+    body = [topic, factLine, cta].filter(Boolean).join("\n");
   } else {
     body = [opener, topic, cta].filter(Boolean).join("\n\n");
   }
@@ -391,10 +405,12 @@ export function composeSocialDraft(input: SocialDraftInput) {
     body = `${body}`;
   }
   const tagBlock = platform === "messenger" ? "" : tags.join(" ");
-  const drafted = [opener && mode === "post" && platform !== "tiktok" ? opener : "", body, tagBlock]
+  const drafted = [opener && mode === "post" && platform !== "tiktok" && platform !== "x" ? opener : "", body, tagBlock]
     .filter(Boolean)
     .join("\n\n");
-  return preserveProvidedLinks(drafted.trim(), linkSource);
+  const withLinks = preserveProvidedLinks(drafted.trim(), linkSource);
+  const clipped = platform === "x" && withLinks.length > 280 ? withLinks.slice(0, 277).trimEnd() + "…" : withLinks;
+  return stripUnverifiedCommercials(clipped, socialFactCorpus(input));
 }
 
 export function looksLikeSocialKnowledgeDump(reply: string, knowledge: KnowledgeBase) {
@@ -459,7 +475,55 @@ export function finalizeSocialDraft(raw: string, input: SocialDraftInput) {
   if (input.platform === "messenger") {
     text = text.replace(/(^|\s)#[\p{L}0-9_]+/gu, "$1").replace(/[ \t]{2,}/g, " ").trim();
   }
-  return preserveProvidedLinks(text, linkSource);
+  text = preserveProvidedLinks(text, linkSource);
+  text = stripUnverifiedCommercials(text, socialFactCorpus(input));
+  if (input.platform === "x" && text.length > 280) {
+    text = text.slice(0, 277).trimEnd() + "…";
+  }
+  return text;
+}
+
+export function mergeSocialFacts(knowledge: KnowledgeBase, query: string, extraFacts?: string[]) {
+  const merged = [...(extraFacts ?? []).map((fact) => fact.trim()).filter(Boolean), ...pickRelevantSocialFacts(knowledge, query)];
+  const unique: string[] = [];
+  for (const fact of merged) {
+    if (unique.some((item) => item === fact)) continue;
+    unique.push(fact);
+    if (unique.length === 6) break;
+  }
+  return unique;
+}
+
+export function socialFactCorpus(
+  input: Pick<SocialDraftInput, "knowledge" | "body" | "link" | "cta" | "customHashtags" | "extraFacts">,
+) {
+  return [
+    JSON.stringify(input.knowledge),
+    input.body,
+    input.link ?? "",
+    input.cta ?? "",
+    input.customHashtags ?? "",
+    ...(input.extraFacts ?? []),
+  ].join("\n");
+}
+
+function verifiedAmount(corpus: string, digits: string) {
+  const escaped = digits.replace(/\./g, "\\.");
+  return new RegExp(`(?:\\$\\s*|Price:\\s*)${escaped}\\b`, "i").test(corpus);
+}
+
+export function stripUnverifiedCommercials(draft: string, corpus: string) {
+  let text = draft;
+  text = text.replace(/\$\s?\d[\d,]*(?:\.\d{1,2})?/g, (token) => {
+    const digits = token.replace(/[^0-9.]/g, "");
+    return digits && verifiedAmount(corpus, digits) ? token : "";
+  });
+  text = text.replace(/\b\d{1,3}\s*%(?:\s*off)?\b/gi, (token) => (corpus.toLowerCase().includes(token.toLowerCase()) ? token : ""));
+  text = text.replace(/https?:\/\/[^\s)]+/gi, (url) => (corpus.includes(url) ? url : ""));
+  text = text.replace(/\b(only \d+ left|in stock|sold out|limited stock|customers say|five[- ]star|testimonial)\b/gi, (token) =>
+    corpus.toLowerCase().includes(token.toLowerCase()) ? token : "",
+  );
+  return text.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function assertGenerationAllowed(workspaceId?: string) {
@@ -520,7 +584,7 @@ export async function generateSocialDraft(input: SocialDraftInput): Promise<{
   const tone = input.tone ?? "friendly";
   const hashtags = input.hashtags ?? "none";
   const query = input.body;
-  const facts = pickRelevantSocialFacts(input.knowledge, query);
+  const facts = mergeSocialFacts(input.knowledge, query, input.extraFacts);
   const intent = socialIntentFromQuery(query, input.mode);
   const sources = collectSocialSources(input.knowledge, facts);
   const usedInternalKnowledge = usedInternalSocialKnowledge(input.knowledge, query);
