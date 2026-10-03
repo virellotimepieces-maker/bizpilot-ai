@@ -84,7 +84,7 @@ function ProductCard({ card, accent }: { card: WidgetProductCard; accent: string
         <img
           src={card.imageUrl}
           alt=""
-          className="aspect-[4/3] w-full bg-neutral-100 object-cover sm:aspect-[16/10]"
+          className="h-28 w-full rounded-t-lg bg-neutral-100 object-contain"
           onError={(event) => {
             event.currentTarget.remove();
           }}
