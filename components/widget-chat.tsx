@@ -90,7 +90,7 @@ function ProductCard({ card, accent }: { card: WidgetProductCard; accent: string
           }}
         />
       ) : null}
-      <div className="p-3">
+      <div className="px-3 pt-2 pb-2.5">
         <h3 className="break-words text-sm font-semibold leading-snug text-neutral-950">{card.name}</h3>
         {card.price ? <p className="mt-1 text-sm font-medium text-neutral-800">{card.price}</p> : null}
         {card.description ? (
@@ -451,13 +451,13 @@ export function WidgetChat({
       </div>
       <div
         ref={scrollerRef}
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-3"
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-2.5 py-2"
         onScroll={() => {
           const scroller = scrollerRef.current;
           if (scroller) pinToBottomRef.current = isNearBottom(scroller);
         }}
       >
-        <div ref={contentRef} className="space-y-3">
+        <div ref={contentRef} className="space-y-2">
           {showWelcome ? (
             <p className="rounded-2xl border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-sm leading-relaxed text-neutral-700">
               {appearance.welcomeMessage}
@@ -495,7 +495,7 @@ export function WidgetChat({
                       ? "mr-auto max-w-full min-w-0 rounded-2xl border border-neutral-200 px-3.5 py-2.5 text-sm leading-relaxed break-words text-neutral-900"
                       : row.role === "system"
                         ? "max-w-full min-w-0 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed break-words text-amber-950"
-                        : "mr-auto w-full max-w-full min-w-0 rounded-2xl border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-sm leading-relaxed break-words text-neutral-800"
+                        : "mr-auto w-full max-w-full min-w-0 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm leading-relaxed break-words text-neutral-800"
                 }
                 style={
                   row.role === "visitor"
@@ -507,12 +507,12 @@ export function WidgetChat({
               >
                 {row.role === "human" ? <p className="mb-1 text-[11px] font-medium">Team</p> : null}
                 {assistantView && (assistantView.prose || assistantView.products.length) ? (
-                  <div className="grid min-w-0 gap-2.5">
+                  <div className="grid min-w-0 gap-2">
                     {assistantView.prose ? (
                       <p className="whitespace-pre-wrap break-words">{assistantView.prose}</p>
                     ) : null}
                     {shownProducts.length ? (
-                      <div className="grid min-w-0 gap-2.5">
+                      <div className="grid min-w-0 gap-2">
                         {shownProducts.map((card) => (
                           <ProductCard key={`${card.name}-${card.href ?? "product"}`} card={card} accent={accent} />
                         ))}

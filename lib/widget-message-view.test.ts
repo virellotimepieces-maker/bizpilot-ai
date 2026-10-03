@@ -201,7 +201,29 @@ describe("widget product answer presentation", () => {
     assert.equal(view.products[0]?.href, href);
     assert.match(view.prose, /For everyday wear, I recommend the ADDIESDIVE AD2030\./);
     assert.doesNotMatch(view.prose, /Compact 36mm|water resistance|\$200\.99|Best regards|@/);
-    assert.ok(view.prose.split(/(?<=[.!?])\s+/).length <= 3);
+    assert.ok(view.prose.split(/(?<=[.!?])\s+/).filter(Boolean).length <= 2);
+  });
+
+  it("keeps at most two recommendation sentences and still returns the product image", () => {
+    const imageUrl = "https://cdn.shopify.com/s/files/1/0996/7704/5043/files/watch.webp";
+    const view = presentAssistantMessage(
+      "For everyday wear, the ADDIESDIVE AD2030: Compact 36mm Quartz Watch is a comfortable choice. It is easy to dress up or down. A third sentence should stay out of the message.",
+      [
+        {
+          title: "ADDIESDIVE AD2030: Compact 36mm Quartz Watch",
+          url: "https://virellotimepieces.com/products/addiesdive-ad2030",
+          kind: "product",
+          price: "$200.99",
+          imageUrl,
+        },
+      ],
+    );
+    const sentences = view.prose.split(/(?<=[.!?])\s+/).filter(Boolean);
+    assert.equal(sentences.length, 2);
+    assert.match(view.prose, /comfortable choice/);
+    assert.match(view.prose, /dress up or down/);
+    assert.doesNotMatch(view.prose, /third sentence/);
+    assert.equal(view.products[0]?.imageUrl, imageUrl);
   });
 
   it("keeps an ordinary site link as text and ignores unsafe image urls", () => {

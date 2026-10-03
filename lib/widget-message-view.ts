@@ -1,5 +1,5 @@
 export const WIDGET_PRODUCT_PREVIEW_LIMIT = 1;
-const RECOMMENDATION_SENTENCE_LIMIT = 3;
+const RECOMMENDATION_SENTENCE_LIMIT = 2;
 
 export type WidgetProductCard = {
   name: string;
