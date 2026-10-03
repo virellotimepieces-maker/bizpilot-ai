@@ -10,6 +10,7 @@ import { publicGmailStatus } from "@/lib/gmail/public";
 import { publicShopifyStatus } from "@/lib/shopify/public";
 import { buildAvailableSlots, requestedWindow, zonedTimeToUtc } from "./availability";
 import { DISCONNECTED_CALENDAR_REPLY, handleCalendarWidgetTurn } from "./booking";
+import { sendBookingConfirmation } from "./confirmation";
 import { CALENDAR_SCOPES, calendarCallbackUrl, googleCalendarAuthUrl } from "./config";
 import { createCalendarOAuthState, readCalendarOAuthState } from "./oauth-state";
 import { assertNoCalendarSecrets, publicCalendarStatus } from "./public";
@@ -457,5 +458,159 @@ describe("Calendar booking", () => {
       question: "What straps do you sell?",
     });
     assert.equal(ignored, null);
+  });
+});
+
+describe("Booking confirmation email", () => {
+  const now = new Date("2026-10-08T15:00:00.000Z");
+
+  async function readyWorkspace(email: string) {
+    const previous = process.env.AUTH_SECRET;
+    process.env.AUTH_SECRET = previous && previous.length >= 16 ? previous : "test-auth-secret-value";
+    const { store, workspace } = await paidWorkspace("Harbor", email);
+    await store.upsertGoogleCalendarConnection({
+      workspaceId: workspace.id,
+      googleEmail: "calendar@gmail.com",
+      encryptedRefreshToken: encryptSecret("refresh-calendar"),
+      encryptedAccessToken: encryptSecret("access-calendar"),
+      accessTokenExpiresAt: new Date("2026-10-10T18:00:00.000Z"),
+      scopes: CALENDAR_SCOPES.join(" "),
+      status: "connected",
+      calendarId: "harbor-calendar",
+      calendarSummary: "Harbor",
+    });
+    await store.upsertGmailConnection({
+      workspaceId: workspace.id,
+      googleEmail: "harbor@gmail.com",
+      encryptedRefreshToken: encryptSecret("refresh-gmail"),
+      encryptedAccessToken: encryptSecret("access-gmail"),
+      accessTokenExpiresAt: new Date("2026-10-10T18:00:00.000Z"),
+      scopes: "openid https://www.googleapis.com/auth/gmail.send",
+      status: "connected",
+    });
+    const hours = settings();
+    await store.upsertCalendarBookingSettings({
+      workspaceId: workspace.id,
+      durationMinutes: hours.durationMinutes,
+      availableDays: hours.availableDays,
+      startMinutes: hours.startMinutes,
+      endMinutes: hours.endMinutes,
+      timezone: hours.timezone,
+      minNoticeMinutes: hours.minNoticeMinutes,
+      bufferMinutes: hours.bufferMinutes,
+    });
+    return {
+      store,
+      workspace,
+      restore: () => {
+        process.env.AUTH_SECRET = previous;
+      },
+    };
+  }
+
+  function fetchFor(eventsStatus = 200) {
+    const calls: { url: string; authorization: string; body: unknown }[] = [];
+    const fetchImpl: typeof fetch = async (url, init) => {
+      const headers = new Headers(init?.headers);
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : null;
+      calls.push({ url: String(url), authorization: headers.get("authorization") ?? "", body });
+      if (String(url).includes("freeBusy")) {
+        return new Response(JSON.stringify({ calendars: { "harbor-calendar": { busy: [] } } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (String(url).includes("/events")) {
+        return new Response(eventsStatus === 200 ? JSON.stringify({ id: "evt_confirmed" }) : "{}", {
+          status: eventsStatus,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (String(url).includes("/messages/send")) {
+        return new Response(JSON.stringify({ id: "msg_confirmed" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response("{}", { status: 404 });
+    };
+    return { fetchImpl, calls };
+  }
+
+  async function book(setup: Awaited<ReturnType<typeof readyWorkspace>>, fetchImpl: typeof fetch) {
+    const asked = await handleCalendarWidgetTurn({
+      store: setup.store,
+      widgetKey: setup.workspace.widgetKey,
+      visitorKey: "visitor-mail",
+      question: "I'd like to book an appointment tomorrow. What times are available?",
+      now,
+      fetchImpl,
+    });
+    const slot = asked?.sources[0];
+    await handleCalendarWidgetTurn({
+      store: setup.store,
+      widgetKey: setup.workspace.widgetKey,
+      visitorKey: "visitor-mail",
+      conversationId: asked?.conversationId,
+      question: slot?.title ?? "",
+      slotStart: slot?.slotStart,
+      now,
+      fetchImpl,
+    });
+    return handleCalendarWidgetTurn({
+      store: setup.store,
+      widgetKey: setup.workspace.widgetKey,
+      visitorKey: "visitor-mail",
+      conversationId: asked?.conversationId,
+      question: "Ada Lovelace ada@example.com for a sizing",
+      now,
+      fetchImpl,
+    });
+  }
+
+  it("sends one Gmail confirmation after the calendar event is created", async () => {
+    const setup = await readyWorkspace("harbor-mail@example.com");
+    const google = fetchFor();
+    const booked = await book(setup, google.fetchImpl);
+    assert.match(booked?.answer ?? "", /You're booked/);
+    assert.match(booked?.answer ?? "", /confirmation email was sent to ada@example.com/);
+    const eventIndex = google.calls.findIndex((call) => call.url.includes("/events"));
+    const sendIndex = google.calls.findIndex((call) => call.url.includes("/messages/send"));
+    assert.ok(eventIndex >= 0 && sendIndex > eventIndex);
+    const send = google.calls[sendIndex];
+    assert.match(send.authorization, /Bearer access-gmail/);
+    assert.doesNotMatch(send.authorization, /access-calendar/);
+    const raw = (send.body as { raw?: string }).raw ?? "";
+    const rfc822 = Buffer.from(raw, "base64url").toString("utf8");
+    assert.match(rfc822, /To: ada@example.com/);
+    assert.match(rfc822, /From: harbor@gmail.com/);
+    assert.match(rfc822, /Subject: Appointment confirmed - Harbor/);
+    assert.match(rfc822, /Friday, October 9, 2026/);
+    assert.match(rfc822, /9:00 AM/);
+    assert.match(rfc822, /Timezone: America\/New_York/);
+    assert.match(rfc822, /Duration: 30 minutes/);
+    assert.match(rfc822, /Details: sizing/);
+    const saved = await setup.store.listCalendarAppointments(setup.workspace.id);
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0]?.googleEventId, "evt_confirmed");
+    assert.ok(saved[0]?.confirmationSentAt);
+    const again = await sendBookingConfirmation({
+      store: setup.store,
+      workspace: setup.workspace,
+      appointment: saved[0]!,
+      fetchImpl: google.fetchImpl,
+    });
+    assert.equal(again, false);
+    assert.equal(google.calls.filter((call) => call.url.includes("/messages/send")).length, 1);
+    setup.restore();
+  });
+
+  it("does not send a confirmation when creating the calendar event fails", async () => {
+    const setup = await readyWorkspace("harbor-mail-fail@example.com");
+    const google = fetchFor(500);
+    await assert.rejects(() => book(setup, google.fetchImpl));
+    assert.equal(google.calls.filter((call) => call.url.includes("/messages/send")).length, 0);
+    assert.equal((await setup.store.listCalendarAppointments(setup.workspace.id)).length, 0);
+    setup.restore();
   });
 });

@@ -65,6 +65,7 @@ export interface CalendarAppointmentRecord {
   googleCalendarId: string;
   holdKey: string;
   status: string;
+  confirmationSentAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -4,6 +4,7 @@ import { BillingError } from "@/lib/billing/types";
 import type { WebsiteReplySource } from "@/lib/website/types";
 import { extractRequestedService, isAppointmentRequestQuestion } from "@/lib/v2/appointments";
 import { calendarAccessToken } from "./access";
+import { sendBookingConfirmation } from "./confirmation";
 import { buildAvailableSlots, requestedWindow } from "./availability";
 import { insertCalendarEvent, queryCalendarFreeBusy, type BusyInterval } from "./google";
 import { defaultCalendarSettings } from "./settings";
@@ -46,13 +47,22 @@ export function readBookingContact(
     const first = candidate.split(/\s+/)[0] ?? "";
     if (candidate && !candidate.includes("@") && !NOT_A_NAME_RE.test(first)) customerName = candidate;
   }
-  const extracted = extractRequestedService(text);
+  const extracted = extractRequestedService(text) || readLooseBookingReason(text);
   const service = current.service || extracted;
   return {
     customerName: customerName.replace(/\s+/g, " ").trim().slice(0, 120),
     email: email.trim().slice(0, 160),
     service: service.replace(/\s+/g, " ").trim().slice(0, 160),
   };
+}
+
+function readLooseBookingReason(text: string) {
+  const match = text.match(/\bfor\s+(?:an?\s+)?([A-Za-z][\w .'-]{1,80})/i);
+  const value = match?.[1]?.replace(/\s+(?:on|at|and|,).*$/i, "").trim() ?? "";
+  if (!value || /^(?:me|you|it|that|this|today|tomorrow|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i.test(value)) {
+    return "";
+  }
+  return value;
 }
 
 function missingContactPrompt(name: string, email: string, label: string) {
@@ -373,6 +383,7 @@ export async function handleCalendarWidgetTurn(input: {
         fetchImpl,
       );
       await input.store.updateCalendarAppointment(appointment.id, business.id, { googleEventId: event.id });
+      appointment = { ...appointment, googleEventId: event.id };
     } catch (error) {
       await input.store.deleteCalendarAppointment(appointment.id, business.id);
       if (error instanceof BillingError && error.code === "conflict") {
@@ -393,12 +404,19 @@ export async function handleCalendarWidgetTurn(input: {
       }
       throw error;
     }
+    const emailed = await sendBookingConfirmation({
+      store: input.store,
+      workspace: business,
+      appointment,
+      fetchImpl,
+    });
     await rememberSession(input.store, current, {
       ...contact,
       offeredSlots: [],
       status: "booked",
     });
-    return reply(`You're booked for ${picked.label}. The appointment is on the connected calendar.`);
+    const confirmation = emailed ? ` A confirmation email was sent to ${contact.email}.` : "";
+    return reply(`You're booked for ${picked.label}. The appointment is on the connected calendar.${confirmation}`);
   }
 
   let accessToken = "";

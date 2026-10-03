@@ -2154,6 +2154,28 @@ export class PrismaBillingStore implements BillingStore {
     return mapCalendarAppointment(row);
   }
 
+  async claimCalendarConfirmation(id: string, workspaceId: string, now = new Date()) {
+    const claimed = await this.prisma().calendarAppointment.updateMany({
+      where: {
+        id,
+        workspaceId,
+        confirmationSentAt: null,
+        NOT: { googleEventId: "" },
+      },
+      data: { confirmationSentAt: now },
+    });
+    if (claimed.count !== 1) return null;
+    const row = await this.prisma().calendarAppointment.findFirst({ where: { id, workspaceId } });
+    return row ? mapCalendarAppointment(row) : null;
+  }
+
+  async releaseCalendarConfirmation(id: string, workspaceId: string) {
+    await this.prisma().calendarAppointment.updateMany({
+      where: { id, workspaceId },
+      data: { confirmationSentAt: null },
+    });
+  }
+
   async deleteCalendarAppointment(id: string, workspaceId: string) {
     await this.prisma().calendarAppointment.deleteMany({ where: { id, workspaceId } });
   }

@@ -1359,6 +1359,7 @@ export class MemoryBillingStore implements BillingStore {
       googleCalendarId: input.googleCalendarId,
       holdKey: input.holdKey,
       status: "confirmed",
+      confirmationSentAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -1377,6 +1378,21 @@ export class MemoryBillingStore implements BillingStore {
     if (patch.status !== undefined) row.status = patch.status;
     row.updatedAt = new Date();
     return row;
+  }
+
+  async claimCalendarConfirmation(id: string, workspaceId: string, now = new Date()) {
+    const row = this.calendarAppointments.find((item) => item.id === id && item.workspaceId === workspaceId);
+    if (!row || row.workspaceId !== workspaceId || !row.googleEventId || row.confirmationSentAt) return null;
+    row.confirmationSentAt = now;
+    row.updatedAt = now;
+    return row;
+  }
+
+  async releaseCalendarConfirmation(id: string, workspaceId: string) {
+    const row = this.calendarAppointments.find((item) => item.id === id && item.workspaceId === workspaceId);
+    if (!row || row.workspaceId !== workspaceId) return;
+    row.confirmationSentAt = null;
+    row.updatedAt = new Date();
   }
 
   async deleteCalendarAppointment(id: string, workspaceId: string) {

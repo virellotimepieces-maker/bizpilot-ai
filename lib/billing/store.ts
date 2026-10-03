@@ -432,6 +432,8 @@ export interface BillingStore {
     workspaceId: string,
     patch: Partial<Pick<CalendarAppointmentRecord, "googleEventId" | "status">>,
   ): Promise<CalendarAppointmentRecord>;
+  claimCalendarConfirmation(id: string, workspaceId: string, now?: Date): Promise<CalendarAppointmentRecord | null>;
+  releaseCalendarConfirmation(id: string, workspaceId: string): Promise<void>;
   deleteCalendarAppointment(id: string, workspaceId: string): Promise<void>;
 
   listAppointmentRequests(workspaceId: string): Promise<AppointmentRequestRecord[]>;

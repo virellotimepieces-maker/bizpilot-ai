@@ -27,6 +27,7 @@ async function markNeedsReconnect(store: BillingStore, workspaceId: string) {
 async function refreshConnection(
   store: BillingStore,
   connection: GmailConnectionRecord,
+  fetchImpl: typeof fetch = fetch,
 ): Promise<GmailConnectionRecord> {
   if (!isGmailOAuthConfigured()) {
     throw new BillingError("Gmail is not configured.", "misconfigured");
@@ -43,7 +44,7 @@ async function refreshConnection(
       refreshToken,
       clientId: googleOAuthClientId(),
       clientSecret: googleOAuthClientSecret(),
-    });
+    }, fetchImpl);
     return store.updateGmailConnection(connection.workspaceId, {
       encryptedAccessToken: encryptSecret(tokens.accessToken),
       accessTokenExpiresAt: tokens.expiresAt,
@@ -73,24 +74,25 @@ export async function withGmailAccessToken<T>(
   store: BillingStore,
   workspace: WorkspaceRecord,
   fn: (accessToken: string, connection: GmailConnectionRecord) => Promise<T>,
+  fetchImpl: typeof fetch = fetch,
 ): Promise<T> {
   let connection = await requireGmailConnection(store, workspace);
   const expiringSoon = connection.accessTokenExpiresAt.getTime() <= Date.now() + 60_000;
   if (expiringSoon) {
-    connection = await refreshConnection(store, connection);
+    connection = await refreshConnection(store, connection, fetchImpl);
   }
   let accessToken: string;
   try {
     accessToken = decryptSecret(connection.encryptedAccessToken);
   } catch {
-    connection = await refreshConnection(store, connection);
+    connection = await refreshConnection(store, connection, fetchImpl);
     accessToken = decryptSecret(connection.encryptedAccessToken);
   }
   try {
     return await fn(accessToken, connection);
   } catch (error) {
     if (error instanceof BillingError && error.code === "reconnect") {
-      connection = await refreshConnection(store, connection);
+      connection = await refreshConnection(store, connection, fetchImpl);
       const retryToken = decryptSecret(connection.encryptedAccessToken);
       return fn(retryToken, connection);
     }
@@ -113,8 +115,12 @@ export async function gmailPost<T>(
   workspace: WorkspaceRecord,
   path: string,
   body: unknown,
+  fetchImpl: typeof fetch = fetch,
 ) {
-  return withGmailAccessToken(store, workspace, (accessToken) =>
-    gmailApiJson<T>({ accessToken, path, method: "POST", body }),
+  return withGmailAccessToken(
+    store,
+    workspace,
+    (accessToken) => gmailApiJson<T>({ accessToken, path, method: "POST", body }, fetchImpl),
+    fetchImpl,
   );
 }
