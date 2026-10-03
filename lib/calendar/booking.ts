@@ -45,11 +45,8 @@ export function readBookingContact(
   if (named?.[1]) {
     customerName = named[1].replace(/\b(and|my|email|for)\b.*$/i, "").trim();
   } else if (!options?.slotSelection) {
-    const simple = text.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/);
-    const candidate = simple?.[1] ?? "";
-    const first = candidate.split(/\s+/)[0] ?? "";
-    const acceptable = candidate && !candidate.includes("@") && !NOT_A_NAME_RE.test(first) && nameStandsAlone(text, candidate);
-    if (acceptable && (!customerName || EMAIL_RE.test(text))) customerName = candidate;
+    const candidate = leadingPersonalName(text);
+    if (candidate && (!customerName || EMAIL_RE.test(text))) customerName = candidate;
   }
   const extracted = extractRequestedService(text) || readLooseBookingReason(text);
   const service = current.service || extracted;
@@ -58,6 +55,25 @@ export function readBookingContact(
     email: email.trim().slice(0, 160),
     service: service.replace(/\s+/g, " ").trim().slice(0, 160),
   };
+}
+
+const NAME_STOP_RE =
+  /^(?:a|an|the|please|my|and|or|i|me|to|for|of|on|at|in|is|am|be|do|show|what|when|where|which|who|how|times|time|available|availability|appointment|book|booking|like|want|need|other|send|email|name|your|you|can|with)$/i;
+
+function leadingPersonalName(text: string) {
+  const trimmed = text.trim();
+  const words: string[] = [];
+  for (const token of trimmed.split(/\s+/)) {
+    if (words.length >= 4) break;
+    if (EMAIL_RE.test(token) || NAME_STOP_RE.test(token)) break;
+    const bare = token.replace(/^[,.'’-]+|[,.'’-]+$/g, "");
+    if (!bare || !/^[\p{L}][\p{L}'.’-]*$/u.test(bare)) break;
+    if (!words.length && NOT_A_NAME_RE.test(bare)) return "";
+    words.push(bare);
+  }
+  if (!words.length) return "";
+  const candidate = words.join(" ");
+  return nameStandsAlone(trimmed, candidate) ? candidate : "";
 }
 
 function nameStandsAlone(text: string, candidate: string) {

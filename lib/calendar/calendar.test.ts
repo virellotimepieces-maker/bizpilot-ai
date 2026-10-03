@@ -9,7 +9,7 @@ import { serializeWorkspaceIntegrations } from "@/lib/v2/integrations";
 import { publicGmailStatus } from "@/lib/gmail/public";
 import { publicShopifyStatus } from "@/lib/shopify/public";
 import { buildAvailableSlots, requestedWindow, zonedTimeToUtc } from "./availability";
-import { DISCONNECTED_CALENDAR_REPLY, REVOKED_CALENDAR_REPLY, handleCalendarWidgetTurn } from "./booking";
+import { DISCONNECTED_CALENDAR_REPLY, REVOKED_CALENDAR_REPLY, handleCalendarWidgetTurn, readBookingContact } from "./booking";
 import { exchangeCalendarAuthorizationCode } from "./google";
 import { selectOperatingWorkspace } from "@/lib/billing/operating-workspace";
 import { sendBookingConfirmation } from "./confirmation";
@@ -800,6 +800,111 @@ describe("Booking confirmation email", () => {
       fetchImpl: google.fetchImpl,
     });
     assert.equal(again, false);
+    assert.equal(google.calls.filter((call) => call.url.includes("/messages/send")).length, 1);
+    setup.restore();
+  });
+
+  it("books once after a slot, a standalone email, and a mixed-case name", async () => {
+    const setup = await readyWorkspace("harbor-mixed-name@example.com");
+    const google = fetchFor();
+    const parsed = readBookingContact("Elmer Hidalgo ilumin", {
+      customerName: "",
+      email: "customer@example.com",
+      service: "",
+    });
+    assert.equal(parsed.customerName, "Elmer Hidalgo ilumin");
+    assert.equal(parsed.email, "customer@example.com");
+    assert.equal(
+      readBookingContact("Before I give my name and email, please show me the available appointment times for tomorrow.", {
+        customerName: "",
+        email: "customer@example.com",
+        service: "",
+      }).customerName,
+      "",
+    );
+    const conversation = await setup.store.createConversation({
+      workspaceId: setup.workspace.id,
+      visitorKey: "visitor-mixed-name",
+    });
+    await setup.store.upsertCalendarBookingSession({
+      workspaceId: setup.workspace.id,
+      conversationId: conversation.id,
+      customerName: "Before",
+      email: "previous@example.com",
+      service: "sizing",
+      offeredSlots: [{ start: "2026-10-09T13:00:00.000Z", end: "2026-10-09T13:30:00.000Z", label: "Fri, Oct 9, 9:00 AM" }],
+      status: "booked",
+    });
+    const asked = await handleCalendarWidgetTurn({
+      store: setup.store,
+      widgetKey: setup.workspace.widgetKey,
+      visitorKey: "visitor-mixed-name",
+      conversationId: conversation.id,
+      question: "I'd like to book an appointment tomorrow. What times are available?",
+      now,
+      fetchImpl: google.fetchImpl,
+    });
+    const slot = asked?.sources[0];
+    assert.ok(slot?.slotStart);
+    const held = await handleCalendarWidgetTurn({
+      store: setup.store,
+      widgetKey: setup.workspace.widgetKey,
+      visitorKey: "visitor-mixed-name",
+      conversationId: conversation.id,
+      question: slot?.title ?? "",
+      slotStart: slot?.slotStart,
+      now,
+      fetchImpl: google.fetchImpl,
+    });
+    assert.match(held?.answer ?? "", /name and email/i);
+    assert.doesNotMatch(held?.answer ?? "", /previous@example.com|Before/);
+    const emailTurn = await handleCalendarWidgetTurn({
+      store: setup.store,
+      widgetKey: setup.workspace.widgetKey,
+      visitorKey: "visitor-mixed-name",
+      conversationId: conversation.id,
+      question: "customer@example.com",
+      now,
+      fetchImpl: google.fetchImpl,
+    });
+    assert.match(emailTurn?.answer ?? "", /Please send the name/);
+    assert.doesNotMatch(emailTurn?.answer ?? "", /You're booked/);
+    assert.equal((await setup.store.listCalendarAppointments(setup.workspace.id)).length, 0);
+    const eventsBefore = google.calls.filter((call) => call.url.includes("/events")).length;
+    const booked = await handleCalendarWidgetTurn({
+      store: setup.store,
+      widgetKey: setup.workspace.widgetKey,
+      visitorKey: "visitor-mixed-name",
+      conversationId: conversation.id,
+      question: "Elmer Hidalgo ilumin",
+      now,
+      fetchImpl: google.fetchImpl,
+    });
+    assert.match(booked?.answer ?? "", /You're booked/);
+    assert.match(booked?.answer ?? "", /confirmation email was sent to customer@example.com/);
+    assert.doesNotMatch(booked?.answer ?? "", /previous@example.com/);
+    const rows = await setup.store.listCalendarAppointments(setup.workspace.id);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.customerName, "Elmer Hidalgo ilumin");
+    assert.equal(rows[0]?.email, "customer@example.com");
+    assert.equal(google.calls.filter((call) => call.url.includes("/events")).length, eventsBefore + 1);
+    const sends = google.calls.filter((call) => call.url.includes("/messages/send"));
+    assert.equal(sends.length, 1);
+    const rfc822 = Buffer.from((sends[0]?.body as { raw?: string }).raw ?? "", "base64url").toString("utf8");
+    assert.match(rfc822, /To: customer@example.com/);
+    assert.doesNotMatch(rfc822, /previous@example.com/);
+    const retry = await handleCalendarWidgetTurn({
+      store: setup.store,
+      widgetKey: setup.workspace.widgetKey,
+      visitorKey: "visitor-mixed-name",
+      conversationId: conversation.id,
+      question: "Elmer Hidalgo ilumin",
+      now,
+      fetchImpl: google.fetchImpl,
+    });
+    assert.doesNotMatch(retry?.answer ?? "", /You're booked/);
+    assert.equal((await setup.store.listCalendarAppointments(setup.workspace.id)).length, 1);
+    assert.equal(google.calls.filter((call) => call.url.includes("/events")).length, eventsBefore + 1);
     assert.equal(google.calls.filter((call) => call.url.includes("/messages/send")).length, 1);
     setup.restore();
   });
