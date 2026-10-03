@@ -7,6 +7,7 @@ import type { BillingStore } from "@/lib/billing/store";
 import { BillingError } from "@/lib/billing/types";
 import { resolveConversationLanguage } from "@/lib/i18n/conversation-language";
 import { localizeAssistantText } from "@/lib/i18n/localize";
+import { widgetChromeForConversation } from "@/lib/i18n/widget-chrome-server";
 import { jsonError } from "@/lib/http";
 import { linkCatalogProductCards } from "@/lib/shopify/catalog";
 import type { WebsiteReplySource } from "@/lib/website/types";
@@ -52,18 +53,20 @@ export async function GET(request: NextRequest) {
     const conversation = thread.conversation;
     const messages = await withCatalogCards(store, widgetKey, thread.messages);
     return cors(
-      NextResponse.json({
-        conversationId: conversation?.id ?? null,
-        waitingOnHuman: conversation?.waitingOnHuman ?? false,
-        messages,
-        contact: conversation
-          ? {
-              name: conversation.visitorName,
-              email: conversation.visitorEmail,
-              phone: conversation.visitorPhone,
-            }
-          : null,
-      }),
+      NextResponse.json(
+        await withWidgetUi(store, widgetKey, conversation?.id, {
+          conversationId: conversation?.id ?? null,
+          waitingOnHuman: conversation?.waitingOnHuman ?? false,
+          messages,
+          contact: conversation
+            ? {
+                name: conversation.visitorName,
+                email: conversation.visitorEmail,
+                phone: conversation.visitorPhone,
+              }
+            : null,
+        }),
+      ),
     );
   } catch (error) {
     return cors(jsonError(error, "Could not load the conversation."));
@@ -106,16 +109,18 @@ export async function POST(request: NextRequest) {
       conversationId = saved.id;
       if (!question && !body.handoff) {
         return cors(
-          NextResponse.json({
-            conversationId: saved.id,
-            waitingOnHuman: saved.waitingOnHuman,
-            contactSaved: true,
-            contact: {
-              name: saved.visitorName,
-              email: saved.visitorEmail,
-              phone: saved.visitorPhone,
-            },
-          }),
+          NextResponse.json(
+            await withWidgetUi(store, widgetKey, saved.id, {
+              conversationId: saved.id,
+              waitingOnHuman: saved.waitingOnHuman,
+              contactSaved: true,
+              contact: {
+                name: saved.visitorName,
+                email: saved.visitorEmail,
+                phone: saved.visitorPhone,
+              },
+            }),
+          ),
         );
       }
     }
@@ -132,14 +137,16 @@ export async function POST(request: NextRequest) {
       );
       const conversation = await service.handoffToHuman(widgetKey, thread.conversation.id);
       return cors(
-        NextResponse.json({
-          conversationId: conversation.id,
-          waitingOnHuman: true,
-          answer: await localizeAssistantText(
-            "I’m looping in a teammate who can take it from here. AI replies are paused for this conversation.",
-            language,
-          ),
-        }),
+        NextResponse.json(
+          await withWidgetUi(store, widgetKey, conversation.id, {
+            conversationId: conversation.id,
+            waitingOnHuman: true,
+            answer: await localizeAssistantText(
+              "I’m looping in a teammate who can take it from here. AI replies are paused for this conversation.",
+              language,
+            ),
+          }),
+        ),
       );
     }
     if (!question) {
@@ -154,7 +161,9 @@ export async function POST(request: NextRequest) {
       slotStart: body.slotStart?.trim(),
     });
     if (calendarTurn) {
-      return cors(NextResponse.json(calendarTurn));
+      return cors(
+        NextResponse.json(await withWidgetUi(store, widgetKey, calendarTurn.conversationId, { ...calendarTurn })),
+      );
     }
     try {
       const result = await service.generateCountedAiReply({
@@ -168,11 +177,13 @@ export async function POST(request: NextRequest) {
         { content: result.answer, sources: result.sources },
       ]);
       return cors(
-        NextResponse.json({
-          ...result,
-          sources: decorated?.sources ?? result.sources,
-          waitingOnHuman: result.waitingOnHuman ?? false,
-        }),
+        NextResponse.json(
+          await withWidgetUi(store, widgetKey, result.conversationId, {
+            ...result,
+            sources: decorated?.sources ?? result.sources,
+            waitingOnHuman: result.waitingOnHuman ?? false,
+          }),
+        ),
       );
     } catch (error) {
       if (error instanceof BillingError && error.code === "limit") {
@@ -189,7 +200,7 @@ export async function POST(request: NextRequest) {
         );
         return cors(
           NextResponse.json(
-            {
+            await withWidgetUi(store, widgetKey, conversationId, {
               error: error.message,
               code: "limit",
               answer: await localizeAssistantText(
@@ -197,7 +208,7 @@ export async function POST(request: NextRequest) {
                 language,
               ),
               waitingOnHuman: true,
-            },
+            }),
             { status: 429 },
           ),
         );
@@ -208,6 +219,16 @@ export async function POST(request: NextRequest) {
     const response = jsonError(error, "Could not answer from the widget.");
     return cors(response);
   }
+}
+
+async function withWidgetUi<T extends Record<string, unknown>>(
+  store: BillingStore,
+  widgetKey: string,
+  conversationId: string | undefined,
+  body: T,
+) {
+  const ui = await widgetChromeForConversation(store, widgetKey, conversationId);
+  return { ...body, detectedLanguage: ui.detectedLanguage, chrome: ui.chrome };
 }
 
 async function rememberWidgetLanguage(

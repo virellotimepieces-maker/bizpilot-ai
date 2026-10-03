@@ -11,6 +11,12 @@ import { isNearBottom, scrollMessagesToLatest } from "@/lib/widget-chat-scroll";
 import { buildWidgetHostMessage } from "@/lib/widget-embed-script";
 import { WIDGET_CHAT_API_PATH, WIDGET_PUBLIC_SETTINGS_PATH } from "@/lib/widget-preview";
 import {
+  fillWidgetChrome,
+  WIDGET_CHROME_EN,
+  widgetTextDirection,
+  type WidgetChrome,
+} from "@/lib/i18n/widget-chrome";
+import {
   DEFAULT_AI_IDENTIFICATION,
   DEFAULT_WIDGET_ACCENT,
   DEFAULT_WIDGET_WELCOME,
@@ -84,7 +90,15 @@ function rowsFromMessages(
     }));
 }
 
-function ProductCard({ card, accent }: { card: WidgetProductCard; accent: string }) {
+function ProductCard({
+  card,
+  accent,
+  viewLabel,
+}: {
+  card: WidgetProductCard;
+  accent: string;
+  viewLabel: string;
+}) {
   return (
     <article className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
       {card.imageUrl ? (
@@ -113,7 +127,7 @@ function ProductCard({ card, accent }: { card: WidgetProductCard; accent: string
             className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg border px-3 text-sm font-medium"
             style={{ borderColor: accent, color: accent }}
           >
-            View Product
+            {viewLabel}
           </a>
         ) : null}
       </div>
@@ -121,14 +135,30 @@ function ProductCard({ card, accent }: { card: WidgetProductCard; accent: string
   );
 }
 
-function headerSubtitle(appearance: PublicWidgetAppearance, waitingOnHuman: boolean) {
-  if (waitingOnHuman) return "A teammate will reply here";
+function headerSubtitle(
+  appearance: PublicWidgetAppearance,
+  waitingOnHuman: boolean,
+  chrome: WidgetChrome,
+) {
+  if (waitingOnHuman) return chrome.teammateWillReply || "A teammate will reply here";
   if (appearance.identifyAsAi) {
     return appearance.businessDisplayName
-      ? `${DEFAULT_AI_IDENTIFICATION} for ${appearance.businessDisplayName}`
-      : DEFAULT_AI_IDENTIFICATION;
+      ? fillWidgetChrome(chrome.assistantFor || "AI assistant for {business}", {
+          business: appearance.businessDisplayName,
+        })
+      : chrome.assistant || DEFAULT_AI_IDENTIFICATION;
   }
-  return appearance.businessDisplayName || "Chat";
+  return appearance.businessDisplayName || chrome.chat || "Chat";
+}
+
+function chromeFromPayload(chrome: Partial<WidgetChrome> | null | undefined) {
+  const next = { ...WIDGET_CHROME_EN };
+  if (!chrome) return next;
+  for (const key of Object.keys(WIDGET_CHROME_EN) as (keyof WidgetChrome)[]) {
+    const value = chrome[key];
+    if (typeof value === "string" && value.trim()) next[key] = value;
+  }
+  return next;
 }
 
 export function WidgetChat({
@@ -154,6 +184,8 @@ export function WidgetChat({
   const [contactSaved, setContactSaved] = useState(false);
   const [contactPending, setContactPending] = useState(false);
   const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
+  const [language, setLanguage] = useState("en");
+  const [chrome, setChrome] = useState<WidgetChrome>(WIDGET_CHROME_EN);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const bottomAnchorRef = useRef<HTMLDivElement>(null);
@@ -230,6 +262,11 @@ export function WidgetChat({
     return () => observer.disconnect();
   }, [open]);
 
+  const applyUi = useCallback((payload: { detectedLanguage?: string; chrome?: Partial<WidgetChrome> | null }) => {
+    if (payload.detectedLanguage) setLanguage(payload.detectedLanguage);
+    if (payload.chrome) setChrome(chromeFromPayload(payload.chrome));
+  }, []);
+
   const syncThread = useCallback(async () => {
     if (!visitorKey || !widgetKey) return;
     const params = new URLSearchParams({ widgetKey, visitorKey });
@@ -240,8 +277,11 @@ export function WidgetChat({
       waitingOnHuman?: boolean;
       messages?: { id?: string; role?: string; content?: string; sources?: ChatSource[] | null }[];
       contact?: { name?: string; email?: string; phone?: string } | null;
+      detectedLanguage?: string;
+      chrome?: Partial<WidgetChrome> | null;
     };
     if (!response.ok) return;
+    applyUi(payload);
     if (payload.conversationId) setConversationId(payload.conversationId);
     setWaitingOnHuman(Boolean(payload.waitingOnHuman));
     if (payload.messages?.length) {
@@ -250,7 +290,7 @@ export function WidgetChat({
     if (payload.contact?.name || payload.contact?.email) {
       setContactSaved(true);
     }
-  }, [conversationId, visitorKey, widgetKey]);
+  }, [applyUi, conversationId, visitorKey, widgetKey]);
 
   useEffect(() => {
     if (!open || !visitorKey) return;
@@ -292,16 +332,19 @@ export function WidgetChat({
         conversationId?: string;
         contactSaved?: boolean;
         error?: string;
+        detectedLanguage?: string;
+        chrome?: Partial<WidgetChrome> | null;
       };
+      applyUi(payload);
       if (!response.ok) {
-        setError(payload.error || "Could not save your contact details.");
+        setError(payload.error || chrome.saveContactError || "Could not save your contact details.");
         return;
       }
       if (payload.conversationId) setConversationId(payload.conversationId);
       setContactSaved(true);
       setContactOpen(false);
     } catch {
-      setError("Could not save your contact details.");
+      setError(chrome.saveContactError || "Could not save your contact details.");
     } finally {
       setContactPending(false);
     }
@@ -335,12 +378,15 @@ export function WidgetChat({
         error?: string;
         contactSaved?: boolean;
         sources?: ChatSource[] | null;
+        detectedLanguage?: string;
+        chrome?: Partial<WidgetChrome> | null;
       };
+      applyUi(payload);
       if (payload.conversationId) setConversationId(payload.conversationId);
       setWaitingOnHuman(Boolean(payload.waitingOnHuman));
       if (payload.contactSaved || contactPayload()) setContactSaved(true);
       if (!response.ok && !payload.answer) {
-        setError(payload.error || "The live widget could not answer.");
+        setError(payload.error || chrome.answerError || "The live widget could not answer.");
         return;
       }
       await syncThread();
@@ -353,14 +399,14 @@ export function WidgetChat({
             ...current,
             {
               role: "assistant",
-              content: payload.answer || payload.error || "I could not answer just now.",
+              content: payload.answer || payload.error || chrome.answerNowError || "I could not answer just now.",
               sources: Array.isArray(payload.sources) ? payload.sources : null,
             },
           ];
         });
       }
     } catch {
-      setError("The live widget could not be reached.");
+      setError(chrome.reachError || "The live widget could not be reached.");
     } finally {
       setPending(false);
     }
@@ -381,9 +427,15 @@ export function WidgetChat({
           handoff: true,
         }),
       });
-      const payload = (await response.json()) as { answer?: string; error?: string };
+      const payload = (await response.json()) as {
+        answer?: string;
+        error?: string;
+        detectedLanguage?: string;
+        chrome?: Partial<WidgetChrome> | null;
+      };
+      applyUi(payload);
       if (!response.ok) {
-        setError(payload.error || "Could not reach a teammate.");
+        setError(payload.error || chrome.teammateError || "Could not reach a teammate.");
         return;
       }
       setWaitingOnHuman(true);
@@ -392,7 +444,7 @@ export function WidgetChat({
       }
       await syncThread();
     } catch {
-      setError("Could not reach a teammate.");
+      setError(chrome.teammateError || "Could not reach a teammate.");
     } finally {
       setPending(false);
     }
@@ -400,18 +452,24 @@ export function WidgetChat({
 
   const accent = appearance.accentColor || DEFAULT_WIDGET_ACCENT;
   const left = appearance.position === "bottom-left";
-  const title = appearance.businessDisplayName || "Chat";
+  const title = appearance.businessDisplayName || chrome.chat || "Chat";
+  const direction = widgetTextDirection(language);
+  const askPlaceholder =
+    !appearance.placeholderPrompt || appearance.placeholderPrompt === "Ask a question"
+      ? chrome.askQuestion || "Ask a question"
+      : appearance.placeholderPrompt;
   const showWelcome = rows.length === 0;
   const showSuggestions = showWelcome && appearance.suggestedQuestions.length > 0 && !pending;
 
   if (!open) {
     return (
       <div
+        dir={direction}
         className={`flex h-full w-full items-end bg-transparent ${left ? "justify-start" : "justify-end"}`}
       >
         <button
           type="button"
-          aria-label="Open chat"
+          aria-label={chrome.openChat || "Open chat"}
           onClick={() => {
             notifyHost("open", appearance.position);
             pinToBottomRef.current = true;
@@ -428,6 +486,7 @@ export function WidgetChat({
 
   return (
     <div
+      dir={direction}
       className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white text-neutral-900 shadow-none"
       style={{ ["--widget-accent" as string]: accent }}
     >
@@ -447,12 +506,12 @@ export function WidgetChat({
           ) : null}
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{title}</p>
-            <p className="truncate text-xs text-white/80">{headerSubtitle(appearance, waitingOnHuman)}</p>
+            <p className="truncate text-xs text-white/80">{headerSubtitle(appearance, waitingOnHuman, chrome)}</p>
           </div>
         </div>
         <button
           type="button"
-          aria-label="Close chat"
+          aria-label={chrome.closeChat || "Close chat"}
           onClick={() => setOpen(false)}
           className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/40 bg-white/10 text-white hover:bg-white/20"
         >
@@ -515,7 +574,9 @@ export function WidgetChat({
                       : undefined
                 }
               >
-                {row.role === "human" ? <p className="mb-1 text-[11px] font-medium">Team</p> : null}
+                {row.role === "human" ? (
+                  <p className="mb-1 text-[11px] font-medium">{chrome.team || "Team"}</p>
+                ) : null}
                 {assistantView && (assistantView.prose || assistantView.products.length) ? (
                   <div className="grid min-w-0 gap-2">
                     {assistantView.prose ? (
@@ -524,7 +585,12 @@ export function WidgetChat({
                     {shownProducts.length ? (
                       <div className="grid min-w-0 gap-2">
                         {shownProducts.map((card) => (
-                          <ProductCard key={`${card.name}-${card.href ?? "product"}`} card={card} accent={accent} />
+                          <ProductCard
+                            key={`${card.name}-${card.href ?? "product"}`}
+                            card={card}
+                            accent={accent}
+                            viewLabel={chrome.viewProduct || "View Product"}
+                          />
                         ))}
                       </div>
                     ) : null}
@@ -549,7 +615,9 @@ export function WidgetChat({
                         className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-800"
                         onClick={() => setExpandedProducts((current) => ({ ...current, [key]: true }))}
                       >
-                        Show {hiddenProducts} more
+                        {fillWidgetChrome(chrome.showMore || "Show {count} more", {
+                          count: String(hiddenProducts),
+                        })}
                       </button>
                     ) : null}
                   </div>
@@ -561,7 +629,7 @@ export function WidgetChat({
           })}
           {pending ? (
             <p className="text-xs text-neutral-500" aria-live="polite">
-              Looking that up…
+              {chrome.lookingUp || "Looking that up…"}
             </p>
           ) : null}
           {error ? (
@@ -580,7 +648,9 @@ export function WidgetChat({
             style={{ color: accent }}
             onClick={() => setContactOpen((current) => !current)}
           >
-            {contactOpen ? "Hide contact details" : "Leave your name and email (optional)"}
+            {contactOpen
+              ? chrome.hideContact || "Hide contact details"
+              : chrome.leaveContact || "Leave your name and email (optional)"}
           </button>
           {contactOpen ? (
             <form
@@ -593,16 +663,16 @@ export function WidgetChat({
               <Input
                 value={contactName}
                 onChange={(event) => setContactName(event.target.value)}
-                placeholder="Name"
-                aria-label="Name"
+                placeholder={chrome.name || "Name"}
+                aria-label={chrome.name || "Name"}
                 className="h-10 min-h-10 text-sm"
               />
               <Input
                 type="email"
                 value={contactEmail}
                 onChange={(event) => setContactEmail(event.target.value)}
-                placeholder="Email"
-                aria-label="Email"
+                placeholder={chrome.email || "Email"}
+                aria-label={chrome.email || "Email"}
                 className="h-10 min-h-10 text-sm"
               />
               {appearance.collectPhone ? (
@@ -610,13 +680,13 @@ export function WidgetChat({
                   type="tel"
                   value={contactPhone}
                   onChange={(event) => setContactPhone(event.target.value)}
-                  placeholder="Phone"
-                  aria-label="Phone"
+                  placeholder={chrome.phone || "Phone"}
+                  aria-label={chrome.phone || "Phone"}
                   className="h-10 min-h-10 text-sm"
                 />
               ) : null}
               <Button type="submit" size="sm" disabled={contactPending || !visitorKey} className="h-10">
-                {contactPending ? "Saving…" : "Save contact"}
+                {contactPending ? chrome.saving || "Saving…" : chrome.saveContact || "Save contact"}
               </Button>
             </form>
           ) : null}
@@ -631,7 +701,7 @@ export function WidgetChat({
             onClick={() => void requestHuman()}
             disabled={pending}
           >
-            Talk to a person
+            {chrome.talkToPerson || "Talk to a person"}
           </button>
         </div>
       ) : null}
@@ -645,8 +715,8 @@ export function WidgetChat({
         <Input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={appearance.placeholderPrompt || "Ask a question"}
-          aria-label="Message"
+          placeholder={askPlaceholder}
+          aria-label={chrome.message || "Message"}
           className="h-11 min-h-11 flex-1 text-base md:h-9 md:min-h-9"
         />
         <Button
@@ -656,7 +726,7 @@ export function WidgetChat({
           className="h-11 min-h-11 px-4 md:h-9"
           style={{ backgroundColor: accent }}
         >
-          {pending ? "Sending…" : "Send"}
+          {pending ? chrome.sending || "Sending…" : chrome.send || "Send"}
         </Button>
       </form>
     </div>

@@ -73,8 +73,8 @@ describe("live widget preview", () => {
     assert.match(chat, /WIDGET_CHAT_API_PATH/);
     assert.match(chat, /WIDGET_PUBLIC_SETTINGS_PATH/);
     assert.match(chat, /startOpen = false/);
-    assert.match(chat, /aria-label="Open chat"/);
-    assert.match(chat, /aria-label="Close chat"/);
+    assert.match(chat, /chrome\.openChat \|\| "Open chat"/);
+    assert.match(chat, /chrome\.closeChat \|\| "Close chat"/);
     assert.match(chat, /Send/);
     assert.doesNotMatch(chat, /h-dvh/);
     assert.doesNotMatch(chat, /bg-teal|text-teal|teal-/);
