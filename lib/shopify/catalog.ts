@@ -1,5 +1,6 @@
 import { jaccard, tokenize } from "@/lib/website/conflicts";
 import type { ShopifyAdminProduct } from "./api";
+import { productTitleScore } from "@/lib/product-mention";
 import type { ShopifyProductRecord, ShopifyProductWrite, ShopifyVariantRecord } from "./types";
 
 export const CATALOG_NO_SOURCE_ANSWER =
@@ -314,13 +315,12 @@ export function linkCatalogProductCards<
       .map((source) => (source.kind === "product" && typeof source.url === "string" ? shopifyProductLinkKey(source.url) : ""))
       .filter(Boolean),
   );
-  const haystack = content.toLowerCase();
   const extras: T[] = [];
   for (const product of products) {
     const key = shopifyProductLinkKey(product.url);
     if (!key || !product.url || seen.has(key)) continue;
     const title = product.title.trim();
-    const linked = contentHasProductKey(content, key) || (title.length >= 8 && haystack.includes(title.toLowerCase()));
+    const linked = contentHasProductKey(content, key) || productTitleScore(title, content) > 0;
     if (!linked) continue;
     seen.add(key);
     extras.push({

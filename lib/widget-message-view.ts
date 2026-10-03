@@ -1,3 +1,5 @@
+import { productTitleScore } from "@/lib/product-mention";
+
 export const WIDGET_PRODUCT_PREVIEW_LIMIT = 1;
 const RECOMMENDATION_SENTENCE_LIMIT = 2;
 
@@ -96,7 +98,6 @@ export function productCardsFromSources(sources: unknown, content = ""): WidgetP
   if (!Array.isArray(sources)) return [];
   const cards: WidgetProductCard[] = [];
   const seen = new Set<string>();
-  const haystack = content.toLowerCase();
   const linked = contentProductKeys(content);
   for (const row of sources) {
     if (!row || typeof row !== "object") continue;
@@ -116,7 +117,7 @@ export function productCardsFromSources(sources: unknown, content = ""): WidgetP
     const linkKey = typeof item.url === "string" ? productLinkKey(item.url) : "";
     const mentioned =
       !content.trim() ||
-      haystack.includes(key) ||
+      productTitleScore(name, content) > 0 ||
       (linkKey ? linked.has(linkKey) : false) ||
       (href ? content.includes(href) : false);
     if (!mentioned) continue;
@@ -299,9 +300,11 @@ export function visibleAssistantProse(content: string, products: WidgetProductCa
 }
 
 export function presentAssistantMessage(content: string, sources: unknown): WidgetMessageView {
-  const products = productCardsFromSources(sources, content).sort(
-    (left, right) => mentionRank(content, left) - mentionRank(content, right),
-  );
+  const products = productCardsFromSources(sources, content).sort((left, right) => {
+    const score = productTitleScore(right.name, content) - productTitleScore(left.name, content);
+    if (score) return score;
+    return mentionRank(content, left) - mentionRank(content, right);
+  });
   return {
     prose: visibleAssistantProse(content, products),
     products,

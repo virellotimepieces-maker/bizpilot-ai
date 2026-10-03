@@ -226,6 +226,41 @@ describe("widget product answer presentation", () => {
     assert.equal(view.products[0]?.imageUrl, imageUrl);
   });
 
+  it("renders the product card and image when the reply names the product and has no url", () => {
+    const href =
+      "https://virellotimepieces.com/products/addiesdive-mens-quartz-wristwatch-bubble-mirror-glass-100m-waterproof-316l-stainless-steel-luxury-business-style-watches-ad2030";
+    const imageUrl =
+      "https://cdn.shopify.com/s/files/1/0996/7704/5043/files/S042d4c3b8e984e6fb1015f88a43ff368M.webp?v=1787021130";
+    const content =
+      "I recommend the ADDIESDIVE AD2030, a compact 36mm quartz watch that combines style and functionality, making it perfect for everyday wear.";
+    const watched = {
+      ...product("ADDIESDIVE AD2030: Compact 36mm Quartz Watch", "200.99", "A compact quartz watch for daily wear."),
+      url: href,
+      imageUrls: [imageUrl],
+    };
+    const other = product("Pagani Design GMT Automatic Watch with Sapphire Crystal", "246.99", "A GMT watch.");
+    const linked = linkCatalogProductCards<
+      { title: string; url: string; kind: "product"; price?: string; imageUrl?: string; description?: string }
+    >([], [other, watched], content);
+    assert.equal(linked.length, 1);
+    assert.equal(linked[0]?.title, watched.title);
+    assert.equal(linked[0]?.imageUrl, imageUrl);
+    assert.equal(linked[0]?.url, href);
+    const view = presentAssistantMessage(content, [
+      { title: other.title, url: other.url, kind: "product", price: "$246.99", imageUrl: "https://cdn.shopify.com/s/files/1/0996/7704/5043/files/other.webp" },
+      { title: watched.title, url: href, kind: "product", price: "$200.99", description: watched.description, imageUrl },
+    ]);
+    assert.equal(view.products.length, 1);
+    assert.equal(view.products[0]?.name, watched.title);
+    assert.equal(view.products[0]?.imageUrl, imageUrl);
+    assert.equal(view.products[0]?.href, href);
+    assert.equal(view.products[0]?.price, "$200.99");
+    assert.equal(view.products[0]?.description, "A compact quartz watch for daily wear.");
+    assert.match(view.prose, /ADDIESDIVE AD2030/);
+    assert.doesNotMatch(view.prose, /https?:\/\/|\$200\.99/);
+    assert.ok(view.prose.split(/(?<=[.!?])\s+/).filter(Boolean).length <= 2);
+  });
+
   it("keeps an ordinary site link as text and ignores unsafe image urls", () => {
     const view = presentAssistantMessage(
       "Visit [Virello Timepieces](https://virellotimepieces.com) for store details.",
