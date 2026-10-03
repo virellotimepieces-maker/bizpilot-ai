@@ -164,8 +164,7 @@ describe("widget product answer presentation", () => {
     assert.equal(view.products[0]?.price, "$200.99 – $202.99");
     assert.equal(view.products[0]?.imageUrl, imageUrl);
     assert.match(view.prose, /For everyday wear/);
-    assert.match(view.prose, /water resistant to 100m/);
-    assert.doesNotMatch(view.prose, /\[here\]|https?:\/\/|\bhere\b/i);
+    assert.doesNotMatch(view.prose, /water resistant|stainless|\[here\]|https?:\/\/|\bhere\b/i);
   });
 
   it("keeps an everyday-wear recommendation to a few sentences and leaves specs on the card", () => {
@@ -231,8 +230,10 @@ describe("widget product answer presentation", () => {
       "https://virellotimepieces.com/products/addiesdive-mens-quartz-wristwatch-bubble-mirror-glass-100m-waterproof-316l-stainless-steel-luxury-business-style-watches-ad2030";
     const imageUrl =
       "https://cdn.shopify.com/s/files/1/0996/7704/5043/files/S042d4c3b8e984e6fb1015f88a43ff368M.webp?v=1787021130";
-    const content =
-      "I recommend the ADDIESDIVE AD2030, a compact 36mm quartz watch that combines style and functionality, making it perfect for everyday wear.";
+    const content = [
+      "I recommend the ADDIESDIVE AD2030, a compact 36mm quartz watch that combines style and functionality, making it perfect for everyday wear.",
+      "Its durable stainless steel construction and 100m water resistance ensure reliability for daily activities.",
+    ].join(" ");
     const watched = {
       ...product("ADDIESDIVE AD2030: Compact 36mm Quartz Watch", "200.99", "A compact quartz watch for daily wear."),
       url: href,
@@ -257,8 +258,8 @@ describe("widget product answer presentation", () => {
     assert.equal(view.products[0]?.price, "$200.99");
     assert.equal(view.products[0]?.description, "A compact quartz watch for daily wear.");
     assert.match(view.prose, /ADDIESDIVE AD2030/);
-    assert.doesNotMatch(view.prose, /https?:\/\/|\$200\.99/);
-    assert.ok(view.prose.split(/(?<=[.!?])\s+/).filter(Boolean).length <= 2);
+    assert.doesNotMatch(view.prose, /https?:\/\/|\$200\.99|stainless|water resistance/);
+    assert.equal(view.prose.split(/(?<=[.!?])\s+/).filter(Boolean).length, 1);
   });
 
   it("keeps an ordinary site link as text and ignores unsafe image urls", () => {

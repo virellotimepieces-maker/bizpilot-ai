@@ -196,6 +196,12 @@ function isClosingLine(sentence: string) {
   return false;
 }
 
+function isSpecificationSentence(sentence: string) {
+  return /\b(?:water[-\s]?resistant|water resistance|waterproof|stainless|sapphire|movement|\d+\s?mm|\d+\s?m)\b/i.test(
+    sentence,
+  );
+}
+
 function repeatsCardDetails(sentence: string, products: WidgetProductCard[]) {
   if (/\$\s?\d/.test(sentence)) return true;
   const words = sentence
@@ -292,7 +298,7 @@ export function visibleAssistantProse(content: string, products: WidgetProductCa
   }
   const kept: string[] = [];
   for (const sentence of cleanedSentences(content, products)) {
-    if (kept.length > 0 && repeatsCardDetails(sentence, products)) continue;
+    if (kept.length > 0 && (repeatsCardDetails(sentence, products) || isSpecificationSentence(sentence))) continue;
     kept.push(shortenNamedTitle(sentence, products));
     if (kept.length >= RECOMMENDATION_SENTENCE_LIMIT) break;
   }
