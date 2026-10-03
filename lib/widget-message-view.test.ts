@@ -86,7 +86,7 @@ describe("widget product answer presentation", () => {
     assert.equal(safeProductHref("https://user:pass@virellotimepieces.com/products/a"), null);
   });
 
-  it("shows at most four products until the visitor asks for the rest", () => {
+  it("shows the matching product first and keeps the rest behind show more", () => {
     const products = ["One", "Two", "Three", "Four", "Five"].map((name) => ({
       name,
       price: "$10.00" as string | null,
@@ -94,8 +94,9 @@ describe("widget product answer presentation", () => {
       href: `https://virellotimepieces.com/products/${name.toLowerCase()}`,
       imageUrl: null,
     }));
-    assert.equal(WIDGET_PRODUCT_PREVIEW_LIMIT, 4);
-    assert.equal(visibleProductCards(products, false).length, 4);
+    assert.equal(WIDGET_PRODUCT_PREVIEW_LIMIT, 1);
+    assert.equal(visibleProductCards(products, false).length, 1);
+    assert.equal(visibleProductCards(products, false)[0]?.name, "One");
     assert.equal(visibleProductCards(products, true).length, 5);
   });
 
@@ -165,6 +166,42 @@ describe("widget product answer presentation", () => {
     assert.match(view.prose, /For everyday wear/);
     assert.match(view.prose, /water resistant to 100m/);
     assert.doesNotMatch(view.prose, /\[here\]|https?:\/\/|\bhere\b/i);
+  });
+
+  it("keeps an everyday-wear recommendation to a few sentences and leaves specs on the card", () => {
+    const href =
+      "https://virellotimepieces.com/products/addiesdive-mens-quartz-wristwatch-bubble-mirror-glass-100m-waterproof-316l-stainless-steel-luxury-business-style-watches-ad2030";
+    const content = [
+      "For everyday wear, I recommend the ADDIESDIVE AD2030: Compact 36mm Quartz Watch.",
+      "It features a polished stainless steel exterior, a clear Arabic numeral dial, and dependable Japanese quartz movement.",
+      "With 100m water resistance, it is a versatile choice for daily use.",
+      "The price is $200.99.",
+      "Best regards,",
+      "Virello Timepieces Support",
+      "virellotimepieces@gmail.com",
+    ].join("\n\n");
+    const view = presentAssistantMessage(content, [
+      {
+        title: "Pagani Design Panda Chronograph Watch",
+        url: "https://virellotimepieces.com/products/pagani-panda",
+        kind: "product",
+        price: "$211.99",
+        description: "A panda dial chronograph.",
+      },
+      {
+        title: "ADDIESDIVE AD2030: Compact 36mm Quartz Watch",
+        url: href,
+        kind: "product",
+        price: "$200.99 – $202.99",
+        description:
+          "The ADDIESDIVE AD2030 combines a polished stainless steel exterior, a clear Arabic numeral dial, and Japanese quartz movement. It has 100m water resistance for daily use.",
+      },
+    ]);
+    assert.equal(view.products[0]?.name, "ADDIESDIVE AD2030: Compact 36mm Quartz Watch");
+    assert.equal(view.products[0]?.href, href);
+    assert.match(view.prose, /For everyday wear, I recommend the ADDIESDIVE AD2030\./);
+    assert.doesNotMatch(view.prose, /Compact 36mm|water resistance|\$200\.99|Best regards|@/);
+    assert.ok(view.prose.split(/(?<=[.!?])\s+/).length <= 3);
   });
 
   it("keeps an ordinary site link as text and ignores unsafe image urls", () => {

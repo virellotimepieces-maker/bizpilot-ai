@@ -1,4 +1,5 @@
-export const WIDGET_PRODUCT_PREVIEW_LIMIT = 4;
+export const WIDGET_PRODUCT_PREVIEW_LIMIT = 1;
+const RECOMMENDATION_SENTENCE_LIMIT = 3;
 
 export type WidgetProductCard = {
   name: string;
@@ -181,6 +182,56 @@ function isBarePointer(sentence: string) {
   return words.length > 0 && words.every((word) => POINTER_WORDS.has(word.toLowerCase()));
 }
 
+function isClosingLine(sentence: string) {
+  const text = sentence.replace(/\s+/g, " ").trim();
+  if (!text) return true;
+  if (/\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/i.test(text)) return true;
+  const words = text.replace(/[^a-z0-9\s]/gi, " ").split(/\s+/).filter(Boolean);
+  if (words.length <= 6 && /^(best|kind|warm)$/i.test(words[0] ?? "") && words.some((word) => /^regards$/i.test(word))) {
+    return true;
+  }
+  if (words.length <= 3 && /^(sincerely|cheers|thanks)$/i.test(words[0] ?? "")) return true;
+  if (words.length <= 5 && words[words.length - 1]?.toLowerCase() === "support") return true;
+  return false;
+}
+
+function repeatsCardDetails(sentence: string, products: WidgetProductCard[]) {
+  if (/\$\s?\d/.test(sentence)) return true;
+  const words = sentence
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length > 3);
+  if (words.length < 6) return false;
+  return products.some((product) => {
+    const details = `${product.name} ${product.description ?? ""}`.toLowerCase();
+    const hits = words.filter((word) => details.includes(word)).length;
+    return hits / words.length >= 0.55;
+  });
+}
+
+function shortenNamedTitle(sentence: string, products: WidgetProductCard[]) {
+  let next = sentence;
+  for (const product of products) {
+    const short = product.name.split(":")[0]?.trim() ?? "";
+    if (!short || short.toLowerCase() === product.name.toLowerCase()) continue;
+    next = next.replace(new RegExp(product.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "ig"), short);
+  }
+  return next.replace(/\s+/g, " ").trim();
+}
+
+function mentionRank(content: string, product: WidgetProductCard) {
+  const lower = content.toLowerCase();
+  const name = product.name.toLowerCase();
+  const short = name.split(":")[0]?.trim() ?? "";
+  const indexes = [lower.indexOf(name), short ? lower.indexOf(short) : -1].filter((index) => index >= 0);
+  if (product.href) {
+    const hrefAt = content.indexOf(product.href);
+    if (hrefAt >= 0) indexes.push(hrefAt);
+  }
+  return indexes.length ? Math.min(...indexes) : Number.MAX_SAFE_INTEGER;
+}
+
 function isProductDumpSentence(sentence: string, products: WidgetProductCard[]) {
   const trimmed = sentence.trim();
   if (!trimmed) return false;
@@ -204,34 +255,53 @@ function presentSentence(sentence: string, products: WidgetProductCard[]) {
     .trim();
 }
 
-export function visibleAssistantProse(content: string, products: WidgetProductCard[]) {
-  const kept = content
+function cleanedSentences(content: string, products: WidgetProductCard[]) {
+  return content
     .replace(/\r\n/g, "\n")
     .split(/\n+/)
-    .map((line) =>
-      line
-        .split(/(?<=[.!?])\s+/)
-        .map((sentence) => {
-          const cleaned = presentSentence(sentence, products);
-          const hadProductLink = /\/products\//i.test(sentence);
-          if (!cleaned) return "";
-          if (hadProductLink && isBarePointer(cleaned)) return "";
-          if (products.length && isProductDumpSentence(cleaned, products)) return "";
-          return cleaned;
-        })
-        .filter(Boolean)
-        .join(" ")
-        .trim(),
-    )
-    .filter(Boolean)
-    .join("\n\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return kept;
+    .flatMap((line) =>
+      line.split(/(?<=[.!?])\s+/).flatMap((sentence) => {
+        const cleaned = presentSentence(sentence, products);
+        const hadProductLink = /\/products\//i.test(sentence);
+        if (!cleaned) return [];
+        if (hadProductLink && isBarePointer(cleaned)) return [];
+        if (products.length && (isProductDumpSentence(cleaned, products) || isClosingLine(cleaned))) return [];
+        return [cleaned];
+      }),
+    );
+}
+
+export function visibleAssistantProse(content: string, products: WidgetProductCard[]) {
+  if (!products.length) {
+    return content
+      .replace(/\r\n/g, "\n")
+      .split(/\n+/)
+      .map((line) =>
+        line
+          .split(/(?<=[.!?])\s+/)
+          .map((sentence) => presentSentence(sentence, products))
+          .filter(Boolean)
+          .join(" ")
+          .trim(),
+      )
+      .filter(Boolean)
+      .join("\n\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+  const kept: string[] = [];
+  for (const sentence of cleanedSentences(content, products)) {
+    if (kept.length > 0 && repeatsCardDetails(sentence, products)) continue;
+    kept.push(shortenNamedTitle(sentence, products));
+    if (kept.length >= RECOMMENDATION_SENTENCE_LIMIT) break;
+  }
+  return kept.join(" ").replace(/\s+/g, " ").trim();
 }
 
 export function presentAssistantMessage(content: string, sources: unknown): WidgetMessageView {
-  const products = productCardsFromSources(sources, content);
+  const products = productCardsFromSources(sources, content).sort(
+    (left, right) => mentionRank(content, left) - mentionRank(content, right),
+  );
   return {
     prose: visibleAssistantProse(content, products),
     products,
