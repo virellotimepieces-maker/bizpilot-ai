@@ -15,7 +15,9 @@ const WHEN_WORD_RE = /\b(today|tomorrow|tonight|morning|afternoon|evening|monday
 const TIMES_RE = /\b(what|which|any)\s+times?\b/i;
 const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const NOT_A_NAME_RE =
-  /^(?:mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday|today|tomorrow|tonight|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)$/i;
+  /^(?:mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday|today|tomorrow|tonight|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|yes|yeah|yep|ok|okay|confirm|confirmed)$/i;
+const EMAIL_CONFIRMATION_RE =
+  /^(?:yes|yep|yeah|confirm|confirmed|correct|ok|okay|use that|use this email)[.!]?$/i;
 
 export const DISCONNECTED_CALENDAR_REPLY =
   "I can't check live availability or book a time because this business hasn't connected a calendar. I can save an appointment request for the team. Please share your name, email, and what you'd like to book.";
@@ -41,11 +43,12 @@ export function readBookingContact(
     : text.match(/\b(?:my name is|i am|i'm|this is)\s+([A-Za-z][A-Za-z .'-]{1,80})/i);
   if (named?.[1]) {
     customerName = named[1].replace(/\b(and|my|email|for)\b.*$/i, "").trim();
-  } else if (!customerName && !options?.slotSelection) {
+  } else if (!options?.slotSelection) {
     const simple = text.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/);
     const candidate = simple?.[1] ?? "";
     const first = candidate.split(/\s+/)[0] ?? "";
-    if (candidate && !candidate.includes("@") && !NOT_A_NAME_RE.test(first)) customerName = candidate;
+    const acceptable = candidate && !candidate.includes("@") && !NOT_A_NAME_RE.test(first) && nameStandsAlone(text, candidate);
+    if (acceptable && (!customerName || isExplicitEmailConfirmation(text) || EMAIL_RE.test(text))) customerName = candidate;
   }
   const extracted = extractRequestedService(text) || readLooseBookingReason(text);
   const service = current.service || extracted;
@@ -54,6 +57,21 @@ export function readBookingContact(
     email: email.trim().slice(0, 160),
     service: service.replace(/\s+/g, " ").trim().slice(0, 160),
   };
+}
+
+function nameStandsAlone(text: string, candidate: string) {
+  const at = text.indexOf(candidate);
+  const rest = (at >= 0 ? text.slice(at + candidate.length) : "").trim().replace(/^[,.-]+/, "").trim();
+  if (!rest) return true;
+  if (EMAIL_RE.test(rest)) return true;
+  if (/^for\b/i.test(rest)) return true;
+  return EMAIL_CONFIRMATION_RE.test(rest);
+}
+
+function isExplicitEmailConfirmation(text: string) {
+  const trimmed = text.trim();
+  if (EMAIL_CONFIRMATION_RE.test(trimmed)) return true;
+  return trimmed.length <= 80 && /\b(?:yes|confirm|confirmed|use that email|use this email)\b/i.test(trimmed);
 }
 
 function readLooseBookingReason(text: string) {
@@ -65,8 +83,14 @@ function readLooseBookingReason(text: string) {
   return value;
 }
 
-function missingContactPrompt(name: string, email: string, label: string) {
+function missingContactPrompt(name: string, email: string, label: string, confirmEmail = false) {
   const when = label ? ` for ${label}` : "";
+  if (confirmEmail && email) {
+    if (!name) {
+      return `That time${when} is open. Please send your name and confirm the email for this appointment: ${email}. Reply with your name and yes, or send a different email.`;
+    }
+    return `That time${when} is open. Please confirm this booking for ${name} at ${email}. Reply yes to use it, or send a different name and email.`;
+  }
   if (!name && !email) {
     return `That time${when} is open. Please send your name and email to book it. You can add a reason for the appointment if you want.`;
   }
@@ -201,8 +225,8 @@ export async function handleCalendarWidgetTurn(input: {
       : await input.store.upsertCalendarBookingSession({
           workspaceId: business.id,
           conversationId: conversation.id,
-          customerName: conversation.visitorName,
-          email: conversation.visitorEmail,
+          customerName: "",
+          email: "",
           service: "",
           offeredSlots: [],
           status: "collecting",
@@ -213,8 +237,8 @@ export async function handleCalendarWidgetTurn(input: {
   const contact = readBookingContact(
     input.question,
     {
-      customerName: current.customerName || conversation.visitorName,
-      email: current.email || conversation.visitorEmail,
+      customerName: current.customerName,
+      email: current.email,
       service: current.service,
     },
     { slotSelection: slotChoice },
@@ -222,8 +246,11 @@ export async function handleCalendarWidgetTurn(input: {
   const freshAvailability = isCalendarCustomerRequest(input.question) && !explicitSlot;
   const pending = current.status === "collecting" ? current.offeredSlots[0] : undefined;
   const picked = chosenSlot(input.question, input.slotStart, current.offeredSlots) ?? (freshAvailability ? undefined : pending);
+  const emailProvidedInMessage = EMAIL_RE.test(input.question);
+  const emailExplicitlyConfirmed = current.status === "collecting" && Boolean(contact.email) && isExplicitEmailConfirmation(input.question);
+  const emailAccepted = emailProvidedInMessage || emailExplicitlyConfirmed;
 
-  if (picked && (!contact.customerName || !contact.email)) {
+  if (picked && (!contact.customerName || !contact.email || !emailAccepted)) {
     let accessToken = "";
     try {
       accessToken = await calendarAccessToken(input.store, connection, fetchImpl);
@@ -270,10 +297,10 @@ export async function handleCalendarWidgetTurn(input: {
       offeredSlots: [picked, ...rest],
       status: "collecting",
     });
-    return reply(missingContactPrompt(contact.customerName, contact.email, picked.label));
+    return reply(missingContactPrompt(contact.customerName, contact.email, picked.label, Boolean(contact.email) && !emailAccepted));
   }
 
-  if (picked && contact.customerName && contact.email) {
+  if (picked && contact.customerName && contact.email && emailAccepted) {
     let accessToken = "";
     try {
       accessToken = await calendarAccessToken(input.store, connection, fetchImpl);
@@ -415,7 +442,9 @@ export async function handleCalendarWidgetTurn(input: {
       offeredSlots: [],
       status: "booked",
     });
-    const confirmation = emailed ? ` A confirmation email was sent to ${contact.email}.` : "";
+    const confirmation = emailed
+      ? ` A confirmation email was sent to ${contact.email}.`
+      : " The appointment was booked, but the confirmation email could not be sent.";
     return reply(`You're booked for ${picked.label}. The appointment is on the connected calendar.${confirmation}`);
   }
 

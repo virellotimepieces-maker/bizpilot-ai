@@ -351,6 +351,7 @@ describe("Calendar booking", () => {
       fetchImpl: google.fetchImpl,
     });
     assert.match(booked?.answer ?? "", /You're booked/);
+    assert.match(booked?.answer ?? "", /confirmation email could not be sent/);
     assert.doesNotMatch(booked?.answer ?? "", /https?:\/\//);
     const saved = await store.listCalendarAppointments(workspace.id);
     assert.equal(saved.length, 1);
@@ -375,6 +376,68 @@ describe("Calendar booking", () => {
     });
     assert.match(repeat?.answer ?? "", /just taken|no open times/i);
     assert.equal((await store.listCalendarAppointments(workspace.id)).length, 1);
+    const nextAsk = await handleCalendarWidgetTurn({
+      store,
+      widgetKey: workspace.widgetKey,
+      visitorKey: "visitor-a",
+      conversationId: asked?.conversationId,
+      question: "I'd like to book an appointment tomorrow. What times are available?",
+      now,
+      fetchImpl: google.fetchImpl,
+    });
+    const nextSlot = nextAsk?.sources.find((source) => source.slotStart !== slot?.slotStart);
+    assert.ok(nextSlot?.slotStart);
+    const eventsBefore = google.calls.filter((call) => call.url.includes("/events")).length;
+    const unconfirmed = await handleCalendarWidgetTurn({
+      store,
+      widgetKey: workspace.widgetKey,
+      visitorKey: "visitor-a",
+      conversationId: asked?.conversationId,
+      question: nextSlot?.title ?? "",
+      slotStart: nextSlot?.slotStart,
+      now,
+      fetchImpl: google.fetchImpl,
+    });
+    assert.match(unconfirmed?.answer ?? "", /confirm this booking/i);
+    assert.match(unconfirmed?.answer ?? "", /ada@example.com/);
+    assert.equal((await store.listCalendarAppointments(workspace.id)).length, 1);
+    assert.equal(google.calls.filter((call) => call.url.includes("/events")).length, eventsBefore);
+    const second = await handleCalendarWidgetTurn({
+      store,
+      widgetKey: workspace.widgetKey,
+      visitorKey: "visitor-a",
+      conversationId: asked?.conversationId,
+      question: "yes",
+      now,
+      fetchImpl: google.fetchImpl,
+    });
+    assert.match(second?.answer ?? "", /You're booked for/);
+    assert.match(second?.answer ?? "", /confirmation email could not be sent/);
+    const rows = await store.listCalendarAppointments(workspace.id);
+    assert.equal(rows.length, 2);
+    assert.equal(rows.filter((row) => row.email === "ada@example.com").length, 2);
+    const sentence = await handleCalendarWidgetTurn({
+      store,
+      widgetKey: workspace.widgetKey,
+      visitorKey: "visitor-before",
+      question: "Before I give my name and email, please show me the available appointment times for tomorrow.",
+      now,
+      fetchImpl: google.fetchImpl,
+    });
+    assert.match(sentence?.answer ?? "", /Choose one|open times/i);
+    const sentenceSlot = sentence?.sources[0];
+    const sentenceHeld = await handleCalendarWidgetTurn({
+      store,
+      widgetKey: workspace.widgetKey,
+      visitorKey: "visitor-before",
+      conversationId: sentence?.conversationId,
+      question: sentenceSlot?.title ?? "",
+      slotStart: sentenceSlot?.slotStart,
+      now,
+      fetchImpl: google.fetchImpl,
+    });
+    assert.match(sentenceHeld?.answer ?? "", /name and email/i);
+    assert.doesNotMatch(sentenceHeld?.answer ?? "", /\bBefore\b/);
     process.env.AUTH_SECRET = previous;
   });
 
@@ -508,7 +571,7 @@ describe("Booking confirmation email", () => {
     };
   }
 
-  function fetchFor(eventsStatus = 200) {
+  function fetchFor(eventsStatus = 200, sendStatus = 200) {
     const calls: { url: string; authorization: string; body: unknown }[] = [];
     const fetchImpl: typeof fetch = async (url, init) => {
       const headers = new Headers(init?.headers);
@@ -528,7 +591,7 @@ describe("Booking confirmation email", () => {
       }
       if (String(url).includes("/messages/send")) {
         return new Response(JSON.stringify({ id: "msg_confirmed" }), {
-          status: 200,
+          status: sendStatus,
           headers: { "Content-Type": "application/json" },
         });
       }
@@ -574,6 +637,7 @@ describe("Booking confirmation email", () => {
     const booked = await book(setup, google.fetchImpl);
     assert.match(booked?.answer ?? "", /You're booked/);
     assert.match(booked?.answer ?? "", /confirmation email was sent to ada@example.com/);
+    assert.doesNotMatch(booked?.answer ?? "", /could not be sent/);
     const eventIndex = google.calls.findIndex((call) => call.url.includes("/events"));
     const sendIndex = google.calls.findIndex((call) => call.url.includes("/messages/send"));
     assert.ok(eventIndex >= 0 && sendIndex > eventIndex);
@@ -602,6 +666,21 @@ describe("Booking confirmation email", () => {
     });
     assert.equal(again, false);
     assert.equal(google.calls.filter((call) => call.url.includes("/messages/send")).length, 1);
+    setup.restore();
+  });
+
+  it("tells the customer when the calendar event exists but Gmail rejects the confirmation", async () => {
+    const setup = await readyWorkspace("harbor-mail-send-fail@example.com");
+    const google = fetchFor(200, 500);
+    const booked = await book(setup, google.fetchImpl);
+    assert.match(booked?.answer ?? "", /You're booked/);
+    assert.match(booked?.answer ?? "", /confirmation email could not be sent/);
+    assert.doesNotMatch(booked?.answer ?? "", /confirmation email was sent/);
+    assert.equal(google.calls.filter((call) => call.url.includes("/messages/send")).length, 1);
+    const saved = await setup.store.listCalendarAppointments(setup.workspace.id);
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0]?.googleEventId, "evt_confirmed");
+    assert.equal(saved[0]?.confirmationSentAt, null);
     setup.restore();
   });
 
