@@ -236,6 +236,103 @@ export function shopifyFactsForQuery(products: ShopifyProductRecord[], question:
   });
 }
 
+export function shopifyProductLinkKey(url: string) {
+  try {
+    const parsed = new URL(url.trim());
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    const path = decodeURIComponent(parsed.pathname).replace(/\/+$/, "").toLowerCase();
+    if (!path.includes("/products/")) return "";
+    return `${host}${path}`;
+  } catch {
+    return "";
+  }
+}
+
+function catalogImageUrl(product: ShopifyProductRecord) {
+  for (const raw of product.imageUrls) {
+    const value = raw.trim();
+    if (!value.startsWith("https://") || /[\s<>]/.test(value)) continue;
+    try {
+      const parsed = new URL(value);
+      if (parsed.username || parsed.password || !parsed.hostname) continue;
+      return parsed.toString();
+    } catch {
+      continue;
+    }
+  }
+  return "";
+}
+
+export function shopifyProductCardFields(product: ShopifyProductRecord) {
+  const price = catalogPriceLabel(product);
+  const imageUrl = catalogImageUrl(product);
+  const description = catalogDescriptionLabel(product.description);
+  return {
+    ...(price ? { price } : {}),
+    ...(imageUrl ? { imageUrl } : {}),
+    ...(description ? { description } : {}),
+  };
+}
+
+export function decorateProductSources<
+  T extends { kind?: string; url?: string; title?: string; price?: string; imageUrl?: string; description?: string },
+>(sources: T[] | null | undefined, products: ShopifyProductRecord[]) {
+  if (!sources?.length || !products.length) return sources ?? null;
+  const byKey = new Map<string, ShopifyProductRecord>();
+  for (const product of products) {
+    const key = shopifyProductLinkKey(product.url);
+    if (key && !byKey.has(key)) byKey.set(key, product);
+  }
+  return sources.map((source) => {
+    if (source.kind !== "product" || typeof source.url !== "string") return source;
+    const product = byKey.get(shopifyProductLinkKey(source.url));
+    if (!product) return source;
+    const fields = shopifyProductCardFields(product);
+    return {
+      ...source,
+      title: source.title || product.title,
+      ...(source.price || fields.price ? { price: source.price || fields.price } : {}),
+      ...(source.imageUrl || fields.imageUrl ? { imageUrl: source.imageUrl || fields.imageUrl } : {}),
+      ...(source.description || fields.description ? { description: source.description || fields.description } : {}),
+    };
+  });
+}
+
+function contentHasProductKey(content: string, key: string) {
+  const urls = content.match(/https?:\/\/[^\s<>"')\]]+/gi) ?? [];
+  return urls.some((url) => shopifyProductLinkKey(url) === key);
+}
+
+export function linkCatalogProductCards<
+  T extends { kind?: string; url?: string; title?: string; price?: string; imageUrl?: string; description?: string },
+>(sources: T[] | null | undefined, products: ShopifyProductRecord[], content = "") {
+  const enriched = decorateProductSources(sources, products) ?? [];
+  if (!products.length || !content.trim()) return enriched;
+  const seen = new Set(
+    enriched
+      .map((source) => (source.kind === "product" && typeof source.url === "string" ? shopifyProductLinkKey(source.url) : ""))
+      .filter(Boolean),
+  );
+  const haystack = content.toLowerCase();
+  const extras: T[] = [];
+  for (const product of products) {
+    const key = shopifyProductLinkKey(product.url);
+    if (!key || !product.url || seen.has(key)) continue;
+    const title = product.title.trim();
+    const linked = contentHasProductKey(content, key) || (title.length >= 8 && haystack.includes(title.toLowerCase()));
+    if (!linked) continue;
+    seen.add(key);
+    extras.push({
+      title: product.title,
+      url: product.url,
+      kind: "product",
+      ...shopifyProductCardFields(product),
+    } as T);
+  }
+  return extras.length ? [...enriched, ...extras] : enriched;
+}
+
 function catalogPriceLabel(product: ShopifyProductRecord) {
   const amounts = product.variants
     .map((row) => Number(row.price))
@@ -268,14 +365,11 @@ export function catalogProductSources(products: ShopifyProductRecord[]) {
   return products
     .filter((row) => row.url)
     .map((row) => {
-      const price = catalogPriceLabel(row);
-      const description = catalogDescriptionLabel(row.description);
       return {
         title: row.title,
         url: row.url,
         kind: "product" as const,
-        ...(price ? { price } : {}),
-        ...(description ? { description } : {}),
+        ...shopifyProductCardFields(row),
       };
     });
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { catalogProductSources } from "./shopify/catalog";
+import { catalogProductSources, decorateProductSources, linkCatalogProductCards } from "./shopify/catalog";
 import type { ShopifyProductRecord } from "./shopify/types";
 import {
   presentAssistantMessage,
@@ -92,6 +92,7 @@ describe("widget product answer presentation", () => {
       price: "$10.00" as string | null,
       description: null,
       href: `https://virellotimepieces.com/products/${name.toLowerCase()}`,
+      imageUrl: null,
     }));
     assert.equal(WIDGET_PRODUCT_PREVIEW_LIMIT, 4);
     assert.equal(visibleProductCards(products, false).length, 4);
@@ -135,5 +136,110 @@ describe("widget product answer presentation", () => {
     assert.equal(card?.description, "First sentence. Second sentence.");
     assert.doesNotMatch(card?.description ?? "", /Third sentence/);
     assert.doesNotMatch(JSON.stringify(card), /400\.00/);
+  });
+
+  it("renders the live AD2030 markdown recommendation as one product card", () => {
+    const href =
+      "https://virellotimepieces.com/products/addiesdive-mens-quartz-wristwatch-bubble-mirror-glass-100m-waterproof-316l-stainless-steel-luxury-business-style-watches-ad2030";
+    const imageUrl =
+      "https://cdn.shopify.com/s/files/1/0996/7704/5043/files/S042d4c3b8e984e6fb1015f88a43ff368M.webp?v=1787021130";
+    const content = [
+      "For everyday wear, I recommend the ADDIESDIVE AD2030: Compact 36mm Quartz Watch.",
+      "It is water resistant to 100m and made from 316L stainless steel.",
+      `You can explore more about it [here](${href}).`,
+    ].join(" ");
+    const view = presentAssistantMessage(content, [
+      {
+        title: "ADDIESDIVE AD2030: Compact 36mm Quartz Watch",
+        url: href,
+        kind: "product",
+        price: "$200.99 – $202.99",
+        imageUrl,
+      },
+    ]);
+    assert.equal(view.products.length, 1);
+    assert.equal(view.products[0]?.name, "ADDIESDIVE AD2030: Compact 36mm Quartz Watch");
+    assert.equal(view.products[0]?.href, href);
+    assert.equal(view.products[0]?.price, "$200.99 – $202.99");
+    assert.equal(view.products[0]?.imageUrl, imageUrl);
+    assert.match(view.prose, /For everyday wear/);
+    assert.match(view.prose, /water resistant to 100m/);
+    assert.doesNotMatch(view.prose, /\[here\]|https?:\/\/|\bhere\b/i);
+  });
+
+  it("keeps an ordinary site link as text and ignores unsafe image urls", () => {
+    const view = presentAssistantMessage(
+      "Visit [Virello Timepieces](https://virellotimepieces.com) for store details.",
+      [],
+    );
+    assert.equal(view.products.length, 0);
+    assert.match(view.prose, /Virello Timepieces/);
+    assert.doesNotMatch(view.prose, /\[Virello Timepieces\]/);
+    const cards = productCardsFromSources(
+      [
+        {
+          title: "Plain Dial",
+          url: "https://virellotimepieces.com/products/plain-dial",
+          kind: "product",
+          imageUrl: "javascript:alert(1)",
+        },
+      ],
+      "The Plain Dial is available.",
+    );
+    assert.equal(cards[0]?.imageUrl, null);
+    assert.equal(cards[0]?.href, "https://virellotimepieces.com/products/plain-dial");
+  });
+
+  it("fills image and price from the synced Shopify product for a stored url-only source", () => {
+    const href =
+      "https://virellotimepieces.com/products/addiesdive-mens-quartz-wristwatch-bubble-mirror-glass-100m-waterproof-316l-stainless-steel-luxury-business-style-watches-ad2030";
+    const imageUrl =
+      "https://cdn.shopify.com/s/files/1/0996/7704/5043/files/S042d4c3b8e984e6fb1015f88a43ff368M.webp?v=1787021130";
+    const watched = {
+      ...product("ADDIESDIVE AD2030: Compact 36mm Quartz Watch", "200.99", "A compact quartz watch. The case is steel."),
+      url: href,
+      imageUrls: [imageUrl, "javascript:alert(1)"],
+      variants: [
+        {
+          id: "1",
+          title: "Black",
+          sku: "",
+          price: "200.99",
+          compareAtPrice: "400.00",
+          available: true,
+          inventoryQuantity: 1,
+          inventoryTracked: true,
+        },
+        {
+          id: "2",
+          title: "Blue",
+          sku: "",
+          price: "202.99",
+          compareAtPrice: null,
+          available: true,
+          inventoryQuantity: 1,
+          inventoryTracked: true,
+        },
+      ],
+    };
+    const other = product("Other Watch", "10.00", "Different product.");
+    const content = `You can explore more about it [here](${href}).`;
+    const decorated = decorateProductSources<
+      { title: string; url: string; kind: "product"; price?: string; imageUrl?: string; description?: string }
+    >([{ title: watched.title, url: href, kind: "product" }], [watched, other]);
+    assert.equal(decorated?.[0]?.price, "$200.99 – $202.99");
+    assert.equal(decorated?.[0]?.imageUrl, imageUrl);
+    assert.equal(decorated?.[0]?.title, watched.title);
+    assert.notEqual(decorated?.[0]?.url, other.url);
+    const linked = linkCatalogProductCards<
+      { title: string; url: string; kind: "product"; price?: string; imageUrl?: string; description?: string }
+    >([], [watched, other], content);
+    assert.equal(linked.length, 1);
+    assert.equal(linked[0]?.url, href);
+    assert.equal(linked[0]?.imageUrl, imageUrl);
+    const view = presentAssistantMessage(content, decorated);
+    assert.equal(view.products[0]?.name, watched.title);
+    assert.equal(view.products[0]?.href, href);
+    assert.doesNotMatch(view.prose, /\[here\]|https?:\/\//);
   });
 });

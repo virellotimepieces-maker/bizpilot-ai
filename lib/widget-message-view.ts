@@ -5,6 +5,7 @@ export type WidgetProductCard = {
   price: string | null;
   description: string | null;
   href: string | null;
+  imageUrl: string | null;
 };
 
 export type WidgetMessageView = {
@@ -29,8 +30,24 @@ function plainText(value: string) {
     .trim();
 }
 
+const PRODUCT_MARKDOWN_LINK = /\[([^\]]*)\]\((https?:\/\/[^)\s]*\/products\/[^)\s]+)\)/gi;
+
+export function productLinkKey(url: string) {
+  try {
+    const parsed = new URL(url.trim());
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    const path = decodeURIComponent(parsed.pathname).replace(/\/+$/, "").toLowerCase();
+    if (!path.includes("/products/")) return "";
+    return `${host}${path}`;
+  } catch {
+    return "";
+  }
+}
+
 export function stripMarkdownMarkers(value: string) {
   return value
+    .replace(PRODUCT_MARKDOWN_LINK, " ")
     .replace(/\[([^\]]+)\]\((?:https?:\/\/[^)\s]+)\)/gi, "$1")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/__([^_]+)__/g, "$1")
@@ -65,22 +82,41 @@ function descriptionLabel(value: unknown) {
   return text.length > 220 ? `${text.slice(0, 217).trimEnd()}…` : text;
 }
 
+function contentProductKeys(content: string) {
+  const keys = new Set<string>();
+  for (const match of content.matchAll(/https?:\/\/[^\s<>"')\]]+/gi)) {
+    const key = productLinkKey(match[0]);
+    if (key) keys.add(key);
+  }
+  return keys;
+}
+
 export function productCardsFromSources(sources: unknown, content = ""): WidgetProductCard[] {
   if (!Array.isArray(sources)) return [];
   const cards: WidgetProductCard[] = [];
   const seen = new Set<string>();
   const haystack = content.toLowerCase();
+  const linked = contentProductKeys(content);
   for (const row of sources) {
     if (!row || typeof row !== "object") continue;
-    const item = row as { title?: unknown; url?: unknown; kind?: unknown; price?: unknown; description?: unknown };
+    const item = row as {
+      title?: unknown;
+      url?: unknown;
+      kind?: unknown;
+      price?: unknown;
+      description?: unknown;
+      imageUrl?: unknown;
+    };
     if (item.kind !== "product" || typeof item.title !== "string") continue;
     const name = plainText(stripMarkdownMarkers(item.title)).slice(0, 140);
     const key = name.toLowerCase();
     if (!name || seen.has(key)) continue;
     const href = typeof item.url === "string" ? safeProductHref(item.url) : null;
+    const linkKey = typeof item.url === "string" ? productLinkKey(item.url) : "";
     const mentioned =
       !content.trim() ||
       haystack.includes(key) ||
+      (linkKey ? linked.has(linkKey) : false) ||
       (href ? content.includes(href) : false);
     if (!mentioned) continue;
     seen.add(key);
@@ -89,6 +125,7 @@ export function productCardsFromSources(sources: unknown, content = ""): WidgetP
       price: priceLabel(item.price),
       description: descriptionLabel(item.description),
       href,
+      imageUrl: safeProductHref(typeof item.imageUrl === "string" ? item.imageUrl : ""),
     });
   }
   return cards;
@@ -100,6 +137,48 @@ function hideProductUrls(text: string, products: WidgetProductCard[]) {
     if (product.href) next = next.split(product.href).join(" ");
   }
   return next.replace(/https?:\/\/[^\s<>"')]+\/products\/[^\s<>"')]+/gi, " ");
+}
+
+const POINTER_WORDS = new Set([
+  "a",
+  "an",
+  "the",
+  "you",
+  "can",
+  "could",
+  "explore",
+  "more",
+  "about",
+  "it",
+  "here",
+  "link",
+  "this",
+  "view",
+  "product",
+  "click",
+  "learn",
+  "see",
+  "find",
+  "check",
+  "out",
+  "details",
+  "info",
+  "information",
+  "read",
+  "our",
+  "page",
+  "website",
+]);
+
+function isBarePointer(sentence: string) {
+  const text = sentence
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/[^a-z0-9\s]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) return true;
+  const words = text.split(" ").filter(Boolean);
+  return words.length > 0 && words.every((word) => POINTER_WORDS.has(word.toLowerCase()));
 }
 
 function isProductDumpSentence(sentence: string, products: WidgetProductCard[]) {
@@ -118,17 +197,35 @@ function isProductDumpSentence(sentence: string, products: WidgetProductCard[]) 
   return words.length < 3;
 }
 
+function presentSentence(sentence: string, products: WidgetProductCard[]) {
+  return hideProductUrls(stripMarkdownMarkers(sentence), products)
+    .replace(/\s+([.!?])/g, "$1")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 export function visibleAssistantProse(content: string, products: WidgetProductCard[]) {
-  const cleaned = hideProductUrls(stripMarkdownMarkers(content), products).replace(/\r\n/g, "\n");
-  if (!products.length) {
-    return cleaned.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").replace(/[ \t]{2,}/g, " ").trim();
-  }
-  const kept = cleaned
+  const kept = content
+    .replace(/\r\n/g, "\n")
     .split(/\n+/)
-    .flatMap((line) => line.split(/(?<=[.!?])\s+/))
-    .filter((sentence) => !isProductDumpSentence(sentence, products))
-    .join(" ")
-    .replace(/\s+/g, " ")
+    .map((line) =>
+      line
+        .split(/(?<=[.!?])\s+/)
+        .map((sentence) => {
+          const cleaned = presentSentence(sentence, products);
+          const hadProductLink = /\/products\//i.test(sentence);
+          if (!cleaned) return "";
+          if (hadProductLink && isBarePointer(cleaned)) return "";
+          if (products.length && isProductDumpSentence(cleaned, products)) return "";
+          return cleaned;
+        })
+        .filter(Boolean)
+        .join(" ")
+        .trim(),
+    )
+    .filter(Boolean)
+    .join("\n\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
   return kept;
 }

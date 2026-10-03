@@ -35,6 +35,8 @@ export type WebsiteReplySource = {
   price?: string;
   /** Display-only Shopify description already stored on the product. */
   description?: string;
+  /** Display-only Shopify image already stored on the product. */
+  imageUrl?: string;
 };
 
 export type WebsitePageRecord = {

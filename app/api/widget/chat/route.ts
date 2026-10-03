@@ -2,8 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateCustomerReply } from "@/lib/ai/generate-customer-reply";
 import { getBillingStore } from "@/lib/billing/factory";
 import { BillingService } from "@/lib/billing/service";
+import type { BillingStore } from "@/lib/billing/store";
 import { BillingError } from "@/lib/billing/types";
 import { jsonError } from "@/lib/http";
+import { linkCatalogProductCards } from "@/lib/shopify/catalog";
+import type { WebsiteReplySource } from "@/lib/website/types";
+
+async function withCatalogCards<T extends { content?: string; sources?: WebsiteReplySource[] | null }>(
+  store: BillingStore,
+  widgetKey: string,
+  rows: T[],
+) {
+  const workspace = await store.getWorkspaceByWidgetKey(widgetKey);
+  if (!workspace) return rows;
+  const products = (await store.listShopifyProducts(workspace.id)).filter(
+    (row) => row.workspaceId === workspace.id,
+  );
+  if (!products.length) return rows;
+  return rows.map((row) => ({
+    ...row,
+    sources: linkCatalogProductCards(row.sources, products, row.content ?? ""),
+  }));
+}
 
 function cors(response: NextResponse) {
   response.headers.set("Access-Control-Allow-Origin", "*");
@@ -27,11 +47,12 @@ export async function GET(request: NextRequest) {
       conversationId,
     );
     const conversation = thread.conversation;
+    const messages = await withCatalogCards(store, widgetKey, thread.messages);
     return cors(
       NextResponse.json({
         conversationId: conversation?.id ?? null,
         waitingOnHuman: conversation?.waitingOnHuman ?? false,
-        messages: thread.messages,
+        messages,
         contact: conversation
           ? {
               name: conversation.visitorName,
@@ -119,7 +140,16 @@ export async function POST(request: NextRequest) {
         question,
         generate: generateCustomerReply,
       });
-      return cors(NextResponse.json({ ...result, waitingOnHuman: result.waitingOnHuman ?? false }));
+      const [decorated] = await withCatalogCards(store, widgetKey, [
+        { content: result.answer, sources: result.sources },
+      ]);
+      return cors(
+        NextResponse.json({
+          ...result,
+          sources: decorated?.sources ?? result.sources,
+          waitingOnHuman: result.waitingOnHuman ?? false,
+        }),
+      );
     } catch (error) {
       if (error instanceof BillingError && error.code === "limit") {
         const workspace = await store.getWorkspaceByWidgetKey(widgetKey);

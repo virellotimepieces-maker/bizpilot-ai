@@ -27,6 +27,7 @@ type ChatSource = {
   kind?: string;
   price?: string;
   description?: string;
+  imageUrl?: string;
 };
 
 type ChatRow = {
@@ -76,23 +77,37 @@ function rowsFromMessages(
 
 function ProductCard({ card, accent }: { card: WidgetProductCard; accent: string }) {
   return (
-    <article className="min-w-0 rounded-lg border border-neutral-200 bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
-      <h3 className="break-words text-sm font-semibold leading-snug text-neutral-950">{card.name}</h3>
-      {card.price ? <p className="mt-1 text-sm font-medium text-neutral-800">{card.price}</p> : null}
-      {card.description ? (
-        <p className="mt-1 break-words text-sm leading-relaxed text-neutral-600">{card.description}</p>
+    <article className="min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+      {card.imageUrl ? (
+        // Shopify image hosts are not in next/image remotePatterns; the embed uses the raw src.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={card.imageUrl}
+          alt=""
+          className="aspect-[4/3] w-full bg-neutral-100 object-cover sm:aspect-[16/10]"
+          onError={(event) => {
+            event.currentTarget.remove();
+          }}
+        />
       ) : null}
-      {card.href ? (
-        <a
-          href={card.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg border px-3 text-sm font-medium"
-          style={{ borderColor: accent, color: accent }}
-        >
-          View Product
-        </a>
-      ) : null}
+      <div className="p-3">
+        <h3 className="break-words text-sm font-semibold leading-snug text-neutral-950">{card.name}</h3>
+        {card.price ? <p className="mt-1 text-sm font-medium text-neutral-800">{card.price}</p> : null}
+        {card.description ? (
+          <p className="mt-1 line-clamp-3 break-words text-sm leading-relaxed text-neutral-600">{card.description}</p>
+        ) : null}
+        {card.href ? (
+          <a
+            href={card.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg border px-3 text-sm font-medium"
+            style={{ borderColor: accent, color: accent }}
+          >
+            View Product
+          </a>
+        ) : null}
+      </div>
     </article>
   );
 }
