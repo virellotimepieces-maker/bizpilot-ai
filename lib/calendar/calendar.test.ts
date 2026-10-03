@@ -307,52 +307,45 @@ describe("Calendar booking", () => {
       store,
       widgetKey: workspace.widgetKey,
       visitorKey: "visitor-a",
-      question: "I'd like to book an appointment.",
+      question: "I'd like to book an appointment tomorrow. What times are available?",
       now,
       fetchImpl: google.fetchImpl,
     });
-    assert.match(asked?.answer ?? "", /name and email/i);
-    assert.equal(asked?.sources.length, 0);
-    const offered = await handleCalendarWidgetTurn({
-      store,
-      widgetKey: workspace.widgetKey,
-      visitorKey: "visitor-a",
-      conversationId: asked?.conversationId,
-      question: "Ada Lovelace ada@example.com for a sizing on Friday afternoon",
-      now,
-      fetchImpl: google.fetchImpl,
-    });
-    assert.match(offered?.answer ?? "", /Choose one/);
-    assert.ok((offered?.sources.length ?? 0) > 0);
-    assert.ok(offered?.sources.every((source) => source.url.startsWith("slot:")));
-    assert.ok(!offered?.sources.some((source) => source.slotStart === "2026-10-09T17:00:00.000Z"));
-    const slot = offered?.sources[0];
+    assert.match(asked?.answer ?? "", /Choose one/);
+    assert.doesNotMatch(asked?.answer ?? "", /email/i);
+    assert.ok((asked?.sources.length ?? 0) > 0);
+    assert.ok(asked?.sources.every((source) => source.url.startsWith("slot:")));
+    assert.ok(asked?.sources.every((source) => source.slotStart?.startsWith("2026-10-09")));
+    assert.ok(!asked?.sources.some((source) => source.slotStart === "2026-10-09T17:00:00.000Z"));
+    const slot = asked?.sources[0];
     assert.ok(slot?.slotStart);
     const askedAgain = await handleCalendarWidgetTurn({
       store,
       widgetKey: workspace.widgetKey,
       visitorKey: "visitor-b",
-      question: "I'd like to book an appointment.",
+      question: "I'd like to book an appointment tomorrow. What times are available?",
       now,
       fetchImpl: google.fetchImpl,
     });
-    const offeredAgain = await handleCalendarWidgetTurn({
-      store,
-      widgetKey: workspace.widgetKey,
-      visitorKey: "visitor-b",
-      conversationId: askedAgain?.conversationId,
-      question: "Ada Two ada.two@example.com Friday afternoon",
-      now,
-      fetchImpl: google.fetchImpl,
-    });
-    assert.ok(offeredAgain?.sources.some((source) => source.slotStart === slot?.slotStart));
-    const booked = await handleCalendarWidgetTurn({
+    assert.ok(askedAgain?.sources.some((source) => source.slotStart === slot?.slotStart));
+    const held = await handleCalendarWidgetTurn({
       store,
       widgetKey: workspace.widgetKey,
       visitorKey: "visitor-a",
       conversationId: asked?.conversationId,
       question: slot?.title ?? "",
       slotStart: slot?.slotStart,
+      now,
+      fetchImpl: google.fetchImpl,
+    });
+    assert.match(held?.answer ?? "", /name and email/i);
+    assert.equal(google.calls.filter((call) => call.url.includes("/events")).length, 0);
+    const booked = await handleCalendarWidgetTurn({
+      store,
+      widgetKey: workspace.widgetKey,
+      visitorKey: "visitor-a",
+      conversationId: asked?.conversationId,
+      question: "Ada Lovelace ada@example.com for a sizing",
       now,
       fetchImpl: google.fetchImpl,
     });
@@ -381,6 +374,53 @@ describe("Calendar booking", () => {
     });
     assert.match(repeat?.answer ?? "", /just taken|no open times/i);
     assert.equal((await store.listCalendarAppointments(workspace.id)).length, 1);
+    process.env.AUTH_SECRET = previous;
+  });
+
+  it("offers the next open day when the requested day is fully booked", async () => {
+    const previous = process.env.AUTH_SECRET;
+    process.env.AUTH_SECRET = previous && previous.length >= 16 ? previous : "test-auth-secret-value";
+    const { store, workspace } = await paidWorkspace("Harbor Next", "harbor-next@example.com");
+    await store.upsertGoogleCalendarConnection({
+      workspaceId: workspace.id,
+      googleEmail: "harbor@gmail.com",
+      encryptedRefreshToken: encryptSecret("refresh-harbor"),
+      encryptedAccessToken: encryptSecret("access-harbor"),
+      accessTokenExpiresAt: new Date("2026-10-20T18:00:00.000Z"),
+      scopes: CALENDAR_SCOPES.join(" "),
+      status: "connected",
+      calendarId: "harbor-calendar",
+      calendarSummary: "Harbor",
+    });
+    const hours = settings();
+    await store.upsertCalendarBookingSettings({
+      workspaceId: workspace.id,
+      durationMinutes: hours.durationMinutes,
+      availableDays: hours.availableDays,
+      startMinutes: hours.startMinutes,
+      endMinutes: hours.endMinutes,
+      timezone: hours.timezone,
+      minNoticeMinutes: hours.minNoticeMinutes,
+      bufferMinutes: hours.bufferMinutes,
+    });
+    const google = googleFetch({
+      calendarId: "harbor-calendar",
+      busy: [{ start: "2026-10-09T13:00:00.000Z", end: "2026-10-09T21:00:00.000Z" }],
+    });
+    const turn = await handleCalendarWidgetTurn({
+      store,
+      widgetKey: workspace.widgetKey,
+      visitorKey: "visitor-next",
+      question: "I'd like to book an appointment tomorrow. What times are available?",
+      now: new Date("2026-10-08T15:00:00.000Z"),
+      fetchImpl: google.fetchImpl,
+    });
+    assert.match(turn?.answer ?? "", /no open times then/i);
+    assert.doesNotMatch(turn?.answer ?? "", /email/i);
+    assert.ok(turn?.sources.some((source) => source.slotStart === "2026-10-12T13:00:00.000Z"));
+    assert.ok(!turn?.sources.some((source) => source.slotStart?.startsWith("2026-10-09")));
+    const monday = requestedWindow("next Monday", new Date("2026-10-08T15:00:00.000Z"), "America/New_York");
+    assert.equal(monday?.start.toISOString(), "2026-10-12T04:00:00.000Z");
     process.env.AUTH_SECRET = previous;
   });
 

@@ -11,7 +11,10 @@ import type { CalendarBookingSessionRecord, CalendarBookingSettingsRecord, Calen
 
 const AVAILABILITY_RE = /\b(available|availability|opening|openings|open slot|free slot)\b/i;
 const WHEN_WORD_RE = /\b(today|tomorrow|tonight|morning|afternoon|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
+const TIMES_RE = /\b(what|which|any)\s+times?\b/i;
 const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+const NOT_A_NAME_RE =
+  /^(?:mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday|today|tomorrow|tonight|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)$/i;
 
 export const DISCONNECTED_CALENDAR_REPLY =
   "I can't check live availability or book a time because this business hasn't connected a calendar. I can save an appointment request for the team. Please share your name, email, and what you'd like to book.";
@@ -20,22 +23,28 @@ export function isCalendarCustomerRequest(question: string) {
   const text = question.trim();
   if (!text || text.startsWith("slot:")) return false;
   if (isAppointmentRequestQuestion(text)) return true;
+  if (TIMES_RE.test(text) && (AVAILABILITY_RE.test(text) || WHEN_WORD_RE.test(text))) return true;
   return AVAILABILITY_RE.test(text) && WHEN_WORD_RE.test(text);
 }
 
 export function readBookingContact(
   text: string,
   current: { customerName: string; email: string; service: string },
+  options?: { slotSelection?: boolean },
 ) {
   const foundEmail = text.match(EMAIL_RE)?.[0]?.toLowerCase() ?? "";
   const email = foundEmail || current.email;
   let customerName = current.customerName;
-  const named = text.match(/\b(?:my name is|i am|i'm|this is)\s+([A-Za-z][A-Za-z .'-]{1,80})/i);
+  const named = options?.slotSelection
+    ? null
+    : text.match(/\b(?:my name is|i am|i'm|this is)\s+([A-Za-z][A-Za-z .'-]{1,80})/i);
   if (named?.[1]) {
     customerName = named[1].replace(/\b(and|my|email|for)\b.*$/i, "").trim();
-  } else if (!customerName) {
+  } else if (!customerName && !options?.slotSelection) {
     const simple = text.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/);
-    if (simple?.[1] && !simple[1].includes("@")) customerName = simple[1];
+    const candidate = simple?.[1] ?? "";
+    const first = candidate.split(/\s+/)[0] ?? "";
+    if (candidate && !candidate.includes("@") && !NOT_A_NAME_RE.test(first)) customerName = candidate;
   }
   const extracted = extractRequestedService(text);
   const service = current.service || extracted;
@@ -46,12 +55,13 @@ export function readBookingContact(
   };
 }
 
-function missingContactPrompt(name: string, email: string) {
+function missingContactPrompt(name: string, email: string, label: string) {
+  const when = label ? ` for ${label}` : "";
   if (!name && !email) {
-    return "I can book this on the connected calendar. Please send your name and email. Add the reason for the visit if you have one.";
+    return `That time${when} is open. Please send your name and email to book it. You can add a reason for the appointment if you want.`;
   }
-  if (!name) return "Please send the name to put on the appointment.";
-  return "Please send the email address for the appointment.";
+  if (!name) return `Please send the name to put on the appointment${when}.`;
+  return `Please send the email address for the appointment${when}.`;
 }
 
 function slotSources(slots: CalendarSlot[]): WebsiteReplySource[] {
@@ -187,8 +197,71 @@ export async function handleCalendarWidgetTurn(input: {
           offeredSlots: [],
           status: "collecting",
         });
-  const contact = readBookingContact(input.question, current);
-  const picked = chosenSlot(input.question, input.slotStart, current.offeredSlots);
+  const slotChoice =
+    explicitSlot ||
+    current.offeredSlots.some((slot) => slot.label === input.question.trim() || slot.start === input.question.trim().replace(/^slot:/, ""));
+  const contact = readBookingContact(
+    input.question,
+    {
+      customerName: current.customerName || conversation.visitorName,
+      email: current.email || conversation.visitorEmail,
+      service: current.service,
+    },
+    { slotSelection: slotChoice },
+  );
+  const freshAvailability = isCalendarCustomerRequest(input.question) && !explicitSlot;
+  const pending = current.status === "collecting" ? current.offeredSlots[0] : undefined;
+  const picked = chosenSlot(input.question, input.slotStart, current.offeredSlots) ?? (freshAvailability ? undefined : pending);
+
+  if (picked && (!contact.customerName || !contact.email)) {
+    let accessToken = "";
+    try {
+      accessToken = await calendarAccessToken(input.store, connection, fetchImpl);
+    } catch (error) {
+      if (error instanceof BillingError && (error.code === "reconnect" || error.code === "misconfigured")) {
+        await new BillingService(input.store).noteWidgetAppointmentRequest({
+          workspaceId: business.id,
+          userId: business.ownerUserId,
+          conversationId: conversation.id,
+          question: input.question,
+        });
+        return reply(DISCONNECTED_CALENDAR_REPLY);
+      }
+      throw error;
+    }
+    const stillOpen = await slotStillOpen({
+      store: input.store,
+      workspaceId: business.id,
+      settings,
+      accessToken,
+      calendarId: connection.calendarId,
+      slot: picked,
+      fetchImpl,
+    });
+    if (!stillOpen) {
+      const refreshed = await offerSlots({
+        store: input.store,
+        workspaceId: business.id,
+        session: current,
+        contact,
+        settings,
+        accessToken,
+        calendarId: connection.calendarId,
+        question: input.question,
+        now,
+        fetchImpl,
+        preface: "That time was just taken. Here are the remaining open times.",
+      });
+      return reply(refreshed.answer, refreshed.sources);
+    }
+    const rest = current.offeredSlots.filter((slot) => slot.start !== picked.start);
+    await rememberSession(input.store, current, {
+      ...contact,
+      offeredSlots: [picked, ...rest],
+      status: "collecting",
+    });
+    return reply(missingContactPrompt(contact.customerName, contact.email, picked.label));
+  }
 
   if (picked && contact.customerName && contact.email) {
     let accessToken = "";
@@ -328,11 +401,6 @@ export async function handleCalendarWidgetTurn(input: {
     return reply(`You're booked for ${picked.label}. The appointment is on the connected calendar.`);
   }
 
-  if (!contact.customerName || !contact.email) {
-    await rememberSession(input.store, current, { ...contact, offeredSlots: [], status: "collecting" });
-    return reply(missingContactPrompt(contact.customerName, contact.email));
-  }
-
   let accessToken = "";
   try {
     accessToken = await calendarAccessToken(input.store, connection, fetchImpl);
@@ -359,11 +427,36 @@ export async function handleCalendarWidgetTurn(input: {
     question: input.question,
     now,
     fetchImpl,
-    preface: explicitSlot
-      ? "Choose one of these open times to confirm the appointment."
-      : "Here are the open times on the connected calendar. Choose one to confirm.",
+    preface: "",
   });
   return reply(offered.answer, offered.sources);
+}
+
+async function slotStillOpen(input: {
+  store: BillingStore;
+  workspaceId: string;
+  settings: CalendarBookingSettingsRecord;
+  accessToken: string;
+  calendarId: string;
+  slot: CalendarSlot;
+  fetchImpl: typeof fetch;
+}) {
+  const start = new Date(input.slot.start);
+  const end = new Date(input.slot.end);
+  const occupiedEnd = new Date(end.getTime() + input.settings.bufferMinutes * 60 * 1000);
+  const localBusy = (await input.store.listCalendarAppointments(input.workspaceId))
+    .filter((row) => row.workspaceId === input.workspaceId && row.status === "confirmed")
+    .map((row) => ({ start: row.startsAt, end: new Date(row.endsAt.getTime() + input.settings.bufferMinutes * 60 * 1000) }));
+  const remoteBusy = await queryCalendarFreeBusy(
+    {
+      accessToken: input.accessToken,
+      calendarId: input.calendarId,
+      timeMin: new Date(start.getTime() - 60 * 1000),
+      timeMax: new Date(occupiedEnd.getTime() + 60 * 1000),
+    },
+    input.fetchImpl,
+  );
+  return ![...localBusy, ...remoteBusy].some((interval) => start < interval.end && occupiedEnd > interval.start);
 }
 
 async function offerSlots(input: {
@@ -380,9 +473,9 @@ async function offerSlots(input: {
   preface: string;
 }) {
   const window = requestedWindow(input.question, input.now, input.settings.timezone);
-  const rangeStart = window?.start ?? input.now;
-  const rangeEnd =
-    window?.end ?? new Date(input.now.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const horizonEnd = new Date(input.now.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const rangeStart = window && window.start < input.now ? window.start : input.now;
+  const rangeEnd = new Date(Math.max(horizonEnd.getTime(), window?.end.getTime() ?? 0));
   const remoteBusy = await queryCalendarFreeBusy(
     {
       accessToken: input.accessToken,
@@ -398,12 +491,24 @@ async function offerSlots(input: {
       start: row.startsAt,
       end: new Date(row.endsAt.getTime() + input.settings.bufferMinutes * 60 * 1000),
     }));
-  const slots = buildAvailableSlots({
+  const busy = [...remoteBusy, ...localBusy];
+  let slots = buildAvailableSlots({
     now: input.now,
     settings: input.settings,
-    busy: [...remoteBusy, ...localBusy],
+    busy,
     window,
   });
+  let relaxed = false;
+  if (!slots.length && window) {
+    const forwardStart = window.end > input.now ? window.end : input.now;
+    slots = buildAvailableSlots({
+      now: input.now,
+      settings: input.settings,
+      busy,
+      window: { start: forwardStart, end: rangeEnd },
+    });
+    relaxed = slots.length > 0;
+  }
   await input.store.upsertCalendarBookingSession({
     workspaceId: input.workspaceId,
     conversationId: input.session.conversationId,
@@ -415,12 +520,17 @@ async function offerSlots(input: {
   });
   if (!slots.length) {
     return {
-      answer: "I checked the connected calendar and there are no open times then. Tell me another day and I will check again.",
+      answer: "I checked the connected calendar and there are no open times in the next two weeks.",
       sources: [] as WebsiteReplySource[],
     };
   }
+  const preface = input.preface.trim()
+    ? input.preface
+    : relaxed
+      ? "There are no open times then. Here are the next open times. Choose one."
+      : "Here are the open times on the connected calendar. Choose one.";
   return {
-    answer: input.preface,
+    answer: preface,
     sources: slotSources(slots),
   };
 }
