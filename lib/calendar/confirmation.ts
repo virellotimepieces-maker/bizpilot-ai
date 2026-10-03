@@ -7,6 +7,7 @@ import type { CalendarAppointmentRecord } from "./types";
 const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
 
 export function bookingConfirmationMessage(input: {
+  customerName: string;
   businessName: string;
   startsAt: Date;
   endsAt: Date;
@@ -26,18 +27,25 @@ export function bookingConfirmationMessage(input: {
     minute: "2-digit",
   }).format(input.startsAt);
   const durationMinutes = Math.max(1, Math.round((input.endsAt.getTime() - input.startsAt.getTime()) / 60000));
+  const durationLabel = durationMinutes === 1 ? "1 minute" : `${durationMinutes} minutes`;
+  const customerName = input.customerName.trim();
+  const businessName = input.businessName.trim();
+  const reason = input.service.trim();
   const lines = [
-    `Your appointment with ${input.businessName} is confirmed.`,
+    customerName ? `Hi ${customerName},` : "Hi,",
     "",
+    `Your appointment with ${businessName} is confirmed.`,
+    "",
+    "Appointment details:",
     `Date: ${date}`,
     `Time: ${time}`,
     `Timezone: ${input.timezone}`,
-    `Duration: ${durationMinutes} minutes`,
+    `Duration: ${durationLabel}`,
   ];
-  const details = input.service.trim();
-  if (details) lines.push(`Details: ${details}`);
+  if (reason) lines.push(`Reason: ${reason}`);
+  lines.push("", "We look forward to speaking with you.", "", businessName);
   return {
-    subject: `Appointment confirmed - ${input.businessName}`,
+    subject: `Appointment confirmed - ${businessName}`,
     body: lines.join("\n"),
   };
 }
@@ -66,6 +74,7 @@ export async function sendBookingConfirmation(input: {
   const claimed = await input.store.claimCalendarConfirmation(input.appointment.id, input.workspace.id);
   if (!claimed || claimed.workspaceId !== input.workspace.id) return false;
   const message = bookingConfirmationMessage({
+    customerName: claimed.customerName,
     businessName: input.workspace.name,
     startsAt: claimed.startsAt,
     endsAt: claimed.endsAt,

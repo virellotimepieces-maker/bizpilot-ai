@@ -12,7 +12,7 @@ import { buildAvailableSlots, requestedWindow, zonedTimeToUtc } from "./availabi
 import { DISCONNECTED_CALENDAR_REPLY, REVOKED_CALENDAR_REPLY, handleCalendarWidgetTurn, readBookingContact } from "./booking";
 import { exchangeCalendarAuthorizationCode } from "./google";
 import { selectOperatingWorkspace } from "@/lib/billing/operating-workspace";
-import { sendBookingConfirmation } from "./confirmation";
+import { bookingConfirmationMessage, sendBookingConfirmation } from "./confirmation";
 import { CALENDAR_SCOPES, calendarCallbackUrl, googleCalendarAuthUrl } from "./config";
 import { createCalendarOAuthState, readCalendarOAuthState } from "./oauth-state";
 import { assertNoCalendarSecrets, publicCalendarStatus } from "./public";
@@ -766,6 +766,48 @@ describe("Booking confirmation email", () => {
     });
   }
 
+  it("writes a professional confirmation for the current customer and omits a blank reason", () => {
+    const withReason = bookingConfirmationMessage({
+      customerName: "Elmer Hidalgo ilumin",
+      businessName: "Northwind Studio",
+      startsAt: new Date("2026-10-05T16:00:00.000Z"),
+      endsAt: new Date("2026-10-05T16:30:00.000Z"),
+      timezone: "America/Toronto",
+      service: "watch sizing",
+    });
+    assert.equal(withReason.subject, "Appointment confirmed - Northwind Studio");
+    assert.equal(
+      withReason.body,
+      [
+        "Hi Elmer Hidalgo ilumin,",
+        "",
+        "Your appointment with Northwind Studio is confirmed.",
+        "",
+        "Appointment details:",
+        "Date: Monday, October 5, 2026",
+        "Time: 12:00 PM",
+        "Timezone: America/Toronto",
+        "Duration: 30 minutes",
+        "Reason: watch sizing",
+        "",
+        "We look forward to speaking with you.",
+        "",
+        "Northwind Studio",
+      ].join("\n"),
+    );
+    assert.doesNotMatch(`${withReason.subject}\n${withReason.body}`, /Virello Timepieces/);
+    const withoutReason = bookingConfirmationMessage({
+      customerName: "Pat Kim",
+      businessName: "Northwind Studio",
+      startsAt: new Date("2026-10-05T16:00:00.000Z"),
+      endsAt: new Date("2026-10-05T16:30:00.000Z"),
+      timezone: "America/Toronto",
+      service: "   ",
+    });
+    assert.match(withoutReason.body, /Hi Pat Kim,/);
+    assert.doesNotMatch(withoutReason.body, /Reason:|Elmer Hidalgo ilumin/);
+  });
+
   it("sends one Gmail confirmation after the calendar event is created", async () => {
     const setup = await readyWorkspace("harbor-mail@example.com");
     const google = fetchFor();
@@ -784,11 +826,17 @@ describe("Booking confirmation email", () => {
     assert.match(rfc822, /To: ada@example.com/);
     assert.match(rfc822, /From: harbor@gmail.com/);
     assert.match(rfc822, /Subject: Appointment confirmed - Harbor/);
-    assert.match(rfc822, /Friday, October 9, 2026/);
-    assert.match(rfc822, /9:00 AM/);
+    assert.match(rfc822, /Hi Ada Lovelace,/);
+    assert.match(rfc822, /Your appointment with Harbor is confirmed\./);
+    assert.match(rfc822, /Appointment details:/);
+    assert.match(rfc822, /Date: Friday, October 9, 2026/);
+    assert.match(rfc822, /Time: 9:00 AM/);
     assert.match(rfc822, /Timezone: America\/New_York/);
     assert.match(rfc822, /Duration: 30 minutes/);
-    assert.match(rfc822, /Details: sizing/);
+    assert.match(rfc822, /Reason: sizing/);
+    assert.doesNotMatch(rfc822, /Details:/);
+    assert.match(rfc822, /We look forward to speaking with you\./);
+    assert.doesNotMatch(rfc822, /To: harbor@gmail.com/);
     const saved = await setup.store.listCalendarAppointments(setup.workspace.id);
     assert.equal(saved.length, 1);
     assert.equal(saved[0]?.googleEventId, "evt_confirmed");
@@ -892,7 +940,9 @@ describe("Booking confirmation email", () => {
     assert.equal(sends.length, 1);
     const rfc822 = Buffer.from((sends[0]?.body as { raw?: string }).raw ?? "", "base64url").toString("utf8");
     assert.match(rfc822, /To: customer@example.com/);
-    assert.doesNotMatch(rfc822, /previous@example.com/);
+    assert.match(rfc822, /Hi Elmer Hidalgo ilumin,/);
+    assert.doesNotMatch(rfc822, /^Reason:/m);
+    assert.doesNotMatch(rfc822, /previous@example.com|To: harbor@gmail.com/);
     const retry = await handleCalendarWidgetTurn({
       store: setup.store,
       widgetKey: setup.workspace.widgetKey,
@@ -958,7 +1008,9 @@ describe("Booking confirmation email", () => {
     assert.equal(sends.length, sendsBefore + 1);
     const rfc822 = Buffer.from((sends.at(-1)?.body as { raw?: string }).raw ?? "", "base64url").toString("utf8");
     assert.match(rfc822, /To: grace@example.com/);
-    assert.doesNotMatch(rfc822, /To: ada@example.com/);
+    assert.match(rfc822, /Hi Grace Hopper,/);
+    assert.match(rfc822, /Reason: repair/);
+    assert.doesNotMatch(rfc822, /To: ada@example.com|Hi Ada Lovelace|To: harbor@gmail.com/);
     const saved = await setup.store.listCalendarAppointments(setup.workspace.id);
     assert.equal(saved.length, 2);
     assert.equal(saved.filter((row) => row.email === "ada@example.com").length, 1);
