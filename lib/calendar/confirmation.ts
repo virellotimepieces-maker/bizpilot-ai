@@ -83,7 +83,9 @@ export async function sendBookingConfirmation(input: {
     timezone: claimed.timezone,
     service: claimed.service,
   });
-  const conversation = await input.store.getConversation(claimed.conversationId, input.workspace.id);
+  const conversation = claimed.conversationId
+    ? await input.store.getConversation(claimed.conversationId, input.workspace.id)
+    : null;
   const body = await localizeAssistantText(
     message.body,
     conversation?.detectedLanguage ?? "",
