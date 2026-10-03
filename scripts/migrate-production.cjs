@@ -13,6 +13,18 @@ function hostname(url) {
   }
 }
 
+// The Neon pooler cannot keep Prisma's session advisory lock on one connection.
+function preferDirectNeonHost(databaseUrl) {
+  try {
+    const url = new URL(databaseUrl);
+    if (!url.hostname.includes("-pooler")) return { url: databaseUrl, rewritten: false };
+    url.hostname = url.hostname.replace("-pooler", "");
+    return { url: url.toString(), rewritten: true };
+  } catch {
+    return { url: databaseUrl, rewritten: false };
+  }
+}
+
 function redact(text) {
   return String(text).replace(/(postgres(?:ql)?:\/\/)[^\s]+/gi, "$1[redacted]");
 }
@@ -43,6 +55,8 @@ async function main() {
       ? process.env.DATABASE_POSTGRES_URL_NON_POOLING
       : "";
   if (unpooled) process.env.DATABASE_URL = unpooled;
+  const direct = preferDirectNeonHost(process.env.DATABASE_URL);
+  process.env.DATABASE_URL = direct.url;
 
   if (
     process.env.VERCEL_PROJECT_ID &&
@@ -64,6 +78,7 @@ async function main() {
 
   console.log("DATABASE_URL: present");
   console.log("using_unpooled_for_migrate: " + Boolean(unpooled));
+  console.log("using_direct_neon_host_for_migrate: " + direct.rewritten);
   console.log("host_is_neon: true");
 
   run("npx", ["prisma", "generate", "--schema=prisma/schema.prisma"]);
