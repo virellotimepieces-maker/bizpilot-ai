@@ -91,7 +91,7 @@ export async function withGmailAccessToken<T>(
   try {
     return await fn(accessToken, connection);
   } catch (error) {
-    if (error instanceof BillingError && error.code === "reconnect") {
+    if (error instanceof BillingError && (error.code === "unauthorized" || error.code === "reconnect")) {
       connection = await refreshConnection(store, connection, fetchImpl);
       const retryToken = decryptSecret(connection.encryptedAccessToken);
       return fn(retryToken, connection);

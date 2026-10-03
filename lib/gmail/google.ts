@@ -2,7 +2,44 @@ import { BillingError } from "@/lib/billing/types";
 
 type FetchLike = typeof fetch;
 
-function googleError(status: number, mode: "connect" | "refresh" | "gmail"): BillingError {
+function safeOAuthText(value: string) {
+  const trimmed = value.replace(/\s+/g, " ").trim().slice(0, 180);
+  if (/ya29\.|1\/\/|refresh_token|access_token|client_secret|Bearer /i.test(trimmed)) return "";
+  return trimmed;
+}
+
+function googleFailureDetails(json: unknown) {
+  const record = asRecord(json);
+  const nested = asRecord(record?.error);
+  const error = nested ?? record;
+  const errors = error?.errors;
+  const first = Array.isArray(errors) ? asRecord(errors[0]) : null;
+  const reason =
+    (typeof first?.reason === "string" && first.reason) ||
+    (typeof record?.error === "string" && record.error) ||
+    "";
+  const description = typeof record?.error_description === "string" ? record.error_description : "";
+  return { reason: safeOAuthText(reason), description: safeOAuthText(description) };
+}
+
+function logGmailAuthFailure(event: string, details: Record<string, string | number | null>) {
+  console.error(JSON.stringify({ source: "gmail-oauth", event, ...details }));
+}
+
+function googleError(status: number, mode: "connect" | "refresh" | "gmail", json?: unknown): BillingError {
+  const { reason, description } = googleFailureDetails(json);
+  logGmailAuthFailure("google_gmail_http_error", {
+    mode,
+    httpStatus: status,
+    reason: reason || null,
+    description: description || null,
+  });
+  if (mode === "refresh") {
+    return new BillingError("Gmail token refresh failed.", "invalid");
+  }
+  if (mode === "gmail" && (status === 401 || reason === "invalid_token")) {
+    return new BillingError("Gmail rejected the access token.", "unauthorized");
+  }
   if (status === 401 || status === 403) {
     return new BillingError(
       mode === "connect"
@@ -67,9 +104,10 @@ export async function exchangeGoogleAuthorizationCode(
   if (!response.ok) {
     const err = asRecord(json)?.error;
     if (err === "invalid_client") {
+      logGmailAuthFailure("token_exchange_rejected", { reason: "invalid_client", httpStatus: response.status, description: null });
       throw new BillingError("Gmail is not configured.", "misconfigured");
     }
-    throw googleError(response.status, "connect");
+    throw googleError(response.status, "connect", json);
   }
   const row = asRecord(json);
   const accessToken = typeof row?.access_token === "string" ? row.access_token : "";
@@ -110,18 +148,28 @@ export async function refreshGoogleAccessToken(
     body,
   });
   const json = await readJson(response);
-    if (!response.ok) {
-      const err = asRecord(json)?.error;
-      if (err === "invalid_grant") {
+  if (!response.ok) {
+      const details = googleFailureDetails(json);
+      if (details.reason === "invalid_grant") {
+        logGmailAuthFailure("refresh_rejected", {
+          reason: "invalid_grant",
+          httpStatus: response.status,
+          description: details.description || null,
+        });
         throw new BillingError("Gmail access was revoked or expired. Connect Gmail again.", "reconnect");
       }
-      throw googleError(response.status, "refresh");
+      throw googleError(response.status, "refresh", json);
     }
   const row = asRecord(json);
   const accessToken = typeof row?.access_token === "string" ? row.access_token : "";
   const expiresIn = typeof row?.expires_in === "number" ? row.expires_in : 3600;
   const scope = typeof row?.scope === "string" ? row.scope : "";
   if (!accessToken) {
+    logGmailAuthFailure("refresh_rejected", { reason: "missing_access_token", httpStatus: response.status, description: null });
+    throw new BillingError("Gmail access was revoked or expired. Connect Gmail again.", "reconnect");
+  }
+  if (scope && !scope.includes("https://www.googleapis.com/auth/gmail.send") && !scope.includes("https://www.googleapis.com/auth/gmail.readonly")) {
+    logGmailAuthFailure("refresh_rejected", { reason: "gmail_scope_missing", httpStatus: response.status, description: null });
     throw new BillingError("Gmail access was revoked or expired. Connect Gmail again.", "reconnect");
   }
   return {
@@ -140,7 +188,7 @@ export async function fetchGoogleUserEmail(
   });
   const json = await readJson(response);
   if (!response.ok) {
-    throw googleError(response.status, "connect");
+    throw googleError(response.status, "connect", json);
   }
   const row = asRecord(json);
   const email = typeof row?.email === "string" ? row.email : "";
@@ -183,7 +231,7 @@ export async function gmailApiJson<T>(
   });
   const json = await readJson(response);
   if (!response.ok) {
-    throw googleError(response.status, "gmail");
+    throw googleError(response.status, "gmail", json);
   }
   return json as T;
 }

@@ -18,13 +18,62 @@ async function readJson(response: Response) {
   }
 }
 
-function calendarError(status: number, mode: "connect" | "refresh" | "calendar"): BillingError {
-  if (status === 401 || status === 403) {
+function safeOAuthText(value: string) {
+  const trimmed = value.replace(/\s+/g, " ").trim().slice(0, 180);
+  if (/ya29\.|1\/\/|refresh_token|access_token|client_secret|Bearer /i.test(trimmed)) return "";
+  return trimmed;
+}
+
+function googleFailureDetails(json: unknown) {
+  const record = asRecord(json);
+  const nested = asRecord(record?.error);
+  const error = nested ?? record;
+  const errors = error?.errors;
+  const first = Array.isArray(errors) ? asRecord(errors[0]) : null;
+  const reason =
+    (typeof first?.reason === "string" && first.reason) ||
+    (typeof record?.error === "string" && record.error) ||
+    "";
+  const googleStatus = typeof error?.status === "string" ? error.status : "";
+  const description = typeof record?.error_description === "string" ? record.error_description : "";
+  return {
+    reason: safeOAuthText(reason),
+    googleStatus: safeOAuthText(googleStatus),
+    description: safeOAuthText(description),
+  };
+}
+
+function logCalendarAuthFailure(event: string, details: Record<string, string | number | null>) {
+  console.error(JSON.stringify({ source: "calendar-oauth", event, ...details }));
+}
+
+function calendarError(status: number, mode: "connect" | "refresh" | "calendar", json: unknown): BillingError {
+  const { reason, googleStatus, description } = googleFailureDetails(json);
+  logCalendarAuthFailure("google_calendar_http_error", {
+    mode,
+    httpStatus: status,
+    reason: reason || null,
+    googleStatus: googleStatus || null,
+    description: description || null,
+  });
+  if (reason === "accessNotConfigured" || reason === "SERVICE_DISABLED") {
+    return new BillingError(
+      "The Google Calendar API is not enabled for this Google Cloud project. Enable the Calendar API, then try the booking again.",
+      "misconfigured",
+    );
+  }
+  if (mode === "refresh") {
+    return new BillingError("Google Calendar token refresh failed.", "invalid");
+  }
+  if (status === 401 || reason === "authError" || reason === "invalid_token") {
+    return new BillingError("Google Calendar rejected the access token.", "unauthorized");
+  }
+  if (status === 403) {
     return new BillingError(
       mode === "connect"
         ? "Google denied this Calendar connection. Try Connect Google Calendar again."
-        : "Google Calendar access was revoked or expired. Connect Google Calendar again.",
-      mode === "connect" ? "invalid" : "reconnect",
+        : "Google Calendar denied this request. Reconnect Google Calendar and approve calendar access.",
+      mode === "connect" ? "invalid" : "forbidden",
     );
   }
   if (status === 409) {
@@ -62,9 +111,10 @@ export async function exchangeCalendarAuthorizationCode(
   const json = await readJson(response);
   if (!response.ok) {
     if (asRecord(json)?.error === "invalid_client") {
+      logCalendarAuthFailure("token_exchange_rejected", { reason: "invalid_client", httpStatus: response.status, googleStatus: null, description: null });
       throw new BillingError("Google Calendar is not configured.", "misconfigured");
     }
-    throw calendarError(response.status, "connect");
+    throw calendarError(response.status, "connect", json);
   }
   const row = asRecord(json);
   const accessToken = typeof row?.access_token === "string" ? row.access_token : "";
@@ -105,16 +155,28 @@ export async function refreshCalendarAccessToken(
   });
   const json = await readJson(response);
   if (!response.ok) {
-    if (asRecord(json)?.error === "invalid_grant") {
+    const details = googleFailureDetails(json);
+    if (details.reason === "invalid_grant") {
+      logCalendarAuthFailure("refresh_rejected", {
+        reason: "invalid_grant",
+        httpStatus: response.status,
+        googleStatus: details.googleStatus || null,
+        description: details.description || null,
+      });
       throw new BillingError("Google Calendar access was revoked or expired. Connect Google Calendar again.", "reconnect");
     }
-    throw calendarError(response.status, "refresh");
+    throw calendarError(response.status, "refresh", json);
   }
   const row = asRecord(json);
   const accessToken = typeof row?.access_token === "string" ? row.access_token : "";
   const expiresIn = typeof row?.expires_in === "number" ? row.expires_in : 3600;
   const scope = typeof row?.scope === "string" ? row.scope : "";
   if (!accessToken) {
+    logCalendarAuthFailure("refresh_rejected", { reason: "missing_access_token", httpStatus: response.status, googleStatus: null, description: null });
+    throw new BillingError("Google Calendar access was revoked or expired. Connect Google Calendar again.", "reconnect");
+  }
+  if (scope && !scope.includes("https://www.googleapis.com/auth/calendar.events")) {
+    logCalendarAuthFailure("refresh_rejected", { reason: "calendar_scope_missing", httpStatus: response.status, googleStatus: null, description: null });
     throw new BillingError("Google Calendar access was revoked or expired. Connect Google Calendar again.", "reconnect");
   }
   return {
@@ -132,7 +194,7 @@ export async function listGoogleCalendars(
     headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
   });
   const json = await readJson(response);
-  if (!response.ok) throw calendarError(response.status, "calendar");
+  if (!response.ok) throw calendarError(response.status, "calendar", json);
   const items = asRecord(json)?.items;
   if (!Array.isArray(items)) return [];
   const calendars: CalendarListEntry[] = [];
@@ -172,7 +234,7 @@ export async function queryCalendarFreeBusy(
     }),
   });
   const json = await readJson(response);
-  if (!response.ok) throw calendarError(response.status, "calendar");
+  if (!response.ok) throw calendarError(response.status, "calendar", json);
   const calendars = asRecord(asRecord(json)?.calendars);
   const calendar = asRecord(calendars?.[input.calendarId]);
   const busy = calendar?.busy;
@@ -219,7 +281,7 @@ export async function insertCalendarEvent(
     },
   );
   const json = await readJson(response);
-  if (!response.ok) throw calendarError(response.status, "calendar");
+  if (!response.ok) throw calendarError(response.status, "calendar", json);
   const id = asRecord(json)?.id;
   if (typeof id !== "string" || !id) {
     throw new BillingError("Google Calendar did not return an event id.", "invalid");

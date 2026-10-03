@@ -45,7 +45,8 @@ export function googleCalendarAuthUrl(input: { clientId: string; redirectUri: st
     scope: CALENDAR_SCOPES.join(" "),
     access_type: "offline",
     prompt: "consent",
-    include_granted_scopes: "false",
+    // Preserve scopes already granted to this Google client so a Calendar reconnect cannot drop Gmail.
+    include_granted_scopes: "true",
     state: input.state,
   });
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;

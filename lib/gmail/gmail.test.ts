@@ -8,6 +8,7 @@ import { emptyKnowledge } from "../empty-knowledge";
 import { jsonError } from "../http";
 import { GMAIL_SCOPES, gmailCallbackUrl, googleAuthUrl } from "./config";
 import { ensureGmailReplyDraft } from "./drafts";
+import { withGmailAccessToken } from "./access";
 import { refreshGoogleAccessToken } from "./google";
 import { buildReplyRfc822, gmailSendPayload } from "./mime";
 import { htmlToText, parseFromHeader, summarizeGmailMessage } from "./parse";
@@ -26,7 +27,9 @@ describe("Gmail OAuth config", () => {
     assert.equal(gmailCallbackUrl("https://bizpilot.example/"), "https://bizpilot.example/api/app/gmail/callback");
     assert.match(url, /access_type=offline/);
     assert.match(url, /prompt=consent/);
+    assert.match(url, /include_granted_scopes=true/);
     assert.doesNotMatch(url, /client_secret/);
+    assert.doesNotMatch(url, /calendar\.events|calendar\.readonly/);
     assert.doesNotMatch(url, /gmail\.modify/);
     assert.doesNotMatch(url, /gmail\.compose/);
     assert.deepEqual([...GMAIL_SCOPES], [
@@ -350,6 +353,151 @@ describe("Gmail Google errors", () => {
         !error.message.includes("invalid_grant") &&
         !error.message.includes("stored-refresh"),
     );
+  });
+});
+
+describe("Gmail access token refresh", () => {
+  function authEnv() {
+    const previous = {
+      AUTH_SECRET: process.env.AUTH_SECRET,
+      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+      GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+      APP_URL: process.env.APP_URL,
+    };
+    process.env.AUTH_SECRET = previous.AUTH_SECRET && previous.AUTH_SECRET.length >= 16 ? previous.AUTH_SECRET : "test-auth-secret-value";
+    process.env.GOOGLE_CLIENT_ID = "gmail-client.apps.googleusercontent.com";
+    process.env.GOOGLE_CLIENT_SECRET = "gmail-client-secret";
+    process.env.APP_URL = "https://www.mybizpilotai.com";
+    return () => {
+      process.env.AUTH_SECRET = previous.AUTH_SECRET;
+      process.env.GOOGLE_CLIENT_ID = previous.GOOGLE_CLIENT_ID;
+      process.env.GOOGLE_CLIENT_SECRET = previous.GOOGLE_CLIENT_SECRET;
+      process.env.APP_URL = previous.APP_URL;
+    };
+  }
+
+  async function connected() {
+    const store = new MemoryBillingStore();
+    const user = await store.createUser({ email: "gmail-refresh@example.com", passwordHash: "hash", name: "Harbor" });
+    const workspace = await store.createWorkspace({ ownerUserId: user.id, name: "Harbor" });
+    const gmailRefresh = encryptSecret("refresh-gmail");
+    const calendarRefresh = encryptSecret("refresh-calendar");
+    const calendarAccess = encryptSecret("access-calendar");
+    await store.upsertGmailConnection({
+      workspaceId: workspace.id,
+      googleEmail: "harbor@gmail.com",
+      encryptedRefreshToken: gmailRefresh,
+      encryptedAccessToken: encryptSecret("access-gmail-old"),
+      accessTokenExpiresAt: new Date(Date.now() - 60_000),
+      scopes: "openid https://www.googleapis.com/auth/gmail.send",
+      status: "connected",
+    });
+    await store.upsertGoogleCalendarConnection({
+      workspaceId: workspace.id,
+      googleEmail: "harbor@gmail.com",
+      encryptedRefreshToken: calendarRefresh,
+      encryptedAccessToken: calendarAccess,
+      accessTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      scopes: "openid https://www.googleapis.com/auth/calendar.events",
+      status: "connected",
+      calendarId: "primary",
+      calendarSummary: "Primary",
+    });
+    return { store, workspace, gmailRefresh, calendarRefresh, calendarAccess };
+  }
+
+  it("refreshes an expired Gmail access token and leaves Calendar unchanged", async () => {
+    const restore = authEnv();
+    const setup = await connected();
+    const calls: string[] = [];
+    const token = await withGmailAccessToken(
+      setup.store,
+      setup.workspace,
+      async (accessToken) => accessToken,
+      async (url) => {
+        calls.push(String(url));
+        return new Response(
+          JSON.stringify({ access_token: "access-gmail-new", expires_in: 3600, scope: "https://www.googleapis.com/auth/gmail.send" }),
+          { status: 200 },
+        );
+      },
+    );
+    assert.equal(token, "access-gmail-new");
+    assert.ok(calls.some((url) => url.includes("oauth2.googleapis.com/token")));
+    const gmail = await setup.store.getGmailConnection(setup.workspace.id);
+    assert.equal(gmail?.status, "connected");
+    assert.equal(gmail?.encryptedRefreshToken, setup.gmailRefresh);
+    assert.equal(decryptSecret(gmail?.encryptedAccessToken ?? ""), "access-gmail-new");
+    const calendar = await setup.store.getGoogleCalendarConnection(setup.workspace.id);
+    assert.equal(calendar?.encryptedRefreshToken, setup.calendarRefresh);
+    assert.equal(calendar?.encryptedAccessToken, setup.calendarAccess);
+    assert.equal(calendar?.status, "connected");
+    restore();
+  });
+
+  it("refreshes once when Gmail rejects an unexpired access token", async () => {
+    const restore = authEnv();
+    const setup = await connected();
+    await setup.store.updateGmailConnection(setup.workspace.id, {
+      accessTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    });
+    let attempts = 0;
+    const token = await withGmailAccessToken(
+      setup.store,
+      setup.workspace,
+      async (accessToken) => {
+        attempts += 1;
+        if (attempts === 1) throw new BillingError("Gmail rejected the access token.", "unauthorized");
+        return accessToken;
+      },
+      async () =>
+        new Response(JSON.stringify({ access_token: "access-gmail-retry", expires_in: 3600, scope: "https://www.googleapis.com/auth/gmail.send" }), {
+          status: 200,
+        }),
+    );
+    assert.equal(attempts, 2);
+    assert.equal(token, "access-gmail-retry");
+    assert.equal((await setup.store.getGmailConnection(setup.workspace.id))?.status, "connected");
+    assert.equal((await setup.store.getGoogleCalendarConnection(setup.workspace.id))?.encryptedRefreshToken, setup.calendarRefresh);
+    assert.equal((await setup.store.getGoogleCalendarConnection(setup.workspace.id))?.status, "connected");
+    restore();
+  });
+
+  it("marks only Gmail for reconnect when Google returns invalid_grant", async () => {
+    const restore = authEnv();
+    const setup = await connected();
+    const logs: string[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => {
+      logs.push(args.map((item) => String(item)).join(" "));
+    };
+    try {
+      await assert.rejects(
+        () =>
+          withGmailAccessToken(
+            setup.store,
+            setup.workspace,
+            async (accessToken) => accessToken,
+            async () =>
+              new Response(JSON.stringify({ error: "invalid_grant", error_description: "Token has been expired or revoked." }), {
+                status: 400,
+              }),
+          ),
+        (error: unknown) => error instanceof BillingError && error.code === "reconnect" && !error.message.includes("invalid_grant"),
+      );
+    } finally {
+      console.error = original;
+    }
+    const gmail = await setup.store.getGmailConnection(setup.workspace.id);
+    assert.equal(gmail?.status, "needs_reconnect");
+    assert.equal(gmail?.encryptedRefreshToken, setup.gmailRefresh);
+    const calendar = await setup.store.getGoogleCalendarConnection(setup.workspace.id);
+    assert.equal(calendar?.status, "connected");
+    assert.equal(calendar?.encryptedRefreshToken, setup.calendarRefresh);
+    assert.equal(calendar?.encryptedAccessToken, setup.calendarAccess);
+    assert.ok(logs.some((line) => line.includes("invalid_grant") && line.includes("400")));
+    assert.equal(logs.some((line) => /refresh-gmail|gmail-client-secret|access-calendar/.test(line)), false);
+    restore();
   });
 });
 

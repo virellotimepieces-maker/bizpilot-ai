@@ -59,7 +59,8 @@ export function googleAuthUrl(input: {
     scope: GMAIL_SCOPES.join(" "),
     access_type: "offline",
     prompt: "consent",
-    include_granted_scopes: "false",
+    // Preserve scopes already granted to this Google client so a Gmail reconnect cannot drop Calendar.
+    include_granted_scopes: "true",
     state: input.state,
   });
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;

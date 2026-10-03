@@ -3,7 +3,7 @@ import type { BillingStore } from "@/lib/billing/store";
 import { BillingError } from "@/lib/billing/types";
 import type { WebsiteReplySource } from "@/lib/website/types";
 import { extractRequestedService, isAppointmentRequestQuestion } from "@/lib/v2/appointments";
-import { calendarAccessToken } from "./access";
+import { calendarAccessToken, refreshStoredCalendarAccess } from "./access";
 import { sendBookingConfirmation } from "./confirmation";
 import { buildAvailableSlots, requestedWindow } from "./availability";
 import { insertCalendarEvent, queryCalendarFreeBusy, type BusyInterval } from "./google";
@@ -218,12 +218,12 @@ export async function handleCalendarWidgetTurn(input: {
         });
   const freshAvailability = isCalendarCustomerRequest(input.question) && !explicitSlot;
   let active = current;
-  if (freshAvailability) {
+  if (freshAvailability || current.status === "booked") {
     active = await rememberSession(input.store, current, {
       customerName: "",
       email: "",
       service: "",
-      offeredSlots: [],
+      offeredSlots: freshAvailability ? [] : current.offeredSlots,
       status: "collecting",
     });
   }
@@ -233,15 +233,15 @@ export async function handleCalendarWidgetTurn(input: {
     active.offeredSlots.some((slot) => slot.label === input.question.trim() || slot.start === input.question.trim().replace(/^slot:/, ""));
   const contact = readBookingContact(
     input.question,
-    collectingThisBooking
-      ? { customerName: active.customerName, email: active.email, service: active.service }
-      : { customerName: "", email: "", service: "" },
+    slotChoice || !collectingThisBooking
+      ? { customerName: "", email: "", service: "" }
+      : { customerName: active.customerName, email: active.email, service: active.service },
     { slotSelection: slotChoice },
   );
   const pending = collectingThisBooking ? active.offeredSlots[0] : undefined;
   const picked = chosenSlot(input.question, input.slotStart, active.offeredSlots) ?? (freshAvailability ? undefined : pending);
   const emailProvidedInMessage = EMAIL_RE.test(input.question);
-  const emailAccepted = emailProvidedInMessage || (collectingThisBooking && Boolean(active.email));
+  const emailAccepted = emailProvidedInMessage || (!slotChoice && collectingThisBooking && Boolean(active.email));
 
   if (picked && (!contact.customerName || !contact.email || !emailAccepted)) {
     let accessToken = "";
@@ -318,14 +318,16 @@ export async function handleCalendarWidgetTurn(input: {
       .map((row) => ({ start: row.startsAt, end: new Date(row.endsAt.getTime() + settings.bufferMinutes * 60 * 1000) }));
     let remoteBusy: BusyInterval[] = [];
     try {
-      remoteBusy = await queryCalendarFreeBusy(
-        {
-          accessToken,
-          calendarId: connection.calendarId,
-          timeMin: new Date(start.getTime() - 60 * 1000),
-          timeMax: new Date(end.getTime() + settings.bufferMinutes * 60 * 1000 + 60 * 1000),
-        },
-        fetchImpl,
+      remoteBusy = await withFreshCalendarToken(input.store, business.id, fetchImpl, accessToken, (token) =>
+        queryCalendarFreeBusy(
+          {
+            accessToken: token,
+            calendarId: connection.calendarId,
+            timeMin: new Date(start.getTime() - 60 * 1000),
+            timeMax: new Date(end.getTime() + settings.bufferMinutes * 60 * 1000 + 60 * 1000),
+          },
+          fetchImpl,
+        ),
       );
     } catch (error) {
       if (error instanceof BillingError && error.code === "reconnect") {
@@ -385,24 +387,26 @@ export async function handleCalendarWidgetTurn(input: {
       throw error;
     }
     try {
-      const event = await insertCalendarEvent(
-        {
-          accessToken,
-          calendarId: connection.calendarId,
-          summary: contact.service ? `${contact.service} — ${contact.customerName}` : `Appointment — ${contact.customerName}`,
-          description: [
-            "Booked from the BizPilot website chat.",
-            `Name: ${contact.customerName}`,
-            `Email: ${contact.email}`,
-            contact.service ? `Service: ${contact.service}` : "",
-          ]
-            .filter(Boolean)
-            .join("\n"),
-          start,
-          end,
-          timeZone: settings.timezone,
-        },
-        fetchImpl,
+      const event = await withFreshCalendarToken(input.store, business.id, fetchImpl, accessToken, (token) =>
+        insertCalendarEvent(
+          {
+            accessToken: token,
+            calendarId: connection.calendarId,
+            summary: contact.service ? `${contact.service} — ${contact.customerName}` : `Appointment — ${contact.customerName}`,
+            description: [
+              "Booked from the BizPilot website chat.",
+              `Name: ${contact.customerName}`,
+              `Email: ${contact.email}`,
+              contact.service ? `Service: ${contact.service}` : "",
+            ]
+              .filter(Boolean)
+              .join("\n"),
+            start,
+            end,
+            timeZone: settings.timezone,
+          },
+          fetchImpl,
+        ),
       );
       await input.store.updateCalendarAppointment(appointment.id, business.id, { googleEventId: event.id });
       appointment = { ...appointment, googleEventId: event.id };
@@ -474,6 +478,26 @@ export async function handleCalendarWidgetTurn(input: {
   return reply(offered.answer, offered.sources);
 }
 
+async function withFreshCalendarToken<T>(
+  store: BillingStore,
+  workspaceId: string,
+  fetchImpl: typeof fetch,
+  accessToken: string,
+  run: (token: string) => Promise<T>,
+) {
+  try {
+    return await run(accessToken);
+  } catch (error) {
+    if (!(error instanceof BillingError) || error.code !== "unauthorized") throw error;
+    const connection = await store.getGoogleCalendarConnection(workspaceId);
+    if (!connection || connection.workspaceId !== workspaceId || connection.status !== "connected") {
+      throw new BillingError("Google Calendar access was revoked or expired. Connect Google Calendar again.", "reconnect");
+    }
+    const renewed = await refreshStoredCalendarAccess(store, connection, fetchImpl);
+    return run(renewed);
+  }
+}
+
 async function slotStillOpen(input: {
   store: BillingStore;
   workspaceId: string;
@@ -489,14 +513,16 @@ async function slotStillOpen(input: {
   const localBusy = (await input.store.listCalendarAppointments(input.workspaceId))
     .filter((row) => row.workspaceId === input.workspaceId && row.status === "confirmed")
     .map((row) => ({ start: row.startsAt, end: new Date(row.endsAt.getTime() + input.settings.bufferMinutes * 60 * 1000) }));
-  const remoteBusy = await queryCalendarFreeBusy(
-    {
-      accessToken: input.accessToken,
-      calendarId: input.calendarId,
-      timeMin: new Date(start.getTime() - 60 * 1000),
-      timeMax: new Date(occupiedEnd.getTime() + 60 * 1000),
-    },
-    input.fetchImpl,
+  const remoteBusy = await withFreshCalendarToken(input.store, input.workspaceId, input.fetchImpl, input.accessToken, (token) =>
+    queryCalendarFreeBusy(
+      {
+        accessToken: token,
+        calendarId: input.calendarId,
+        timeMin: new Date(start.getTime() - 60 * 1000),
+        timeMax: new Date(occupiedEnd.getTime() + 60 * 1000),
+      },
+      input.fetchImpl,
+    ),
   );
   return ![...localBusy, ...remoteBusy].some((interval) => start < interval.end && occupiedEnd > interval.start);
 }
@@ -518,14 +544,16 @@ async function offerSlots(input: {
   const horizonEnd = new Date(input.now.getTime() + 14 * 24 * 60 * 60 * 1000);
   const rangeStart = window && window.start < input.now ? window.start : input.now;
   const rangeEnd = new Date(Math.max(horizonEnd.getTime(), window?.end.getTime() ?? 0));
-  const remoteBusy = await queryCalendarFreeBusy(
-    {
-      accessToken: input.accessToken,
-      calendarId: input.calendarId,
-      timeMin: rangeStart,
-      timeMax: rangeEnd,
-    },
-    input.fetchImpl,
+  const remoteBusy = await withFreshCalendarToken(input.store, input.workspaceId, input.fetchImpl, input.accessToken, (token) =>
+    queryCalendarFreeBusy(
+      {
+        accessToken: token,
+        calendarId: input.calendarId,
+        timeMin: rangeStart,
+        timeMax: rangeEnd,
+      },
+      input.fetchImpl,
+    ),
   );
   const localBusy = (await input.store.listCalendarAppointments(input.workspaceId))
     .filter((row) => row.workspaceId === input.workspaceId && row.status === "confirmed")
