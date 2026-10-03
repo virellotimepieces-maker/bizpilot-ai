@@ -177,7 +177,10 @@ export function WidgetChat({
   const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
   const [language, setLanguage] = useState("en");
   const [chrome, setChrome] = useState<WidgetChrome>(WIDGET_CHROME_EN);
-  const uiRef = useRef({ language: "en", chrome: WIDGET_CHROME_EN });
+  const uiRef = useRef<{ language: string; chrome: WidgetChrome }>({
+    language: "en",
+    chrome: WIDGET_CHROME_EN,
+  });
   const scrollerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const bottomAnchorRef = useRef<HTMLDivElement>(null);

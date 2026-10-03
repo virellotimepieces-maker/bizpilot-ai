@@ -158,7 +158,10 @@ describe("widget chrome localization", () => {
       })) as typeof fetch;
 
     try {
-      let ui = { language: "en", chrome: { ...WIDGET_CHROME_EN } };
+      let ui: { language: string; chrome: WidgetChrome } = {
+        language: "en",
+        chrome: { ...WIDGET_CHROME_EN },
+      };
       assert.equal(ui.chrome.send, "Send");
       assert.equal(
         fillWidgetChrome(ui.chrome.assistantFor, { business: "Virello Timepieces" }),
