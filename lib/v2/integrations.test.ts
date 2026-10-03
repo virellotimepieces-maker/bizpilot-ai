@@ -93,8 +93,10 @@ describe("Integration helpers", () => {
     assert.equal(snapshot.social.href, "/app/social");
     assert.deepEqual(
       snapshot.future.map((row) => row.provider),
-      ["woocommerce", "calendar"],
+      ["woocommerce"],
     );
+    assert.equal(snapshot.calendar.connected, false);
+    assert.ok(snapshot.calendar.label === "Not configured" || snapshot.calendar.label === "Not connected");
     assert.ok(snapshot.future.every((row) => row.status === "disconnected"));
     assert.ok(snapshot.future.every((row) => row.label === "Not connected"));
     const serialized = serializeWorkspaceIntegrations(snapshot);
@@ -141,12 +143,13 @@ describe("Integration helpers", () => {
     assert.throws(() => persistFutureIntegrationStatus("calendar", "live"), BillingError);
   });
 
-  it("covers WooCommerce and Calendar as remaining future providers", () => {
+  it("keeps WooCommerce as the remaining future provider and Calendar on its own connection", () => {
     assert.deepEqual(
       FUTURE_INTEGRATION_CATALOG.map((item) => item.provider),
-      ["woocommerce", "calendar"],
+      ["woocommerce"],
     );
     assert.ok(FUTURE_INTEGRATION_PROVIDERS.includes("shopify"));
+    assert.ok(FUTURE_INTEGRATION_PROVIDERS.includes("calendar"));
   });
 });
 
@@ -218,7 +221,8 @@ describe("Workspace integrations", () => {
     assert.equal(snapshot.gmail.connected, true);
     assert.equal(snapshot.gmail.googleEmail, "owner@gmail.com");
     assert.equal(snapshot.gmail.label, "Connected");
-    assert.equal(snapshot.future.find((row) => row.provider === "calendar")?.status, "disconnected");
+    assert.equal(snapshot.future.find((row) => row.provider === "calendar"), undefined);
+    assert.equal(snapshot.calendar.connected, false);
     assert.equal(
       (await store.listIntegrationConnections(workspace.id)).find((row) => row.provider === "calendar")
         ?.status,
@@ -231,6 +235,7 @@ describe("Workspace integrations", () => {
 
   it("keeps the paid integrations page honest", () => {
     const ui = readFileSync("components/paid-integrations.tsx", "utf8");
+    const calendarUi = readFileSync("components/calendar-integration-card.tsx", "utf8");
     const page = readFileSync("app/app/integrations/page.tsx", "utf8");
     const api = readFileSync("app/api/app/integrations/route.ts", "utf8");
     assert.match(page, /PaidIntegrations/);
@@ -249,7 +254,11 @@ describe("Workspace integrations", () => {
     assert.match(ui, /\/api\/app\/shopify\/sync/);
     assert.match(api, /export async function GET/);
     assert.doesNotMatch(api, /export async function (POST|PATCH|PUT)/);
-    assert.doesNotMatch(ui, /Connect WooCommerce|Connect Calendar|Start Free/i);
+    assert.match(ui, /CalendarIntegrationCard/);
+    assert.match(calendarUi, /Connect Google Calendar/);
+    assert.match(calendarUi, /\/api\/app\/calendar\/connect/);
+    assert.match(calendarUi, /Disconnect/);
+    assert.doesNotMatch(`${ui}\n${calendarUi}`, /Connect WooCommerce|Start Free/i);
     assert.doesNotMatch(ui, /GOOGLE_CLIENT_SECRET|SHOPIFY_API_SECRET|encryptedAccessToken|shpat_/);
     assert.match(INTEGRATIONS_HINT, /Shopify catalog sync is available/);
   });

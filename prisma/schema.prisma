@@ -45,6 +45,10 @@ model Workspace {
   appointmentRequests AppointmentRequest[]
   widgetSettings WidgetSettings?
   integrationConnections IntegrationConnection[]
+  googleCalendarConnection GoogleCalendarConnection?
+  calendarBookingSettings CalendarBookingSettings?
+  calendarBookingSessions CalendarBookingSession[]
+  calendarAppointments CalendarAppointment[]
 }
 
 model Membership {
@@ -139,6 +143,8 @@ model Conversation {
   quoteRequests    QuoteRequest[]
   appointmentRequests AppointmentRequest[]
   unansweredQuestions UnansweredQuestion[]
+  calendarBookingSession CalendarBookingSession?
+  calendarAppointments CalendarAppointment[]
 
   @@index([workspaceId, createdAt])
   @@index([workspaceId, inboxStatus])
@@ -471,4 +477,76 @@ model IntegrationConnection {
 
   @@unique([workspaceId, provider])
   @@index([workspaceId])
+}
+
+model GoogleCalendarConnection {
+  id                    String    @id @default(cuid())
+  workspaceId           String    @unique
+  googleEmail           String
+  googleSub             String?
+  encryptedRefreshToken String
+  encryptedAccessToken  String
+  accessTokenExpiresAt  DateTime
+  scopes                String
+  status                String
+  calendarId            String    @default("primary")
+  calendarSummary       String    @default("Primary")
+  connectedAt           DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model CalendarBookingSettings {
+  id                String    @id @default(cuid())
+  workspaceId       String    @unique
+  durationMinutes   Int       @default(30)
+  availableDays     Json
+  startMinutes      Int       @default(540)
+  endMinutes        Int       @default(1020)
+  timezone          String    @default("UTC")
+  minNoticeMinutes  Int       @default(60)
+  bufferMinutes     Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model CalendarBookingSession {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  conversationId  String    @unique
+  customerName    String    @default("")
+  email           String    @default("")
+  service         String    @default("")
+  offeredSlots    Json
+  status          String    @default("collecting")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+model CalendarAppointment {
+  id               String    @id @default(cuid())
+  workspaceId      String
+  conversationId   String?
+  customerName     String
+  email            String
+  service          String    @default("")
+  startsAt         DateTime
+  endsAt           DateTime
+  timezone         String
+  googleEventId    String    @default("")
+  googleCalendarId String
+  holdKey          String
+  status           String    @default("confirmed")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversation     Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, holdKey])
+  @@index([workspaceId, startsAt])
 }

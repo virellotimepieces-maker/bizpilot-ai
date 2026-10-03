@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS } from "@/lib/ui/type-scale";
 import { INTEGRATIONS_HINT, type SerializedWorkspaceIntegrations } from "@/lib/v2/integrations";
+import { CalendarIntegrationCard } from "@/components/calendar-integration-card";
 import { CalendarClock, Mail, MessagesSquare, ShoppingBag, Store } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -42,6 +43,14 @@ function gmailQueryNotice(flag: string) {
   return "";
 }
 
+function calendarQueryNotice(flag: string) {
+  if (flag === "connected") return "Google Calendar is connected for this workspace.";
+  if (flag === "denied") return "Google Calendar connection was cancelled.";
+  if (flag === "error" || flag === "signin") return "Google Calendar connection error. Try Connect Google Calendar again.";
+  if (flag === "misconfigured") return "Google Calendar OAuth is not configured on the server yet.";
+  return "";
+}
+
 function shopifyQueryNotice(flag: string, sync: string) {
   if (flag === "connected" && sync === "error") {
     return "Shopify is connected, but the first catalog sync failed. Use Sync now.";
@@ -64,8 +73,10 @@ export function PaidIntegrations() {
   const [busy, setBusy] = useState("");
   const [gmailActionNotice, setGmailNotice] = useState("");
   const [shopifyActionNotice, setShopifyNotice] = useState("");
+  const [calendarActionNotice, setCalendarNotice] = useState("");
   const gmailNotice = gmailActionNotice || gmailQueryNotice(searchParams.get("gmail") ?? "");
   const shopifyNotice = shopifyActionNotice || shopifyQueryNotice(searchParams.get("shopify") ?? "", searchParams.get("sync") ?? "");
+  const calendarNotice = calendarActionNotice || calendarQueryNotice(searchParams.get("calendar") ?? "");
 
   const load = useCallback(async () => {
     const response = await fetch("/api/app/integrations");
@@ -366,6 +377,13 @@ export function PaidIntegrations() {
           </CardContent>
         </Card>
       </section>
+
+      <CalendarIntegrationCard
+        calendar={data.calendar}
+        notice={calendarNotice}
+        onNotice={setCalendarNotice}
+        onChanged={load}
+      />
 
       <section className="grid gap-3 sm:grid-cols-2">
         {data.future.map((item) => {

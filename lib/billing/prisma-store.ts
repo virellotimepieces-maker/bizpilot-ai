@@ -36,6 +36,14 @@ import type {
   WidgetSettingsInput,
 } from "@/lib/v2/types";
 import { defaultWidgetSettings, mergeWidgetSettings } from "@/lib/v2/widget-settings";
+import { assertWeekdayList } from "@/lib/calendar/availability";
+import type {
+  CalendarAppointmentRecord,
+  CalendarBookingSessionRecord,
+  CalendarBookingSettingsRecord,
+  CalendarSlot,
+  GoogleCalendarConnectionRecord,
+} from "@/lib/calendar/types";
 import type {
   ShopifyConnectionRecord,
   ShopifyConnectionWrite,
@@ -46,6 +54,7 @@ import type {
 } from "@/lib/shopify/types";
 import type { WebsitePageKind, WebsitePageRecord, WebsiteSourceRecord, WebsiteSyncStatus } from "@/lib/website/types";
 import type { BillingStore, CreateUserInput, UpsertSubscriptionInput } from "./store";
+import { BillingError } from "./types";
 import type {
   ConversationRecord,
   MembershipRecord,
@@ -262,6 +271,65 @@ function mapShopifyProduct(row: {
     imageUrls: asStringList(row.imageUrls),
     variants: asShopifyVariants(row.variants),
   };
+}
+
+function mapGoogleCalendarConnection(row: GoogleCalendarConnectionRecord): GoogleCalendarConnectionRecord {
+  return row;
+}
+
+function mapCalendarSettings(row: {
+  id: string;
+  workspaceId: string;
+  durationMinutes: number;
+  availableDays: unknown;
+  startMinutes: number;
+  endMinutes: number;
+  timezone: string;
+  minNoticeMinutes: number;
+  bufferMinutes: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): CalendarBookingSettingsRecord {
+  return {
+    ...row,
+    availableDays: assertWeekdayList(row.availableDays),
+  };
+}
+
+function mapCalendarSession(row: {
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  customerName: string;
+  email: string;
+  service: string;
+  offeredSlots: unknown;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+}): CalendarBookingSessionRecord {
+  const status = row.status === "offering" || row.status === "booked" ? row.status : "collecting";
+  return {
+    ...row,
+    status,
+    offeredSlots: asCalendarSlots(row.offeredSlots),
+  };
+}
+
+function asCalendarSlots(value: unknown): CalendarSlot[] {
+  if (!Array.isArray(value)) return [];
+  const slots: CalendarSlot[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as { start?: unknown; end?: unknown; label?: unknown };
+    if (typeof row.start !== "string" || typeof row.end !== "string" || typeof row.label !== "string") continue;
+    slots.push({ start: row.start, end: row.end, label: row.label });
+  }
+  return slots;
+}
+
+function mapCalendarAppointment(row: CalendarAppointmentRecord): CalendarAppointmentRecord {
+  return row;
 }
 
 function mapGmailConnection(row: {
@@ -1895,5 +1963,198 @@ export class PrismaBillingStore implements BillingStore {
       update: { status: draft.status },
     });
     return { ...row, provider: draft.provider, status: draft.status };
+  }
+
+  async getGoogleCalendarConnection(workspaceId: string) {
+    const row = await this.prisma().googleCalendarConnection.findUnique({ where: { workspaceId } });
+    return row ? mapGoogleCalendarConnection(row) : null;
+  }
+
+  async upsertGoogleCalendarConnection(input: {
+    workspaceId: string;
+    googleEmail: string;
+    googleSub?: string | null;
+    encryptedRefreshToken: string;
+    encryptedAccessToken: string;
+    accessTokenExpiresAt: Date;
+    scopes: string;
+    status: string;
+    calendarId: string;
+    calendarSummary: string;
+  }) {
+    const row = await this.prisma().googleCalendarConnection.upsert({
+      where: { workspaceId: input.workspaceId },
+      create: {
+        workspaceId: input.workspaceId,
+        googleEmail: input.googleEmail,
+        googleSub: input.googleSub ?? null,
+        encryptedRefreshToken: input.encryptedRefreshToken,
+        encryptedAccessToken: input.encryptedAccessToken,
+        accessTokenExpiresAt: input.accessTokenExpiresAt,
+        scopes: input.scopes,
+        status: input.status,
+        calendarId: input.calendarId,
+        calendarSummary: input.calendarSummary,
+      },
+      update: {
+        googleEmail: input.googleEmail,
+        googleSub: input.googleSub ?? null,
+        encryptedRefreshToken: input.encryptedRefreshToken,
+        encryptedAccessToken: input.encryptedAccessToken,
+        accessTokenExpiresAt: input.accessTokenExpiresAt,
+        scopes: input.scopes,
+        status: input.status,
+        calendarId: input.calendarId,
+        calendarSummary: input.calendarSummary,
+      },
+    });
+    return mapGoogleCalendarConnection(row);
+  }
+
+  async updateGoogleCalendarConnection(
+    workspaceId: string,
+    patch: Partial<
+      Pick<
+        GoogleCalendarConnectionRecord,
+        | "googleEmail"
+        | "googleSub"
+        | "encryptedRefreshToken"
+        | "encryptedAccessToken"
+        | "accessTokenExpiresAt"
+        | "scopes"
+        | "status"
+        | "calendarId"
+        | "calendarSummary"
+      >
+    >,
+  ) {
+    const existing = await this.getGoogleCalendarConnection(workspaceId);
+    if (!existing) throw new BillingError("Google Calendar is not connected.", "not_found");
+    const row = await this.prisma().googleCalendarConnection.update({
+      where: { workspaceId },
+      data: patch,
+    });
+    return mapGoogleCalendarConnection(row);
+  }
+
+  async deleteGoogleCalendarConnection(workspaceId: string) {
+    await this.prisma().googleCalendarConnection.deleteMany({ where: { workspaceId } });
+  }
+
+  async getCalendarBookingSettings(workspaceId: string) {
+    const row = await this.prisma().calendarBookingSettings.findUnique({ where: { workspaceId } });
+    return row ? mapCalendarSettings(row) : null;
+  }
+
+  async upsertCalendarBookingSettings(input: {
+    workspaceId: string;
+    durationMinutes: number;
+    availableDays: CalendarBookingSettingsRecord["availableDays"];
+    startMinutes: number;
+    endMinutes: number;
+    timezone: string;
+    minNoticeMinutes: number;
+    bufferMinutes: number;
+  }) {
+    const availableDays = input.availableDays as Prisma.InputJsonValue;
+    const row = await this.prisma().calendarBookingSettings.upsert({
+      where: { workspaceId: input.workspaceId },
+      create: { ...input, availableDays },
+      update: { ...input, availableDays },
+    });
+    return mapCalendarSettings(row);
+  }
+
+  async getCalendarBookingSession(workspaceId: string, conversationId: string) {
+    const row = await this.prisma().calendarBookingSession.findUnique({ where: { conversationId } });
+    if (!row || row.workspaceId !== workspaceId) return null;
+    return mapCalendarSession(row);
+  }
+
+  async upsertCalendarBookingSession(input: {
+    workspaceId: string;
+    conversationId: string;
+    customerName: string;
+    email: string;
+    service: string;
+    offeredSlots: CalendarSlot[];
+    status: CalendarBookingSessionRecord["status"];
+  }) {
+    const existing = await this.prisma().calendarBookingSession.findUnique({
+      where: { conversationId: input.conversationId },
+    });
+    if (existing && existing.workspaceId !== input.workspaceId) {
+      throw new BillingError("Calendar session belongs to another workspace.", "forbidden");
+    }
+    const offeredSlots = input.offeredSlots as Prisma.InputJsonValue;
+    const row = await this.prisma().calendarBookingSession.upsert({
+      where: { conversationId: input.conversationId },
+      create: { ...input, offeredSlots },
+      update: { ...input, offeredSlots },
+    });
+    return mapCalendarSession(row);
+  }
+
+  async listCalendarAppointments(workspaceId: string) {
+    const rows = await this.prisma().calendarAppointment.findMany({
+      where: { workspaceId },
+      orderBy: { startsAt: "asc" },
+    });
+    return rows.map(mapCalendarAppointment);
+  }
+
+  async createCalendarAppointment(input: {
+    workspaceId: string;
+    conversationId?: string | null;
+    customerName: string;
+    email: string;
+    service: string;
+    startsAt: Date;
+    endsAt: Date;
+    timezone: string;
+    googleCalendarId: string;
+    holdKey: string;
+  }) {
+    try {
+      const row = await this.prisma().calendarAppointment.create({
+        data: {
+          workspaceId: input.workspaceId,
+          conversationId: input.conversationId ?? null,
+          customerName: input.customerName,
+          email: input.email,
+          service: input.service,
+          startsAt: input.startsAt,
+          endsAt: input.endsAt,
+          timezone: input.timezone,
+          googleCalendarId: input.googleCalendarId,
+          holdKey: input.holdKey,
+          status: "confirmed",
+        },
+      });
+      return mapCalendarAppointment(row);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new BillingError("That time is already booked.", "conflict");
+      }
+      throw error;
+    }
+  }
+
+  async updateCalendarAppointment(
+    id: string,
+    workspaceId: string,
+    patch: Partial<Pick<CalendarAppointmentRecord, "googleEventId" | "status">>,
+  ) {
+    const existing = await this.prisma().calendarAppointment.findFirst({ where: { id, workspaceId } });
+    if (!existing) throw new BillingError("Appointment not found.", "not_found");
+    const row = await this.prisma().calendarAppointment.update({
+      where: { id },
+      data: patch,
+    });
+    return mapCalendarAppointment(row);
+  }
+
+  async deleteCalendarAppointment(id: string, workspaceId: string) {
+    await this.prisma().calendarAppointment.deleteMany({ where: { id, workspaceId } });
   }
 }

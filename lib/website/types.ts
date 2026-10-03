@@ -37,6 +37,9 @@ export type WebsiteReplySource = {
   description?: string;
   /** Display-only Shopify image already stored on the product. */
   imageUrl?: string;
+  /** Offered calendar slot. Present only on booking choices, never a product. */
+  slotStart?: string;
+  slotEnd?: string;
 };
 
 export type WebsitePageRecord = {

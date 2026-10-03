@@ -28,8 +28,12 @@ import type {
   MembershipRole,
   MessageRecord,
   NotificationRecord,
+  CalendarAppointmentRecord,
+  CalendarBookingSessionRecord,
+  CalendarBookingSettingsRecord,
   EmailDraftRecord,
   GmailConnectionRecord,
+  GoogleCalendarConnectionRecord,
   GmailReplyDraftRecord,
   SocialMessageRecord,
   StripeEventRecord,
@@ -354,6 +358,81 @@ export interface BillingStore {
     workspaceId: string,
     patch: QuoteRequestWrite,
   ): Promise<QuoteRequestRecord>;
+
+  getGoogleCalendarConnection(workspaceId: string): Promise<GoogleCalendarConnectionRecord | null>;
+  upsertGoogleCalendarConnection(input: {
+    workspaceId: string;
+    googleEmail: string;
+    googleSub?: string | null;
+    encryptedRefreshToken: string;
+    encryptedAccessToken: string;
+    accessTokenExpiresAt: Date;
+    scopes: string;
+    status: string;
+    calendarId: string;
+    calendarSummary: string;
+  }): Promise<GoogleCalendarConnectionRecord>;
+  updateGoogleCalendarConnection(
+    workspaceId: string,
+    patch: Partial<
+      Pick<
+        GoogleCalendarConnectionRecord,
+        | "googleEmail"
+        | "googleSub"
+        | "encryptedRefreshToken"
+        | "encryptedAccessToken"
+        | "accessTokenExpiresAt"
+        | "scopes"
+        | "status"
+        | "calendarId"
+        | "calendarSummary"
+      >
+    >,
+  ): Promise<GoogleCalendarConnectionRecord>;
+  deleteGoogleCalendarConnection(workspaceId: string): Promise<void>;
+  getCalendarBookingSettings(workspaceId: string): Promise<CalendarBookingSettingsRecord | null>;
+  upsertCalendarBookingSettings(input: {
+    workspaceId: string;
+    durationMinutes: number;
+    availableDays: CalendarBookingSettingsRecord["availableDays"];
+    startMinutes: number;
+    endMinutes: number;
+    timezone: string;
+    minNoticeMinutes: number;
+    bufferMinutes: number;
+  }): Promise<CalendarBookingSettingsRecord>;
+  getCalendarBookingSession(
+    workspaceId: string,
+    conversationId: string,
+  ): Promise<CalendarBookingSessionRecord | null>;
+  upsertCalendarBookingSession(input: {
+    workspaceId: string;
+    conversationId: string;
+    customerName: string;
+    email: string;
+    service: string;
+    offeredSlots: CalendarBookingSessionRecord["offeredSlots"];
+    status: CalendarBookingSessionRecord["status"];
+  }): Promise<CalendarBookingSessionRecord>;
+  listCalendarAppointments(workspaceId: string): Promise<CalendarAppointmentRecord[]>;
+  createCalendarAppointment(input: {
+    workspaceId: string;
+    conversationId?: string | null;
+    customerName: string;
+    email: string;
+    service: string;
+    startsAt: Date;
+    endsAt: Date;
+    timezone: string;
+    googleCalendarId: string;
+    holdKey: string;
+  }): Promise<CalendarAppointmentRecord>;
+  updateCalendarAppointment(
+    id: string,
+    workspaceId: string,
+    patch: Partial<Pick<CalendarAppointmentRecord, "googleEventId" | "status">>,
+  ): Promise<CalendarAppointmentRecord>;
+  deleteCalendarAppointment(id: string, workspaceId: string): Promise<void>;
 
   listAppointmentRequests(workspaceId: string): Promise<AppointmentRequestRecord[]>;
   createAppointmentRequest(

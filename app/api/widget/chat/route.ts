@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateCustomerReply } from "@/lib/ai/generate-customer-reply";
+import { handleCalendarWidgetTurn } from "@/lib/calendar/booking";
 import { getBillingStore } from "@/lib/billing/factory";
 import { BillingService } from "@/lib/billing/service";
 import type { BillingStore } from "@/lib/billing/store";
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
       visitorKey?: string;
       conversationId?: string;
       question?: string;
+      slotStart?: string;
       handoff?: boolean;
       contact?: { name?: string; email?: string; phone?: string };
     };
@@ -131,6 +133,17 @@ export async function POST(request: NextRequest) {
     }
     if (!question) {
       throw new BillingError("Enter a question.", "invalid");
+    }
+    const calendarTurn = await handleCalendarWidgetTurn({
+      store,
+      widgetKey,
+      visitorKey: body.visitorKey?.trim() || "anonymous",
+      conversationId,
+      question,
+      slotStart: body.slotStart?.trim(),
+    });
+    if (calendarTurn) {
+      return cors(NextResponse.json(calendarTurn));
     }
     try {
       const result = await service.generateCountedAiReply({

@@ -146,6 +146,14 @@ export type {
   ShopifySyncStatus,
 } from "@/lib/shopify/types";
 
+export type {
+  CalendarAppointmentRecord,
+  CalendarBookingSessionRecord,
+  CalendarBookingSettingsRecord,
+  CalendarSlot,
+  GoogleCalendarConnectionRecord,
+} from "@/lib/calendar/types";
+
 export interface GmailReplyDraftRecord {
   id: string;
   workspaceId: string;

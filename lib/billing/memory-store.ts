@@ -40,7 +40,13 @@ import type {
 } from "@/lib/shopify/types";
 import type { WebsitePageKind, WebsitePageRecord, WebsiteSourceRecord } from "@/lib/website/types";
 import type { BillingStore, CreateUserInput, UpsertSubscriptionInput } from "./store";
+import { BillingError } from "./types";
+import type { CalendarWeekday } from "@/lib/calendar/types";
 import type {
+  CalendarAppointmentRecord,
+  CalendarBookingSessionRecord,
+  CalendarBookingSettingsRecord,
+  GoogleCalendarConnectionRecord,
   ConversationRecord,
   MembershipRecord,
   MessageRecord,
@@ -76,6 +82,10 @@ export class MemoryBillingStore implements BillingStore {
   socialMessages: SocialMessageRecord[] = [];
   emailDrafts: EmailDraftRecord[] = [];
   gmailConnections = new Map<string, GmailConnectionRecord>();
+  googleCalendarConnections = new Map<string, GoogleCalendarConnectionRecord>();
+  calendarSettings = new Map<string, CalendarBookingSettingsRecord>();
+  calendarSessions = new Map<string, CalendarBookingSessionRecord>();
+  calendarAppointments: CalendarAppointmentRecord[] = [];
   gmailReplyDrafts: GmailReplyDraftRecord[] = [];
   shopifyConnections = new Map<string, ShopifyConnectionRecord>();
   shopifyProducts: ShopifyProductRecord[] = [];
@@ -1180,5 +1190,198 @@ export class MemoryBillingStore implements BillingStore {
     existing.status = persistFutureIntegrationStatus(input.provider, input.status ?? existing.status);
     existing.updatedAt = new Date();
     return existing;
+  }
+
+  async getGoogleCalendarConnection(workspaceId: string) {
+    return this.googleCalendarConnections.get(workspaceId) ?? null;
+  }
+
+  async upsertGoogleCalendarConnection(input: {
+    workspaceId: string;
+    googleEmail: string;
+    googleSub?: string | null;
+    encryptedRefreshToken: string;
+    encryptedAccessToken: string;
+    accessTokenExpiresAt: Date;
+    scopes: string;
+    status: string;
+    calendarId: string;
+    calendarSummary: string;
+  }) {
+    const now = new Date();
+    const existing = this.googleCalendarConnections.get(input.workspaceId);
+    const row: GoogleCalendarConnectionRecord = {
+      id: existing?.id ?? randomUUID(),
+      workspaceId: input.workspaceId,
+      googleEmail: input.googleEmail,
+      googleSub: input.googleSub ?? null,
+      encryptedRefreshToken: input.encryptedRefreshToken,
+      encryptedAccessToken: input.encryptedAccessToken,
+      accessTokenExpiresAt: input.accessTokenExpiresAt,
+      scopes: input.scopes,
+      status: input.status,
+      calendarId: input.calendarId,
+      calendarSummary: input.calendarSummary,
+      connectedAt: existing?.connectedAt ?? now,
+      updatedAt: now,
+    };
+    this.googleCalendarConnections.set(input.workspaceId, row);
+    return row;
+  }
+
+  async updateGoogleCalendarConnection(
+    workspaceId: string,
+    patch: Partial<
+      Pick<
+        GoogleCalendarConnectionRecord,
+        | "googleEmail"
+        | "googleSub"
+        | "encryptedRefreshToken"
+        | "encryptedAccessToken"
+        | "accessTokenExpiresAt"
+        | "scopes"
+        | "status"
+        | "calendarId"
+        | "calendarSummary"
+      >
+    >,
+  ) {
+    const row = this.googleCalendarConnections.get(workspaceId);
+    if (!row) throw new BillingError("Google Calendar is not connected.", "not_found");
+    Object.assign(row, patch, { updatedAt: new Date() });
+    return row;
+  }
+
+  async deleteGoogleCalendarConnection(workspaceId: string) {
+    this.googleCalendarConnections.delete(workspaceId);
+  }
+
+  async getCalendarBookingSettings(workspaceId: string) {
+    return this.calendarSettings.get(workspaceId) ?? null;
+  }
+
+  async upsertCalendarBookingSettings(input: {
+    workspaceId: string;
+    durationMinutes: number;
+    availableDays: CalendarWeekday[];
+    startMinutes: number;
+    endMinutes: number;
+    timezone: string;
+    minNoticeMinutes: number;
+    bufferMinutes: number;
+  }) {
+    const now = new Date();
+    const existing = this.calendarSettings.get(input.workspaceId);
+    const row: CalendarBookingSettingsRecord = {
+      id: existing?.id ?? randomUUID(),
+      workspaceId: input.workspaceId,
+      durationMinutes: input.durationMinutes,
+      availableDays: input.availableDays,
+      startMinutes: input.startMinutes,
+      endMinutes: input.endMinutes,
+      timezone: input.timezone,
+      minNoticeMinutes: input.minNoticeMinutes,
+      bufferMinutes: input.bufferMinutes,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+    this.calendarSettings.set(input.workspaceId, row);
+    return row;
+  }
+
+  async getCalendarBookingSession(workspaceId: string, conversationId: string) {
+    const row = this.calendarSessions.get(conversationId);
+    if (!row || row.workspaceId !== workspaceId) return null;
+    return row;
+  }
+
+  async upsertCalendarBookingSession(input: {
+    workspaceId: string;
+    conversationId: string;
+    customerName: string;
+    email: string;
+    service: string;
+    offeredSlots: CalendarBookingSessionRecord["offeredSlots"];
+    status: CalendarBookingSessionRecord["status"];
+  }) {
+    const now = new Date();
+    const existing = this.calendarSessions.get(input.conversationId);
+    if (existing && existing.workspaceId !== input.workspaceId) {
+      throw new BillingError("Calendar session belongs to another workspace.", "forbidden");
+    }
+    const row: CalendarBookingSessionRecord = {
+      id: existing?.id ?? randomUUID(),
+      workspaceId: input.workspaceId,
+      conversationId: input.conversationId,
+      customerName: input.customerName,
+      email: input.email,
+      service: input.service,
+      offeredSlots: input.offeredSlots,
+      status: input.status,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+    this.calendarSessions.set(input.conversationId, row);
+    return row;
+  }
+
+  async listCalendarAppointments(workspaceId: string) {
+    return this.calendarAppointments.filter((row) => row.workspaceId === workspaceId);
+  }
+
+  async createCalendarAppointment(input: {
+    workspaceId: string;
+    conversationId?: string | null;
+    customerName: string;
+    email: string;
+    service: string;
+    startsAt: Date;
+    endsAt: Date;
+    timezone: string;
+    googleCalendarId: string;
+    holdKey: string;
+  }) {
+    const clash = this.calendarAppointments.find(
+      (row) => row.workspaceId === input.workspaceId && row.holdKey === input.holdKey,
+    );
+    if (clash) throw new BillingError("That time is already booked.", "conflict");
+    const row: CalendarAppointmentRecord = {
+      id: randomUUID(),
+      workspaceId: input.workspaceId,
+      conversationId: input.conversationId ?? null,
+      customerName: input.customerName,
+      email: input.email,
+      service: input.service,
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+      timezone: input.timezone,
+      googleEventId: "",
+      googleCalendarId: input.googleCalendarId,
+      holdKey: input.holdKey,
+      status: "confirmed",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.calendarAppointments.push(row);
+    return row;
+  }
+
+  async updateCalendarAppointment(
+    id: string,
+    workspaceId: string,
+    patch: Partial<Pick<CalendarAppointmentRecord, "googleEventId" | "status">>,
+  ) {
+    const row = this.calendarAppointments.find((item) => item.id === id && item.workspaceId === workspaceId);
+    if (!row) throw new BillingError("Appointment not found.", "not_found");
+    if (patch.googleEventId !== undefined) row.googleEventId = patch.googleEventId;
+    if (patch.status !== undefined) row.status = patch.status;
+    row.updatedAt = new Date();
+    return row;
+  }
+
+  async deleteCalendarAppointment(id: string, workspaceId: string) {
+    this.calendarAppointments = this.calendarAppointments.filter(
+      (row) => !(row.id === id && row.workspaceId === workspaceId),
+    );
   }
 }

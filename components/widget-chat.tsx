@@ -28,7 +28,16 @@ type ChatSource = {
   price?: string;
   description?: string;
   imageUrl?: string;
+  slotStart?: string;
 };
+
+function slotChoices(sources?: ChatSource[] | null) {
+  if (!sources) return [];
+  return sources.flatMap((source) => {
+    if (!source.url?.startsWith("slot:") || !source.title) return [];
+    return [{ label: source.title, start: source.url.slice(5) }];
+  });
+}
 
 type ChatRow = {
   id?: string;
@@ -298,7 +307,7 @@ export function WidgetChat({
     }
   }
 
-  async function send(question: string) {
+  async function send(question: string, slotStart?: string) {
     const trimmed = question.trim();
     if (!trimmed || pending || !visitorKey) return;
     setDraft("");
@@ -315,6 +324,7 @@ export function WidgetChat({
           visitorKey,
           conversationId,
           question: trimmed,
+          slotStart,
           contact: contactPayload(),
         }),
       });
@@ -515,6 +525,21 @@ export function WidgetChat({
                       <div className="grid min-w-0 gap-2">
                         {shownProducts.map((card) => (
                           <ProductCard key={`${card.name}-${card.href ?? "product"}`} card={card} accent={accent} />
+                        ))}
+                      </div>
+                    ) : null}
+                    {index === rows.length - 1 && row.role === "assistant" && slotChoices(row.sources).length ? (
+                      <div className="grid min-w-0 gap-2">
+                        {slotChoices(row.sources).map((slot) => (
+                          <button
+                            key={slot.start}
+                            type="button"
+                            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-800"
+                            onClick={() => void send(slot.label, slot.start)}
+                            disabled={pending || !visitorKey}
+                          >
+                            {slot.label}
+                          </button>
                         ))}
                       </div>
                     ) : null}

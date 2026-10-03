@@ -1,3 +1,4 @@
+import { assertNoCalendarSecrets, publicCalendarStatus, type PublicCalendarStatus } from "@/lib/calendar/public";
 import { assertNoTokenFields, type PublicGmailStatus } from "@/lib/gmail/public";
 import {
   assertNoShopifySecrets,
@@ -9,19 +10,13 @@ import { type FutureIntegrationProvider } from "./enums";
 import type { IntegrationConnectionRecord } from "./types";
 
 export const INTEGRATIONS_HINT =
-  "Gmail is the live inbox connection. Social is drafts you post yourself. Shopify catalog sync is available when the store is connected. WooCommerce and Calendar stay not connected until a real integration exists.";
+  "Gmail is the live inbox connection. Social is drafts you post yourself. Shopify catalog sync is available when the store is connected. Google Calendar books appointments for this workspace when it is connected. WooCommerce stays not connected.";
 
 export const FUTURE_INTEGRATION_CATALOG = [
   {
     provider: "woocommerce",
     name: "WooCommerce",
     detail: "Order support is not connected. Catalog data is not pulled from WooCommerce.",
-  },
-  {
-    provider: "calendar",
-    name: "Calendar",
-    detail:
-      "Appointment requests stay in this workspace. BizPilot does not confirm a slot on a calendar.",
   },
 ] as const satisfies readonly {
   provider: Exclude<FutureIntegrationProvider, "shopify">;
@@ -44,6 +39,10 @@ export type SocialIntegrationStatus = {
   href: "/app/social";
 };
 
+export type CalendarIntegrationStatus = PublicCalendarStatus & {
+  label: string;
+};
+
 export type FutureIntegrationStatus = {
   provider: Exclude<FutureIntegrationProvider, "shopify">;
   name: string;
@@ -56,8 +55,16 @@ export type WorkspaceIntegrations = {
   gmail: GmailIntegrationStatus;
   shopify: ShopifyIntegrationStatus;
   social: SocialIntegrationStatus;
+  calendar: CalendarIntegrationStatus;
   future: FutureIntegrationStatus[];
 };
+
+export function calendarStatusLabel(status: PublicCalendarStatus): string {
+  if (status.needsReconnect) return "Needs reconnect";
+  if (status.connected) return "Connected";
+  if (!status.configured) return "Not configured";
+  return "Not connected";
+}
 
 export function gmailStatusLabel(status: PublicGmailStatus): string {
   if (status.needsReconnect) return "Needs reconnect";
@@ -75,10 +82,12 @@ export function displayFutureIntegrationStatus(
 export function buildWorkspaceIntegrations(input: {
   gmail: PublicGmailStatus;
   shopify?: PublicShopifyStatus | null;
+  calendar?: PublicCalendarStatus | null;
   connections?: IntegrationConnectionRecord[];
 }): WorkspaceIntegrations {
   const byProvider = new Map((input.connections ?? []).map((row) => [row.provider, row]));
   const shopify = input.shopify ?? publicShopifyStatus(null);
+  const calendar = input.calendar ?? publicCalendarStatus(null, null);
   return {
     gmail: {
       ...input.gmail,
@@ -93,6 +102,10 @@ export function buildWorkspaceIntegrations(input: {
       status: "drafts_only",
       label: "Drafts only",
       href: "/app/social",
+    },
+    calendar: {
+      ...calendar,
+      label: calendarStatusLabel(calendar),
     },
     future: FUTURE_INTEGRATION_CATALOG.map((item) => ({
       provider: item.provider,
@@ -134,6 +147,17 @@ export function serializeWorkspaceIntegrations(row: WorkspaceIntegrations) {
       label: row.social.label,
       href: row.social.href,
     },
+    calendar: {
+      configured: row.calendar.configured,
+      connected: row.calendar.connected,
+      needsReconnect: row.calendar.needsReconnect,
+      googleEmail: row.calendar.googleEmail,
+      calendarId: row.calendar.calendarId,
+      calendarSummary: row.calendar.calendarSummary,
+      connectedAt: row.calendar.connectedAt,
+      settings: row.calendar.settings,
+      label: row.calendar.label,
+    },
     future: row.future.map((item) => ({
       provider: item.provider,
       name: item.name,
@@ -144,6 +168,7 @@ export function serializeWorkspaceIntegrations(row: WorkspaceIntegrations) {
   };
   assertNoShopifySecrets(payload);
   assertNoTokenFields(payload);
+  assertNoCalendarSecrets(payload);
   return payload;
 }
 

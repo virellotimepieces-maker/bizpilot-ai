@@ -141,7 +141,7 @@ export const CAPABILITY_SECTIONS = [
   {
     id: "lead-capture" as const,
     title: "Leads, quotes, and appointment requests — not fake bookings",
-    body: "Name, email, and the request show up in Leads. Quote and appointment rows are requests you review. There is no confirmed calendar booking until you connect a real calendar later.",
+    body: "Name, email, and the request show up in Leads. Quote rows are requests you review. A confirmed appointment is written to Google Calendar only after that workspace connects it and the visitor picks an open time.",
   },
 ] as const;
 
@@ -284,7 +284,7 @@ export const FAQ_ITEMS = [
     id: "appointments",
     question: "Will it book appointments for me?",
     answer:
-      "It can collect an appointment request. It does not confirm a booking or write to a calendar. Confirmed appointments are not a current product feature.",
+      "If that workspace connects Google Calendar, the assistant checks real availability and books only a time the visitor confirms. Without a connected calendar, it can collect an appointment request and does not confirm a booking.",
   },
   {
     id: "prices",

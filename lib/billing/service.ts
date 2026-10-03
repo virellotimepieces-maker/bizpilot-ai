@@ -1,4 +1,5 @@
 import { chatAutoDecision, freezeVisitorText } from "@/lib/chat-auto";
+import { publicCalendarStatus } from "@/lib/calendar/public";
 import { publicGmailStatus } from "@/lib/gmail/public";
 import { publicShopifyStatus, shopifyConnectionStatusForRow } from "@/lib/shopify/public";
 import { catalogProductSources, retrieveRelevantProducts } from "@/lib/shopify/catalog";
@@ -309,15 +310,27 @@ export class BillingService {
         status: provider === "shopify" ? shopifyConnectionStatusForRow(shopifyRow) : "disconnected",
       });
     }
-    const [gmailRow, connections] = await Promise.all([
+    const [gmailRow, calendarRow, connections] = await Promise.all([
       this.store.getGmailConnection(workspaceId),
+      this.store.getGoogleCalendarConnection(workspaceId),
       this.store.listIntegrationConnections(workspaceId),
     ]);
+    const calendarSettings = calendarRow ? await this.store.getCalendarBookingSettings(workspaceId) : null;
     return buildWorkspaceIntegrations({
       gmail: publicGmailStatus(gmailRow),
       shopify: publicShopifyStatus(shopifyRow),
+      calendar: publicCalendarStatus(calendarRow, calendarSettings),
       connections,
     });
+  }
+
+  async noteWidgetAppointmentRequest(input: {
+    workspaceId: string;
+    userId: string;
+    conversationId: string;
+    question: string;
+  }) {
+    await this.captureAppointmentRequestIfNeeded(input);
   }
 
   async generateCountedAiReply(options: {
