@@ -398,11 +398,11 @@ describe("Calendar booking", () => {
       now,
       fetchImpl: google.fetchImpl,
     });
-    assert.match(unconfirmed?.answer ?? "", /confirm this booking/i);
-    assert.match(unconfirmed?.answer ?? "", /ada@example.com/);
+    assert.match(unconfirmed?.answer ?? "", /name and email/i);
+    assert.doesNotMatch(unconfirmed?.answer ?? "", /ada@example.com/);
     assert.equal((await store.listCalendarAppointments(workspace.id)).length, 1);
     assert.equal(google.calls.filter((call) => call.url.includes("/events")).length, eventsBefore);
-    const second = await handleCalendarWidgetTurn({
+    const reused = await handleCalendarWidgetTurn({
       store,
       widgetKey: workspace.widgetKey,
       visitorKey: "visitor-a",
@@ -411,11 +411,24 @@ describe("Calendar booking", () => {
       now,
       fetchImpl: google.fetchImpl,
     });
+    assert.match(reused?.answer ?? "", /name and email/i);
+    assert.doesNotMatch(reused?.answer ?? "", /ada@example.com/);
+    assert.equal((await store.listCalendarAppointments(workspace.id)).length, 1);
+    assert.equal(google.calls.filter((call) => call.url.includes("/events")).length, eventsBefore);
+    const second = await handleCalendarWidgetTurn({
+      store,
+      widgetKey: workspace.widgetKey,
+      visitorKey: "visitor-a",
+      conversationId: asked?.conversationId,
+      question: "Jordan Lee jordan@example.com",
+      now,
+      fetchImpl: google.fetchImpl,
+    });
     assert.match(second?.answer ?? "", /You're booked for/);
-    assert.match(second?.answer ?? "", /confirmation email could not be sent/);
     const rows = await store.listCalendarAppointments(workspace.id);
     assert.equal(rows.length, 2);
-    assert.equal(rows.filter((row) => row.email === "ada@example.com").length, 2);
+    assert.equal(rows.filter((row) => row.email === "ada@example.com").length, 1);
+    assert.equal(rows.find((row) => row.email === "jordan@example.com")?.customerName, "Jordan Lee");
     const sentence = await handleCalendarWidgetTurn({
       store,
       widgetKey: workspace.widgetKey,
@@ -666,6 +679,63 @@ describe("Booking confirmation email", () => {
     });
     assert.equal(again, false);
     assert.equal(google.calls.filter((call) => call.url.includes("/messages/send")).length, 1);
+    setup.restore();
+  });
+
+  it("books a second customer in the same conversation without reusing the first email", async () => {
+    const setup = await readyWorkspace("harbor-mail-second@example.com");
+    const google = fetchFor();
+    await book(setup, google.fetchImpl);
+    const first = (await setup.store.listCalendarAppointments(setup.workspace.id))[0];
+    assert.equal(first?.email, "ada@example.com");
+    const asked = await handleCalendarWidgetTurn({
+      store: setup.store,
+      widgetKey: setup.workspace.widgetKey,
+      visitorKey: "visitor-mail",
+      conversationId: first?.conversationId ?? "",
+      question: "I'd like to book an appointment tomorrow. What times are available?",
+      now,
+      fetchImpl: google.fetchImpl,
+    });
+    const slot = asked?.sources.find((source) => source.slotStart !== first?.startsAt.toISOString());
+    assert.ok(slot?.slotStart);
+    const eventsBefore = google.calls.filter((call) => call.url.includes("/events")).length;
+    const sendsBefore = google.calls.filter((call) => call.url.includes("/messages/send")).length;
+    const held = await handleCalendarWidgetTurn({
+      store: setup.store,
+      widgetKey: setup.workspace.widgetKey,
+      visitorKey: "visitor-mail",
+      conversationId: first?.conversationId ?? "",
+      question: slot?.title ?? "",
+      slotStart: slot?.slotStart,
+      now,
+      fetchImpl: google.fetchImpl,
+    });
+    assert.match(held?.answer ?? "", /name and email/i);
+    assert.doesNotMatch(held?.answer ?? "", /ada@example.com/);
+    assert.equal(google.calls.filter((call) => call.url.includes("/events")).length, eventsBefore);
+    assert.equal(google.calls.filter((call) => call.url.includes("/messages/send")).length, sendsBefore);
+    assert.equal((await setup.store.listCalendarAppointments(setup.workspace.id)).length, 1);
+    const second = await handleCalendarWidgetTurn({
+      store: setup.store,
+      widgetKey: setup.workspace.widgetKey,
+      visitorKey: "visitor-mail",
+      conversationId: first?.conversationId ?? "",
+      question: "Grace Hopper grace@example.com for a repair",
+      now,
+      fetchImpl: google.fetchImpl,
+    });
+    assert.match(second?.answer ?? "", /confirmation email was sent to grace@example.com/);
+    assert.doesNotMatch(second?.answer ?? "", /ada@example.com/);
+    const sends = google.calls.filter((call) => call.url.includes("/messages/send"));
+    assert.equal(sends.length, sendsBefore + 1);
+    const rfc822 = Buffer.from((sends.at(-1)?.body as { raw?: string }).raw ?? "", "base64url").toString("utf8");
+    assert.match(rfc822, /To: grace@example.com/);
+    assert.doesNotMatch(rfc822, /To: ada@example.com/);
+    const saved = await setup.store.listCalendarAppointments(setup.workspace.id);
+    assert.equal(saved.length, 2);
+    assert.equal(saved.filter((row) => row.email === "ada@example.com").length, 1);
+    assert.equal(saved.find((row) => row.email === "grace@example.com")?.customerName, "Grace Hopper");
     setup.restore();
   });
 

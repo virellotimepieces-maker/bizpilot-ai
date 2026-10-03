@@ -16,8 +16,6 @@ const TIMES_RE = /\b(what|which|any)\s+times?\b/i;
 const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const NOT_A_NAME_RE =
   /^(?:mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday|today|tomorrow|tonight|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|yes|yeah|yep|ok|okay|confirm|confirmed)$/i;
-const EMAIL_CONFIRMATION_RE =
-  /^(?:yes|yep|yeah|confirm|confirmed|correct|ok|okay|use that|use this email)[.!]?$/i;
 
 export const DISCONNECTED_CALENDAR_REPLY =
   "I can't check live availability or book a time because this business hasn't connected a calendar. I can save an appointment request for the team. Please share your name, email, and what you'd like to book.";
@@ -48,7 +46,7 @@ export function readBookingContact(
     const candidate = simple?.[1] ?? "";
     const first = candidate.split(/\s+/)[0] ?? "";
     const acceptable = candidate && !candidate.includes("@") && !NOT_A_NAME_RE.test(first) && nameStandsAlone(text, candidate);
-    if (acceptable && (!customerName || isExplicitEmailConfirmation(text) || EMAIL_RE.test(text))) customerName = candidate;
+    if (acceptable && (!customerName || EMAIL_RE.test(text))) customerName = candidate;
   }
   const extracted = extractRequestedService(text) || readLooseBookingReason(text);
   const service = current.service || extracted;
@@ -64,14 +62,7 @@ function nameStandsAlone(text: string, candidate: string) {
   const rest = (at >= 0 ? text.slice(at + candidate.length) : "").trim().replace(/^[,.-]+/, "").trim();
   if (!rest) return true;
   if (EMAIL_RE.test(rest)) return true;
-  if (/^for\b/i.test(rest)) return true;
-  return EMAIL_CONFIRMATION_RE.test(rest);
-}
-
-function isExplicitEmailConfirmation(text: string) {
-  const trimmed = text.trim();
-  if (EMAIL_CONFIRMATION_RE.test(trimmed)) return true;
-  return trimmed.length <= 80 && /\b(?:yes|confirm|confirmed|use that email|use this email)\b/i.test(trimmed);
+  return /^for\b/i.test(rest);
 }
 
 function readLooseBookingReason(text: string) {
@@ -83,14 +74,8 @@ function readLooseBookingReason(text: string) {
   return value;
 }
 
-function missingContactPrompt(name: string, email: string, label: string, confirmEmail = false) {
+function missingContactPrompt(name: string, email: string, label: string) {
   const when = label ? ` for ${label}` : "";
-  if (confirmEmail && email) {
-    if (!name) {
-      return `That time${when} is open. Please send your name and confirm the email for this appointment: ${email}. Reply with your name and yes, or send a different email.`;
-    }
-    return `That time${when} is open. Please confirm this booking for ${name} at ${email}. Reply yes to use it, or send a different name and email.`;
-  }
   if (!name && !email) {
     return `That time${when} is open. Please send your name and email to book it. You can add a reason for the appointment if you want.`;
   }
@@ -231,24 +216,32 @@ export async function handleCalendarWidgetTurn(input: {
           offeredSlots: [],
           status: "collecting",
         });
+  const freshAvailability = isCalendarCustomerRequest(input.question) && !explicitSlot;
+  let active = current;
+  if (freshAvailability) {
+    active = await rememberSession(input.store, current, {
+      customerName: "",
+      email: "",
+      service: "",
+      offeredSlots: [],
+      status: "collecting",
+    });
+  }
+  const collectingThisBooking = active.status === "collecting" && active.offeredSlots.length > 0;
   const slotChoice =
     explicitSlot ||
-    current.offeredSlots.some((slot) => slot.label === input.question.trim() || slot.start === input.question.trim().replace(/^slot:/, ""));
+    active.offeredSlots.some((slot) => slot.label === input.question.trim() || slot.start === input.question.trim().replace(/^slot:/, ""));
   const contact = readBookingContact(
     input.question,
-    {
-      customerName: current.customerName,
-      email: current.email,
-      service: current.service,
-    },
+    collectingThisBooking
+      ? { customerName: active.customerName, email: active.email, service: active.service }
+      : { customerName: "", email: "", service: "" },
     { slotSelection: slotChoice },
   );
-  const freshAvailability = isCalendarCustomerRequest(input.question) && !explicitSlot;
-  const pending = current.status === "collecting" ? current.offeredSlots[0] : undefined;
-  const picked = chosenSlot(input.question, input.slotStart, current.offeredSlots) ?? (freshAvailability ? undefined : pending);
+  const pending = collectingThisBooking ? active.offeredSlots[0] : undefined;
+  const picked = chosenSlot(input.question, input.slotStart, active.offeredSlots) ?? (freshAvailability ? undefined : pending);
   const emailProvidedInMessage = EMAIL_RE.test(input.question);
-  const emailExplicitlyConfirmed = current.status === "collecting" && Boolean(contact.email) && isExplicitEmailConfirmation(input.question);
-  const emailAccepted = emailProvidedInMessage || emailExplicitlyConfirmed;
+  const emailAccepted = emailProvidedInMessage || (collectingThisBooking && Boolean(active.email));
 
   if (picked && (!contact.customerName || !contact.email || !emailAccepted)) {
     let accessToken = "";
@@ -279,7 +272,7 @@ export async function handleCalendarWidgetTurn(input: {
       const refreshed = await offerSlots({
         store: input.store,
         workspaceId: business.id,
-        session: current,
+        session: active,
         contact,
         settings,
         accessToken,
@@ -291,13 +284,15 @@ export async function handleCalendarWidgetTurn(input: {
       });
       return reply(refreshed.answer, refreshed.sources);
     }
-    const rest = current.offeredSlots.filter((slot) => slot.start !== picked.start);
-    await rememberSession(input.store, current, {
-      ...contact,
+    const rest = active.offeredSlots.filter((slot) => slot.start !== picked.start);
+    await rememberSession(input.store, active, {
+      customerName: contact.customerName,
+      email: emailAccepted ? contact.email : "",
+      service: contact.service,
       offeredSlots: [picked, ...rest],
       status: "collecting",
     });
-    return reply(missingContactPrompt(contact.customerName, contact.email, picked.label, Boolean(contact.email) && !emailAccepted));
+    return reply(missingContactPrompt(contact.customerName, emailAccepted ? contact.email : "", picked.label));
   }
 
   if (picked && contact.customerName && contact.email && emailAccepted) {
@@ -344,7 +339,7 @@ export async function handleCalendarWidgetTurn(input: {
       const refreshed = await offerSlots({
         store: input.store,
         workspaceId: business.id,
-        session: current,
+        session: active,
         contact,
         settings,
         accessToken,
@@ -375,7 +370,7 @@ export async function handleCalendarWidgetTurn(input: {
         const refreshed = await offerSlots({
           store: input.store,
           workspaceId: business.id,
-          session: current,
+          session: active,
           contact,
           settings,
           accessToken,
@@ -417,7 +412,7 @@ export async function handleCalendarWidgetTurn(input: {
         const refreshed = await offerSlots({
           store: input.store,
           workspaceId: business.id,
-          session: current,
+          session: active,
           contact,
           settings,
           accessToken,
@@ -437,7 +432,7 @@ export async function handleCalendarWidgetTurn(input: {
       appointment,
       fetchImpl,
     });
-    await rememberSession(input.store, current, {
+    await rememberSession(input.store, active, {
       ...contact,
       offeredSlots: [],
       status: "booked",
@@ -466,8 +461,8 @@ export async function handleCalendarWidgetTurn(input: {
   const offered = await offerSlots({
     store: input.store,
     workspaceId: business.id,
-    session: current,
-    contact,
+    session: active,
+    contact: freshAvailability ? { customerName: "", email: "", service: "" } : contact,
     settings,
     accessToken,
     calendarId: connection.calendarId,
