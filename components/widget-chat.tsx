@@ -152,7 +152,7 @@ function headerSubtitle(
 }
 
 function chromeFromPayload(chrome: Partial<WidgetChrome> | null | undefined) {
-  const next = { ...WIDGET_CHROME_EN };
+  const next: WidgetChrome = { ...WIDGET_CHROME_EN };
   if (!chrome) return next;
   for (const key of Object.keys(WIDGET_CHROME_EN) as (keyof WidgetChrome)[]) {
     const value = chrome[key];
