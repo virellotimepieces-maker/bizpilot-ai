@@ -11,6 +11,7 @@ import { isNearBottom, scrollMessagesToLatest } from "@/lib/widget-chat-scroll";
 import { buildWidgetHostMessage } from "@/lib/widget-embed-script";
 import { WIDGET_CHAT_API_PATH, WIDGET_PUBLIC_SETTINGS_PATH } from "@/lib/widget-preview";
 import {
+  applyWidgetChromeState,
   fillWidgetChrome,
   WIDGET_CHROME_EN,
   widgetTextDirection,
@@ -151,16 +152,6 @@ function headerSubtitle(
   return appearance.businessDisplayName || chrome.chat || "Chat";
 }
 
-function chromeFromPayload(chrome: Partial<WidgetChrome> | null | undefined) {
-  const next: WidgetChrome = { ...WIDGET_CHROME_EN };
-  if (!chrome) return next;
-  for (const key of Object.keys(WIDGET_CHROME_EN) as (keyof WidgetChrome)[]) {
-    const value = chrome[key];
-    if (typeof value === "string" && value.trim()) next[key] = value;
-  }
-  return next;
-}
-
 export function WidgetChat({
   widgetKey,
   startOpen = false,
@@ -186,6 +177,7 @@ export function WidgetChat({
   const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
   const [language, setLanguage] = useState("en");
   const [chrome, setChrome] = useState<WidgetChrome>(WIDGET_CHROME_EN);
+  const uiRef = useRef({ language: "en", chrome: WIDGET_CHROME_EN });
   const scrollerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const bottomAnchorRef = useRef<HTMLDivElement>(null);
@@ -263,8 +255,10 @@ export function WidgetChat({
   }, [open]);
 
   const applyUi = useCallback((payload: { detectedLanguage?: string; chrome?: Partial<WidgetChrome> | null }) => {
-    if (payload.detectedLanguage) setLanguage(payload.detectedLanguage);
-    if (payload.chrome) setChrome(chromeFromPayload(payload.chrome));
+    const next = applyWidgetChromeState(uiRef.current, payload);
+    uiRef.current = next;
+    setLanguage(next.language);
+    setChrome(next.chrome);
   }, []);
 
   const syncThread = useCallback(async () => {

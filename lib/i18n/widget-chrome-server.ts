@@ -1,10 +1,31 @@
 import type { BillingStore } from "@/lib/billing/store";
-import { isEnglishLanguage, languageName } from "@/lib/i18n/localize";
+import { isEnglishLanguage, languageName, translateWithModel } from "@/lib/i18n/localize";
 import type { TranslateFn } from "@/lib/i18n/localize";
-import { WIDGET_CHROME_EN, widgetLanguageBase, type WidgetChrome, type WidgetChromeKey } from "@/lib/i18n/widget-chrome";
+import {
+  WIDGET_CHROME_EN,
+  widgetChromeIsLocalized,
+  widgetLanguageBase,
+  type WidgetChrome,
+  type WidgetChromeKey,
+} from "@/lib/i18n/widget-chrome";
 
 const CHROME_KEYS = Object.keys(WIDGET_CHROME_EN) as WidgetChromeKey[];
 const chromeCache = new Map<string, WidgetChrome>();
+
+export function clearWidgetChromeCache() {
+  chromeCache.clear();
+}
+
+export function readWidgetChromeTranslation(text: string): WidgetChrome | null {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    return acceptChrome(JSON.parse(text.slice(start, end + 1)));
+  } catch {
+    return null;
+  }
+}
 
 export async function localizeWidgetChrome(language: string, translate?: TranslateFn): Promise<WidgetChrome> {
   if (isEnglishLanguage(language)) return { ...WIDGET_CHROME_EN };
@@ -16,7 +37,7 @@ export async function localizeWidgetChrome(language: string, translate?: Transla
   try {
     const translated = translate ? await translateFields(code, translate) : await translateBundle(code);
     const safe = acceptChrome(translated);
-    if (!safe) return { ...WIDGET_CHROME_EN };
+    if (!safe || !widgetChromeIsLocalized(safe)) return { ...WIDGET_CHROME_EN };
     if (!translate) chromeCache.set(code, safe);
     return safe;
   } catch {
@@ -84,20 +105,30 @@ async function translateBundle(language: string): Promise<WidgetChrome> {
   };
   const text = payload.choices?.[0]?.message?.content?.trim();
   if (!text) throw new Error("translation_empty");
-  return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, "")) as WidgetChrome;
+  const read = readWidgetChromeTranslation(text);
+  if (read && widgetChromeIsLocalized(read)) return read;
+  return translateFields(language, translateWithModel);
 }
 
 function acceptChrome(value: unknown): WidgetChrome | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
-  const next = {} as WidgetChrome;
+  const next: WidgetChrome = { ...WIDGET_CHROME_EN };
   for (const key of CHROME_KEYS) {
-    const translated = record[key];
-    if (typeof translated !== "string" || !translated.trim()) return null;
-    if (placeholders(WIDGET_CHROME_EN[key]) !== placeholders(translated)) return null;
-    next[key] = translated.trim();
+    const translated = normalizePlaceholders(record[key]);
+    if (!translated) continue;
+    if (placeholders(WIDGET_CHROME_EN[key]) !== placeholders(translated)) continue;
+    next[key] = translated;
   }
   return next;
+}
+
+function normalizePlaceholders(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value
+    .trim()
+    .replace(/[｛{]\s*business\s*[｝}]/g, "{business}")
+    .replace(/[｛{]\s*count\s*[｝}]/g, "{count}");
 }
 
 function placeholders(text: string) {
