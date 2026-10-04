@@ -1,5 +1,18 @@
 export const PRODUCTION_PUBLIC_ORIGIN = "https://www.mybizpilotai.com";
+export const BIZLYRO_PUBLIC_ORIGIN = "https://bizlyro.com";
 export const PRODUCTION_WIDGET_ORIGIN = PRODUCTION_PUBLIC_ORIGIN;
+
+const PUBLIC_ORIGINS_BY_HOST: Record<string, string> = {
+  "bizlyro.com": BIZLYRO_PUBLIC_ORIGIN,
+  "www.bizlyro.com": BIZLYRO_PUBLIC_ORIGIN,
+  "mybizpilotai.com": PRODUCTION_PUBLIC_ORIGIN,
+  "www.mybizpilotai.com": PRODUCTION_PUBLIC_ORIGIN,
+};
+
+export function publicOriginForHost(hostHeader: string | null | undefined) {
+  const hostname = (hostHeader ?? "").split(",")[0]?.trim().toLowerCase().replace(/:\d+$/, "") ?? "";
+  return PUBLIC_ORIGINS_BY_HOST[hostname] ?? PRODUCTION_PUBLIC_ORIGIN;
+}
 
 export const LEGACY_WIDGET_ORIGINS = [
   "https://bizpilot-ai-mocha.vercel.app",

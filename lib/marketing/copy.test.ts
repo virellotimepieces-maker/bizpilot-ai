@@ -16,8 +16,8 @@ import {
   PRODUCT_PREVIEW_LABEL,
 } from "./copy";
 import { BIZPILOT_PRO } from "@/lib/plan";
-import { publicSitemapUrls } from "./site";
-import { PRODUCTION_PUBLIC_ORIGIN } from "@/lib/public-origin";
+import { marketingRobots, publicSitemapUrls } from "./site";
+import { BIZLYRO_PUBLIC_ORIGIN, PRODUCTION_PUBLIC_ORIGIN } from "@/lib/public-origin";
 
 const FORBIDDEN = [
   "Start Free",
@@ -134,5 +134,29 @@ describe("V2 public landing copy", () => {
       urls.some((url) => url.includes("/app") || url.includes("/api")),
       false,
     );
+    const bizlyro = publicSitemapUrls(BIZLYRO_PUBLIC_ORIGIN).map((entry) => entry.url);
+    assert.deepEqual(bizlyro, [
+      "https://bizlyro.com",
+      "https://bizlyro.com/signup",
+      "https://bizlyro.com/login",
+      "https://bizlyro.com/demo",
+      "https://bizlyro.com/privacy",
+      "https://bizlyro.com/terms",
+    ]);
+    assert.equal(bizlyro.some((url) => url.includes("mybizpilotai.com")), false);
+    const robots = marketingRobots(BIZLYRO_PUBLIC_ORIGIN);
+    assert.equal(robots.sitemap, "https://bizlyro.com/sitemap.xml");
+    assert.equal(robots.host, "https://bizlyro.com");
+    const existing = marketingRobots();
+    assert.equal(existing.sitemap, `${PRODUCTION_PUBLIC_ORIGIN}/sitemap.xml`);
+    assert.equal(existing.host, PRODUCTION_PUBLIC_ORIGIN);
+    const sitemapSource = readFileSync("app/sitemap.ts", "utf8");
+    const robotsSource = readFileSync("app/robots.ts", "utf8");
+    const layoutSource = readFileSync("app/layout.tsx", "utf8");
+    assert.match(sitemapSource, /requestPublicOrigin/);
+    assert.match(robotsSource, /requestPublicOrigin/);
+    assert.match(layoutSource, /requestPublicOrigin/);
+    assert.doesNotMatch(sitemapSource, /mybizpilotai\.com/);
+    assert.doesNotMatch(robotsSource, /mybizpilotai\.com/);
   });
 });

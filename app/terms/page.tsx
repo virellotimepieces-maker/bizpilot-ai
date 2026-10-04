@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Terms of Service — BizPilot AI",
   description: "BizPilot Pro subscription, usage limits, and human-in-the-loop drafts.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

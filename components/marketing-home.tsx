@@ -25,7 +25,7 @@ import {
   formatPlanPriceUsd,
 } from "@/lib/marketing/copy";
 import { BIZPILOT_PRO } from "@/lib/plan";
-import { PRODUCTION_PUBLIC_ORIGIN } from "@/lib/public-origin";
+import { requestPublicOrigin } from "@/lib/marketing/request-origin";
 import { Check } from "lucide-react";
 import Link from "next/link";
 
@@ -62,21 +62,22 @@ function PointGrid({
   );
 }
 
-export function MarketingHome() {
+export async function MarketingHome() {
   const price = formatPlanPriceUsd();
+  const origin = await requestPublicOrigin();
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     name: "BizPilot AI",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
-    url: PRODUCTION_PUBLIC_ORIGIN,
+    url: origin,
     description: HOME_METADATA.description,
     offers: {
       "@type": "Offer",
       price: String(BIZPILOT_PRO.amountCents / 100),
       priceCurrency: BIZPILOT_PRO.currency.toUpperCase(),
-      url: `${PRODUCTION_PUBLIC_ORIGIN}/signup`,
+      url: `${origin}/signup`,
     },
   };
 

@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Privacy Policy — BizPilot AI",
   description: "How BizPilot AI stores account, knowledge, and conversation data.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {

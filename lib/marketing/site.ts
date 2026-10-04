@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, MetadataRoute } from "next";
 import { PRODUCTION_PUBLIC_ORIGIN } from "@/lib/public-origin";
 import { HOME_METADATA } from "./copy";
 
@@ -7,11 +7,11 @@ export const MARKETING_ORIGIN = PRODUCTION_PUBLIC_ORIGIN;
 export const homeMetadata: Metadata = {
   title: HOME_METADATA.title,
   description: HOME_METADATA.description,
-  alternates: { canonical: MARKETING_ORIGIN },
+  alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: MARKETING_ORIGIN,
+    url: "/",
     siteName: "BizPilot AI",
     title: HOME_METADATA.title,
     description: HOME_METADATA.description,
@@ -27,11 +27,25 @@ export const homeMetadata: Metadata = {
   },
 };
 
-export function publicSitemapUrls() {
+export function publicSitemapUrls(origin: string = MARKETING_ORIGIN) {
+  const base = origin.replace(/\/$/, "");
   return ["", "/signup", "/login", "/demo", "/privacy", "/terms"].map((path) => ({
-    url: `${MARKETING_ORIGIN}${path}`,
+    url: `${base}${path}`,
     lastModified: new Date("2026-10-02T00:00:00.000Z"),
     changeFrequency: "weekly" as const,
     priority: path === "" ? 1 : 0.6,
   }));
+}
+
+export function marketingRobots(origin: string = MARKETING_ORIGIN): MetadataRoute.Robots {
+  const base = origin.replace(/\/$/, "");
+  return {
+    rules: {
+      userAgent: "*",
+      allow: "/",
+      disallow: ["/api/", "/app/", "/account", "/billing", "/embed/"],
+    },
+    sitemap: `${base}/sitemap.xml`,
+    host: base,
+  };
 }
