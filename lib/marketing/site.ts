@@ -37,6 +37,25 @@ export function publicSitemapUrls(origin: string = MARKETING_ORIGIN) {
   }));
 }
 
+function escapeSitemapXml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+export function sitemapXml(origin: string = MARKETING_ORIGIN) {
+  const urls = publicSitemapUrls(origin)
+    .map((entry) => {
+      const lastmod = entry.lastModified.toISOString().slice(0, 10);
+      return `<url><loc>${escapeSitemapXml(entry.url)}</loc><lastmod>${lastmod}</lastmod><changefreq>${entry.changeFrequency}</changefreq><priority>${entry.priority.toFixed(1)}</priority></url>`;
+    })
+    .join("");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>\n`;
+}
+
 export function marketingRobots(origin: string = MARKETING_ORIGIN): MetadataRoute.Robots {
   const base = origin.replace(/\/$/, "");
   return {
@@ -46,6 +65,5 @@ export function marketingRobots(origin: string = MARKETING_ORIGIN): MetadataRout
       disallow: ["/api/", "/app/", "/account", "/billing", "/embed/"],
     },
     sitemap: `${base}/sitemap.xml`,
-    host: base,
   };
 }

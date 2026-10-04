@@ -16,7 +16,7 @@ import {
   PRODUCT_PREVIEW_LABEL,
 } from "./copy";
 import { BIZPILOT_PRO } from "@/lib/plan";
-import { marketingRobots, publicSitemapUrls } from "./site";
+import { marketingRobots, publicSitemapUrls, sitemapXml } from "./site";
 import { BIZLYRO_PUBLIC_ORIGIN, PRODUCTION_PUBLIC_ORIGIN } from "@/lib/public-origin";
 
 const FORBIDDEN = [
@@ -144,16 +144,25 @@ describe("V2 public landing copy", () => {
       "https://bizlyro.com/terms",
     ]);
     assert.equal(bizlyro.some((url) => url.includes("mybizpilotai.com")), false);
+    const xml = sitemapXml(BIZLYRO_PUBLIC_ORIGIN);
+    assert.match(xml, /^<\?xml version="1\.0" encoding="UTF-8"\?>/);
+    assert.match(xml, /xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9"/);
+    assert.doesNotMatch(xml, /https:\/\/www\.sitemaps\.org/);
+    assert.match(xml, /<priority>1\.0<\/priority>/);
+    assert.equal(xml.includes("mybizpilotai.com"), false);
+    for (const url of bizlyro) assert.match(xml, new RegExp(`<loc>${url}</loc>`));
     const robots = marketingRobots(BIZLYRO_PUBLIC_ORIGIN);
     assert.equal(robots.sitemap, "https://bizlyro.com/sitemap.xml");
-    assert.equal(robots.host, "https://bizlyro.com");
+    assert.equal(robots.host, undefined);
     const existing = marketingRobots();
     assert.equal(existing.sitemap, `${PRODUCTION_PUBLIC_ORIGIN}/sitemap.xml`);
-    assert.equal(existing.host, PRODUCTION_PUBLIC_ORIGIN);
-    const sitemapSource = readFileSync("app/sitemap.ts", "utf8");
+    assert.equal(existing.host, undefined);
+    const sitemapSource = readFileSync("app/sitemap.xml/route.ts", "utf8");
     const robotsSource = readFileSync("app/robots.ts", "utf8");
     const layoutSource = readFileSync("app/layout.tsx", "utf8");
-    assert.match(sitemapSource, /requestPublicOrigin/);
+    assert.match(sitemapSource, /publicOriginForHost/);
+    assert.match(sitemapSource, /application\/xml; charset=utf-8/);
+    assert.match(sitemapSource, /Content-Length/);
     assert.match(robotsSource, /requestPublicOrigin/);
     assert.match(layoutSource, /requestPublicOrigin/);
     assert.doesNotMatch(sitemapSource, /mybizpilotai\.com/);
