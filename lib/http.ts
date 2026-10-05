@@ -38,6 +38,13 @@ export function jsonError(error: unknown, fallback = "Something went wrong.") {
       { status: 503 },
     );
   }
-  console.error("request_failed");
-  return NextResponse.json({ error: fallback, code: "invalid" }, { status: 500 });
+  console.error("request_failed", message);
+  const safe = message.replace(
+    /\b(?:sk|rk|pk|whsec)_(?:live|test)_[A-Za-z0-9_-]+\b/g,
+    "[redacted]",
+  );
+  return NextResponse.json(
+    { error: safe || fallback, code: "invalid" },
+    { status: 500 },
+  );
 }
