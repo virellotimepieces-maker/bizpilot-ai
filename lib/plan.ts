@@ -2,7 +2,7 @@
 export const BIZPILOT_PRO = {
   id: "bizpilot_pro",
   name: "BizPilot Pro",
-  amountCents: 2900,
+  amountCents: 2999,
   currency: "usd",
   interval: "month" as const,
   replyLimit: 500,
