@@ -218,6 +218,10 @@ describe("V2 public landing copy", () => {
     assert.ok(urls.includes(PRODUCTION_PUBLIC_ORIGIN));
     assert.ok(urls.includes(`${PRODUCTION_PUBLIC_ORIGIN}/signup`));
     assert.ok(urls.includes(`${PRODUCTION_PUBLIC_ORIGIN}/privacy`));
+    assert.equal(urls.some((url) => url.includes("/ai-customer-service-assistant")), false);
+    assert.equal(urls.some((url) => url.includes("/ai-sales-assistant")), false);
+    assert.equal(urls.some((url) => url.includes("/ai-business-assistant")), false);
+    assert.equal(urls.some((url) => url.includes("/ai-chatbot-for-small-business")), false);
     assert.equal(
       urls.some((url) => url.includes("/app") || url.includes("/api")),
       false,

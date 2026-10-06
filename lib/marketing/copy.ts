@@ -268,6 +268,7 @@ export const FAQ_ITEMS = [
     question: "What is Bizlyro AI?",
     answer:
       "Bizlyro AI is an AI customer service and sales assistant for one business. The official website is bizlyro.com. It includes website chat trained on your knowledge, an inbox, lead and request capture, Gmail drafts you confirm, and social drafts you approve before anything is published.",
+    guide: { href: "/ai-business-assistant", label: "AI business assistant" },
   },
   {
     id: "free-plan",
@@ -280,24 +281,28 @@ export const FAQ_ITEMS = [
     question: "What happens after 500 AI replies?",
     answer:
       "AI-generated customer replies pause for the rest of the Stripe billing month. The owner is notified. Visitors are offered a person. There is no automatic overage invoice.",
+    guide: { href: "/ai-customer-service-assistant", label: "AI customer service assistant" },
   },
   {
     id: "email",
     question: "Does Bizlyro AI send email on its own?",
     answer:
       "No. If you connect Gmail, a reply is sent through that Gmail account only after you press Send reply and confirm. Email never auto-sends.",
+    guide: { href: "/ai-business-assistant", label: "AI business assistant" },
   },
   {
     id: "appointments",
     question: "Will it book appointments for me?",
     answer:
       "If that workspace connects Google Calendar, the assistant checks real availability and books only a time the visitor confirms. Without a connected calendar, it can collect an appointment request and does not confirm a booking.",
+    guide: { href: "/ai-sales-assistant", label: "AI sales assistant" },
   },
   {
     id: "prices",
     question: "Can it quote a price that is not in Knowledge?",
     answer:
       "No. It may use a price you published. If the price is missing, it should ask you rather than invent one.",
+    guide: { href: "/ai-sales-assistant", label: "AI sales assistant" },
   },
   {
     id: "cancel",
@@ -310,6 +315,7 @@ export const FAQ_ITEMS = [
     question: "What is the demo?",
     answer:
       "A local, browser-only walkthrough of the desk layout. Knowledge stays in your browser. It is not billed and is not the paid widget your customers would use.",
+    guide: { href: "/ai-chatbot-for-small-business", label: "AI chatbot for small business" },
   },
 ] as const;
 

@@ -48,6 +48,9 @@ describe("use-case landing pages", () => {
       assert.match(page.description.toLowerCase(), new RegExp(intent));
       assert.match(page.h1.toLowerCase(), new RegExp(intent));
       assert.ok(page.description.length >= 120 && page.description.length <= 170, page.description);
+      assert.ok(page.title.length <= 60, page.title);
+      assert.match(page.title, /Bizlyro AI/);
+      assert.match(page.description, /^Bizlyro AI is an /);
       assert.ok(visibleText(page).split(/\s+/).length >= 400, page.path);
 
       const metadata = seoPageMetadata(page);
@@ -94,6 +97,10 @@ describe("use-case landing pages", () => {
       assert.match(jsonLd, /"isPartOf":\{"@id":"https:\/\/bizlyro\.com\/#website"\}/);
       assert.match(jsonLd, /"about":\{"@id":"https:\/\/bizlyro\.com\/#software"\}/);
       assert.doesNotMatch(jsonLd, /BizPilot/);
+      assert.match(jsonLd, /"@type":"Offer"/);
+      assert.match(jsonLd, /"price":"29.99"/);
+      assert.match(jsonLd, /"priceCurrency":"USD"/);
+      assert.match(jsonLd, /"url":"https:\/\/bizlyro.com\/signup"/);
       for (const faq of page.faqs) {
         assert.match(jsonLd, new RegExp(faq.question.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
       }
@@ -135,6 +142,26 @@ describe("use-case landing pages", () => {
     assert.match(readFileSync("components/seo-landing.tsx", "utf8"), /<h1/);
     assert.equal(readFileSync("components/seo-landing.tsx", "utf8").split("<h1").length - 1, 1);
     assert.match(readFileSync("components/seo-landing.tsx", "utf8"), /href=\{LANDING_PRIMARY_CTA\.href\}/);
+    assert.match(readFileSync("components/seo-landing.tsx", "utf8"), /ProductPreview/);
+    assert.doesNotMatch(readFileSync("components/seo-landing.tsx", "utf8"), /How this helps/);
+    const customer = SEO_PAGES.find((page) => page.path === "/ai-customer-service-assistant");
+    const chatbot = SEO_PAGES.find((page) => page.path === "/ai-chatbot-for-small-business");
+    const business = SEO_PAGES.find((page) => page.path === "/ai-business-assistant");
+    const sales = SEO_PAGES.find((page) => page.path === "/ai-sales-assistant");
+    const hrefs = (page: (typeof SEO_PAGES)[number] | undefined) =>
+      (page?.sections.flatMap((section) => section.links?.map((link) => link.href) ?? []) ?? []).join(" ");
+    assert.match(hrefs(customer), /\/ai-sales-assistant/);
+    assert.match(hrefs(customer), /\/ai-chatbot-for-small-business/);
+    assert.match(hrefs(chatbot), /\/ai-sales-assistant/);
+    assert.match(hrefs(business), /\/ai-customer-service-assistant/);
+    assert.match(hrefs(business), /\/ai-sales-assistant/);
+    assert.match(hrefs(business), /\/ai-chatbot-for-small-business/);
+    assert.match(hrefs(sales), /\/ai-customer-service-assistant/);
+    assert.equal(new Set(SEO_PAGES.map((page) => page.benefitsHeading)).size, SEO_PAGES.length);
+    const operational = publicSitemapUrls();
+    for (const route of SEO_ROUTES) {
+      assert.equal(operational.some((entry) => entry.url.endsWith(route.path)), false, route.path);
+    }
     for (const phrase of FORBIDDEN) {
       assert.equal(readFileSync("lib/marketing/seo-pages.ts", "utf8").includes(phrase), false, phrase);
     }

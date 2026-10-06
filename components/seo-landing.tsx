@@ -1,3 +1,4 @@
+import { ProductPreview } from "@/components/product-preview";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,16 @@ export function SeoLanding({ page }: { page: SeoLandingPage }) {
           </div>
         </section>
 
+        <section className="border-b py-14 sm:py-16">
+          <div className="mx-auto w-full min-w-0 max-w-6xl px-4 sm:px-6">
+            <h2 className="font-heading text-2xl tracking-tight sm:text-3xl">{page.previewHeading}</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground">{page.previewNote}</p>
+            <div className="mt-6">
+              <ProductPreview />
+            </div>
+          </div>
+        </section>
+
         {page.sections.map((section) => (
           <section key={section.heading} className="border-b py-14 sm:py-16">
             <div className={wrapClass}>
@@ -78,7 +89,7 @@ export function SeoLanding({ page }: { page: SeoLandingPage }) {
 
         <section className="border-b bg-card/60 py-14 sm:py-16">
           <div className={wrapClass}>
-            <h2 className="font-heading text-2xl tracking-tight sm:text-3xl">How this helps</h2>
+            <h2 className="font-heading text-2xl tracking-tight sm:text-3xl">{page.benefitsHeading}</h2>
             <ul className="mt-8 grid gap-4">
               {page.benefits.map((item) => (
                 <li key={item.title} className="rounded-lg border bg-card p-5">
@@ -92,7 +103,7 @@ export function SeoLanding({ page }: { page: SeoLandingPage }) {
 
         <section className="border-b py-14 sm:py-16">
           <div className={wrapClass}>
-            <h2 className="font-heading text-2xl tracking-tight sm:text-3xl">What Bizlyro will not do</h2>
+            <h2 className="font-heading text-2xl tracking-tight sm:text-3xl">{page.limitsHeading}</h2>
             <ul className="mt-8 grid gap-4">
               {page.limits.map((item) => (
                 <li key={item.title} className="rounded-lg border bg-card p-5">
@@ -106,7 +117,7 @@ export function SeoLanding({ page }: { page: SeoLandingPage }) {
 
         <section className="border-b bg-card/60 py-14 sm:py-16">
           <div className={wrapClass}>
-            <h2 className="font-heading text-2xl tracking-tight sm:text-3xl">How to start</h2>
+            <h2 className="font-heading text-2xl tracking-tight sm:text-3xl">{page.stepsHeading}</h2>
             <ol className="mt-8 grid gap-4">
               {page.steps.map((item, index) => (
                 <li key={item.title} className="rounded-lg border bg-card p-5">
@@ -123,7 +134,7 @@ export function SeoLanding({ page }: { page: SeoLandingPage }) {
 
         <section className="border-b py-14 sm:py-16">
           <div className={wrapClass}>
-            <h2 className="font-heading text-2xl tracking-tight sm:text-3xl">Questions</h2>
+            <h2 className="font-heading text-2xl tracking-tight sm:text-3xl">{page.faqsHeading}</h2>
             <div className="mt-8 grid gap-6">
               {page.faqs.map((faq) => (
                 <article key={faq.question}>
@@ -137,7 +148,7 @@ export function SeoLanding({ page }: { page: SeoLandingPage }) {
 
         <section className="border-b bg-card/60 py-14 sm:py-16">
           <div className={wrapClass}>
-            <h2 className="font-heading text-2xl tracking-tight sm:text-3xl">Related Bizlyro pages</h2>
+            <h2 className="font-heading text-2xl tracking-tight sm:text-3xl">{page.relatedHeading}</h2>
             <ul className="mt-6 grid gap-2 text-sm">
               <li>
                 <Link className="font-medium text-foreground underline-offset-2 hover:underline" href="/">
@@ -157,13 +168,8 @@ export function SeoLanding({ page }: { page: SeoLandingPage }) {
 
         <section className="bg-[oklch(0.22_0.035_264)] py-14 text-[oklch(0.97_0.006_264)] sm:py-16">
           <div className={wrapClass}>
-            <h2 className="font-heading text-2xl tracking-tight sm:text-3xl">
-              Put Bizlyro on your site
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-white/75">
-              Create an account, subscribe to {PUBLIC_PRODUCT_NAME}, and publish the facts this page
-              describes. The local demo stays a preview if you want to see the layout first.
-            </p>
+            <h2 className="font-heading text-2xl tracking-tight sm:text-3xl">{page.closeHeading}</h2>
+            <p className="mt-3 text-sm leading-relaxed text-white/75">{page.closeBody}</p>
             <div className="mt-7 flex min-w-0 flex-wrap gap-3">
               <Button size="lg" nativeButton={false} render={<Link href={LANDING_PRIMARY_CTA.href} />}>
                 {LANDING_PRIMARY_CTA.label}
