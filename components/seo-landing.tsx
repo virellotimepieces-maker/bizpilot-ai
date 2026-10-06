@@ -1,9 +1,8 @@
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
-import { LANDING_DEMO, LANDING_PRIMARY_CTA, formatPlanPriceUsd } from "@/lib/marketing/copy";
+import { LANDING_DEMO, LANDING_PRIMARY_CTA, PUBLIC_PRODUCT_NAME, formatPlanPriceUsd } from "@/lib/marketing/copy";
 import { seoPageJsonLd, type SeoLandingPage } from "@/lib/marketing/seo-pages";
-import { BIZPILOT_PRO } from "@/lib/plan";
 import Link from "next/link";
 
 const wrapClass = "mx-auto w-full min-w-0 max-w-3xl px-4 sm:px-6";
@@ -47,7 +46,7 @@ export function SeoLanding({ page }: { page: SeoLandingPage }) {
               </Button>
             </div>
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-              Get started creates an account, then {BIZPILOT_PRO.name} is {formatPlanPriceUsd()} per
+              Get started creates an account, then {PUBLIC_PRODUCT_NAME} is {formatPlanPriceUsd()} per
               month. The demo is a browser-only preview. It does not call an AI model or Stripe.
             </p>
           </div>
@@ -162,7 +161,7 @@ export function SeoLanding({ page }: { page: SeoLandingPage }) {
               Put Bizlyro on your site
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-white/75">
-              Create an account, subscribe to {BIZPILOT_PRO.name}, and publish the facts this page
+              Create an account, subscribe to {PUBLIC_PRODUCT_NAME}, and publish the facts this page
               describes. The local demo stays a preview if you want to see the layout first.
             </p>
             <div className="mt-7 flex min-w-0 flex-wrap gap-3">

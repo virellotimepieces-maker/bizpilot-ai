@@ -1,13 +1,12 @@
 import { ImageResponse } from "next/og";
-import { formatPlanPriceUsd, HOME_METADATA } from "@/lib/marketing/copy";
-import { BIZPILOT_PRO } from "@/lib/plan";
+import { formatPlanPriceUsd, HOME_METADATA, PUBLIC_PRODUCT_NAME } from "@/lib/marketing/copy";
 
 export const alt = HOME_METADATA.title;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default function OpenGraphImage() {
-  const priceLine = `${BIZPILOT_PRO.name} · ${formatPlanPriceUsd()}/month`;
+  const priceLine = `${PUBLIC_PRODUCT_NAME} · ${formatPlanPriceUsd()}/month`;
   return new ImageResponse(
     (
       <div

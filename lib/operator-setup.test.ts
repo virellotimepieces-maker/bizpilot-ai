@@ -100,7 +100,8 @@ describe("operator setup checklist", () => {
     const live = publicLiveStatusPayload(complete);
     assert.equal(live.openToSubscribers, true);
     assert.equal(live.label, "Live");
-    assert.match(live.detail, /open to subscribers/);
+    assert.match(live.detail, /Bizlyro AI is live and open to subscribers/);
+    assert.doesNotMatch(live.detail, /BizPilot/);
     assert.doesNotMatch(JSON.stringify(live), /sk_live_example|whsec_example/);
     assert.equal(publicLiveStatusPayload({ ...complete, STRIPE_SECRET_KEY: "sk_test_example" }).openToSubscribers, false);
   });

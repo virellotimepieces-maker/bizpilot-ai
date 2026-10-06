@@ -20,7 +20,7 @@ export function SetupGate({
     return (
       <div className={`${PAGE_SHELL_CLASS} max-w-5xl py-4`}>
         <div>
-          <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">BizPilot AI</p>
+          <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">Bizlyro AI</p>
           <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>{title}</h1>
           <p className={`mt-3 max-w-2xl ${HELPER_TEXT_CLASS}`}>
             {description}

@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { SEO_ROUTES } from "./seo-routes";
 import type { ResolvingMetadata } from "next";
 import { SEO_PAGES, seoPageGenerateMetadata, seoPageJsonLd, seoPageMetadata } from "./seo-pages";
-import { publicSitemapUrls, sitemapXml } from "./site";
+import { BIZLYRO_ORGANIZATION_ID, BIZLYRO_SOFTWARE_ID, BIZLYRO_WEBSITE_ID, publicSitemapUrls, sitemapXml } from "./site";
 import { BIZLYRO_PUBLIC_ORIGIN } from "@/lib/public-origin";
 
 const FORBIDDEN = [
@@ -85,7 +85,15 @@ describe("use-case landing pages", () => {
       assert.match(jsonLd, /"@type":"BreadcrumbList"/);
       assert.match(jsonLd, /"@type":"FAQPage"/);
       assert.match(jsonLd, new RegExp(canonical.replaceAll("/", "\\/")));
-      assert.doesNotMatch(jsonLd, /aggregateRating|ratingValue|"@type":"Review"|award/);
+      assert.doesNotMatch(jsonLd, /aggregateRating|ratingValue|"@type":"Review"|award|founder|sameAs|"address"/);
+      assert.match(jsonLd, new RegExp(`"@id":"${BIZLYRO_ORGANIZATION_ID}"`));
+      assert.match(jsonLd, new RegExp(`"@id":"${BIZLYRO_WEBSITE_ID}"`));
+      assert.match(jsonLd, new RegExp(`"@id":"${BIZLYRO_SOFTWARE_ID}"`));
+      assert.match(jsonLd, /"name":"Bizlyro"/);
+      assert.match(jsonLd, /"name":"Bizlyro AI"/);
+      assert.match(jsonLd, /"isPartOf":\{"@id":"https:\/\/bizlyro\.com\/#website"\}/);
+      assert.match(jsonLd, /"about":\{"@id":"https:\/\/bizlyro\.com\/#software"\}/);
+      assert.doesNotMatch(jsonLd, /BizPilot/);
       for (const faq of page.faqs) {
         assert.match(jsonLd, new RegExp(faq.question.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
       }

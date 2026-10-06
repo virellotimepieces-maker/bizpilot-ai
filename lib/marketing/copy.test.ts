@@ -14,9 +14,21 @@ import {
   LANDING_SECTIONS,
   PRICING_FEATURES,
   PRODUCT_PREVIEW_LABEL,
+  PUBLIC_BRAND_NAME,
+  PUBLIC_ENTITY_STATEMENT,
+  PUBLIC_PRODUCT_NAME,
 } from "./copy";
 import { BIZPILOT_PRO } from "@/lib/plan";
-import { homeMetadata, marketingRobots, publicSitemapUrls, sitemapXml } from "./site";
+import {
+  BIZLYRO_ORGANIZATION_ID,
+  BIZLYRO_SOFTWARE_ID,
+  BIZLYRO_WEBSITE_ID,
+  bizlyroEntityGraph,
+  homeMetadata,
+  marketingRobots,
+  publicSitemapUrls,
+  sitemapXml,
+} from "./site";
 import { BIZLYRO_PUBLIC_ORIGIN, PRODUCTION_PUBLIC_ORIGIN } from "@/lib/public-origin";
 
 const FORBIDDEN = [
@@ -81,6 +93,8 @@ describe("V2 public landing copy", () => {
   });
 
   it("keeps BizPilot Pro at $29.99 with 500 replies and no overage", () => {
+    assert.equal(BIZPILOT_PRO.id, "bizpilot_pro");
+    assert.equal(BIZPILOT_PRO.name, "BizPilot Pro");
     assert.equal(BIZPILOT_PRO.amountCents, 2999);
     assert.equal(formatPlanPriceUsd(), "$29.99");
     assert.equal(BIZPILOT_PRO.replyLimit, 500);
@@ -134,6 +148,69 @@ describe("V2 public landing copy", () => {
     assert.match(HOME_METADATA.description, /website or store/);
     assert.match(HOME_METADATA.description, /capture leads/);
     assert.match(HOME_METADATA.description, /business knowledge/);
+    assert.equal(PUBLIC_BRAND_NAME, "Bizlyro");
+    assert.equal(PUBLIC_PRODUCT_NAME, "Bizlyro AI");
+    assert.equal(
+      PUBLIC_ENTITY_STATEMENT,
+      "Bizlyro AI is an AI customer service and sales assistant, and its official website is bizlyro.com.",
+    );
+    assert.equal(LANDING_HERO.entity, PUBLIC_ENTITY_STATEMENT);
+    assert.match(readFileSync("components/marketing-home.tsx", "utf8"), /LANDING_HERO\.entity/);
+    const publicSources = [
+      ...LANDING_FILES,
+      "app/privacy/page.tsx",
+      "app/terms/page.tsx",
+      "app/opengraph-image.tsx",
+      "app/icon.tsx",
+      "app/layout.tsx",
+      "components/signup-form.tsx",
+      "components/login-form.tsx",
+      "components/dashboard-home.tsx",
+      "components/email-inbox.tsx",
+      "components/chat-studio.tsx",
+      "components/social-inbox.tsx",
+      "components/setup-gate.tsx",
+      "components/preset-gallery.tsx",
+    ];
+    for (const file of publicSources) {
+      assert.doesNotMatch(readFileSync(file, "utf8"), /BizPilot/, `${file} still names BizPilot`);
+    }
+    const graph = JSON.stringify(
+      bizlyroEntityGraph(HOME_METADATA.description, {
+        price: "29.99",
+        priceCurrency: "USD",
+        url: `${BIZLYRO_PUBLIC_ORIGIN}/signup`,
+      }),
+    );
+    assert.match(graph, new RegExp(`"@id":"${BIZLYRO_ORGANIZATION_ID}"`));
+    assert.match(graph, new RegExp(`"@id":"${BIZLYRO_WEBSITE_ID}"`));
+    assert.match(graph, new RegExp(`"@id":"${BIZLYRO_SOFTWARE_ID}"`));
+    assert.match(
+      graph,
+      /"@type":"Organization","@id":"https:\/\/bizlyro.com\/#organization","name":"Bizlyro","url":"https:\/\/bizlyro.com"/,
+    );
+    assert.match(graph, /"publisher":\{"@id":"https:\/\/bizlyro\.com\/#organization"\}/);
+    assert.match(graph, /"provider":\{"@id":"https:\/\/bizlyro\.com\/#organization"\}/);
+    assert.match(graph, /"name":"Bizlyro AI"/);
+    assert.doesNotMatch(graph, /founder|address|aggregateRating|ratingValue|"@type":"Review"|award|sameAs/i);
+    assert.doesNotMatch(readFileSync("components/marketing-home.tsx", "utf8"), /FAQPage/);
+    const nextConfig = readFileSync("next.config.ts", "utf8");
+    assert.match(nextConfig, /source: "\/w\/:key\.js"/);
+    assert.match(nextConfig, /has: \[\{ type: "host", value: "www\.bizlyro\.com" \}\]/);
+    assert.match(nextConfig, /destination: "https:\/\/bizlyro\.com\/:path\*"/);
+    assert.match(nextConfig, /permanent: true/);
+    assert.doesNotMatch(nextConfig, /mybizpilotai\.com/);
+    const editor = readFileSync("components/knowledge-editor.tsx", "utf8");
+    assert.match(editor, /productName = "BizPilot"/);
+    assert.match(editor, /productName="Bizlyro AI"/);
+    assert.doesNotMatch(readFileSync("components/paid-knowledge.tsx", "utf8"), /productName/);
+    const plan = readFileSync("lib/plan.ts", "utf8");
+    assert.match(plan, /id: "bizpilot_pro"/);
+    assert.match(plan, /name: "BizPilot Pro"/);
+    const origins = readFileSync("lib/public-origin.ts", "utf8");
+    assert.match(origins, /PRODUCTION_PUBLIC_ORIGIN = "https:\/\/www\.mybizpilotai\.com"/);
+    assert.match(origins, /"https:\/\/bizpilot-ai-mocha\.vercel\.app"/);
+    assert.match(origins, /"https:\/\/mybizpilotai\.com"/);
   });
 
   it("lists only public marketing URLs on the sitemap", () => {

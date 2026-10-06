@@ -25,14 +25,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { INTENT_LABEL } from "@/lib/intent-labels";
 import {
-  SOCIAL_AI_HELPER_COPY,
   SOCIAL_CUSTOMER_FIELD_LABEL,
   SOCIAL_GOAL_LABEL,
   SOCIAL_GOALS,
   SOCIAL_HASHTAG_LABEL,
   SOCIAL_HASHTAG_MODES,
   SOCIAL_MODE_LABEL,
-  SOCIAL_NEVER_POST,
   SOCIAL_PLATFORM_LABEL,
   SOCIAL_PLATFORMS,
   SOCIAL_STATUS_LABEL,
@@ -84,7 +82,7 @@ export function SocialInbox() {
   return (
     <SetupGate
       title="Social drafts, with humans in the loop"
-      description={SOCIAL_AI_HELPER_COPY}
+      description="AI drafts a social post from this workspace’s Knowledge, website, and connected product facts, plus your instruction. Review and edit it before you copy it. Bizlyro AI never posts automatically."
     >
       <InboxBody />
     </SetupGate>
@@ -143,7 +141,7 @@ function InboxBody() {
         language: form.language.trim() || undefined,
       });
       setDraftDirty(false);
-      toast.success("Draft ready. Review and copy it — BizPilot never posts automatically.");
+      toast.success("Draft ready. Review and copy it — Bizlyro AI never posts automatically.");
     } finally {
       setGenerating(false);
     }
@@ -158,14 +156,16 @@ function InboxBody() {
         <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">Social drafts</p>
         <h1 className={SOCIAL_PAGE_TITLE_CLASS}>Drafts you post yourself</h1>
         <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS} ${SOCIAL_WRAP_TEXT_CLASS}`}>
-          {SOCIAL_AI_HELPER_COPY}
+          AI drafts a social post from this workspace’s Knowledge, website, and connected product facts, plus your instruction. Review and edit it before you copy it. Bizlyro AI never posts automatically.
         </p>
       </div>
 
       <Alert className={SOCIAL_CONTENT_BOX_CLASS}>
         <ShieldAlert />
         <AlertTitle>Draft only</AlertTitle>
-        <AlertDescription className={SOCIAL_WRAP_INLINE_CLASS}>{SOCIAL_NEVER_POST}</AlertDescription>
+        <AlertDescription className={SOCIAL_WRAP_INLINE_CLASS}>
+          Every social post starts as a draft. Bizlyro AI never posts it automatically. Connect a social account before publishing is available.
+        </AlertDescription>
       </Alert>
 
       <div className={SOCIAL_CARD_CLASS}>
@@ -390,7 +390,7 @@ function InboxBody() {
               }}
               onPosted={() => {
                 setSocialStatus(selected.id, "posted");
-                toast.success("Marked as posted by you. BizPilot did not post it.");
+                toast.success("Marked as posted by you. Bizlyro AI did not post it.");
               }}
               onEscalate={() => {
                 setSocialStatus(selected.id, "escalated");

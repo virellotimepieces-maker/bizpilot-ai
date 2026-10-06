@@ -70,9 +70,9 @@ export function SignupForm() {
       <main className="mx-auto max-w-md px-4 py-12">
         <Card>
           <CardHeader className="border-b">
-            <CardTitle>Create your BizPilot AI account</CardTitle>
+            <CardTitle>Create your Bizlyro AI account</CardTitle>
             <CardDescription>
-              One business workspace is created with your account. Subscribe to BizPilot Pro to
+              One business workspace is created with your account. Subscribe to Bizlyro AI to
               unlock the dashboard and website widget.
             </CardDescription>
           </CardHeader>

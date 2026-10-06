@@ -93,6 +93,7 @@ export function KnowledgeEditor({
             knowledge={demo.knowledge}
             updateKnowledge={demo.updateKnowledge}
             setBusinessType={demo.setBusinessType}
+            productName="Bizlyro AI"
           />
         ) : null}
       </SetupGate>
@@ -116,10 +117,12 @@ function EditorBody({
   knowledge,
   updateKnowledge,
   setBusinessType,
+  productName = "BizPilot",
 }: {
   knowledge: KnowledgeBase;
   updateKnowledge: (next: KnowledgeBase) => void;
   setBusinessType: (type: BusinessType) => void;
+  productName?: string;
 }) {
   const [section, setSection] = useState<SectionId>("business");
   const kb = knowledge;
@@ -147,7 +150,7 @@ function EditorBody({
           <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">
             Shared knowledge base
           </p>
-          <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Teach BizPilot your business</h1>
+          <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Teach {productName} your business</h1>
           <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
             Changes here become business context for website chat and for new or regenerated email
             and social drafts. The AI answers the customer’s message; it does not paste this page
@@ -313,7 +316,7 @@ function EditorBody({
                   />
                 </Field>
                 <p className={`sm:col-span-2 ${HELPER_TEXT_CLASS}`}>
-                  Social profiles are published facts for drafts. BizPilot does not connect to
+                  Social profiles are published facts for drafts. {productName} does not connect to
                   Instagram, Facebook, TikTok, or Messenger, and it never posts for you.
                 </p>
                 <Field label="Instagram">

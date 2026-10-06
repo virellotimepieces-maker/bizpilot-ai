@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { DeskMark } from "@/components/desk-mark";
+import { PUBLIC_MARK, PUBLIC_PRODUCT_NAME } from "@/lib/marketing/copy";
 import { StoreLiveHeaderBadge, StoreLivePublicStrip } from "@/components/store-live-status";
 import {
   LANDING_NAV,
@@ -20,7 +21,7 @@ export function SiteHeader({
     <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
       <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-2">
-          <DeskMark href="/" />
+          <DeskMark href="/" name={PUBLIC_PRODUCT_NAME} mark={PUBLIC_MARK} />
           <StoreLiveHeaderBadge />
         </div>
         <nav className="flex min-w-0 flex-wrap items-center justify-end gap-1 sm:gap-2" aria-label="Site">

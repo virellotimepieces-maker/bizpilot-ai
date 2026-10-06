@@ -1,7 +1,53 @@
 import type { Metadata, MetadataRoute } from "next";
 import { BIZLYRO_PUBLIC_ORIGIN, PRODUCTION_PUBLIC_ORIGIN } from "@/lib/public-origin";
-import { HOME_METADATA } from "./copy";
+import { HOME_METADATA, PUBLIC_BRAND_NAME, PUBLIC_PRODUCT_NAME } from "./copy";
 import { SEO_ROUTES } from "./seo-routes";
+
+export const BIZLYRO_ORGANIZATION_ID = `${BIZLYRO_PUBLIC_ORIGIN}/#organization`;
+export const BIZLYRO_WEBSITE_ID = `${BIZLYRO_PUBLIC_ORIGIN}/#website`;
+export const BIZLYRO_SOFTWARE_ID = `${BIZLYRO_PUBLIC_ORIGIN}/#software`;
+
+export function bizlyroEntityGraph(
+  description: string,
+  offer?: { price: string; priceCurrency: string; url: string },
+) {
+  const software: Record<string, unknown> = {
+    "@type": "SoftwareApplication",
+    "@id": BIZLYRO_SOFTWARE_ID,
+    name: PUBLIC_PRODUCT_NAME,
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    url: BIZLYRO_PUBLIC_ORIGIN,
+    description,
+    provider: { "@id": BIZLYRO_ORGANIZATION_ID },
+  };
+  if (offer) {
+    software.offers = {
+      "@type": "Offer",
+      price: offer.price,
+      priceCurrency: offer.priceCurrency,
+      url: offer.url,
+    };
+  }
+  return [
+    {
+      "@type": "Organization",
+      "@id": BIZLYRO_ORGANIZATION_ID,
+      name: PUBLIC_BRAND_NAME,
+      url: BIZLYRO_PUBLIC_ORIGIN,
+      description,
+    },
+    {
+      "@type": "WebSite",
+      "@id": BIZLYRO_WEBSITE_ID,
+      name: PUBLIC_PRODUCT_NAME,
+      url: BIZLYRO_PUBLIC_ORIGIN,
+      description,
+      publisher: { "@id": BIZLYRO_ORGANIZATION_ID },
+    },
+    software,
+  ];
+}
 
 export const MARKETING_ORIGIN = PRODUCTION_PUBLIC_ORIGIN;
 

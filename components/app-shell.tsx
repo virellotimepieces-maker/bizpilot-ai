@@ -1,6 +1,7 @@
 "use client";
 
 import { DeskMark } from "@/components/desk-mark";
+import { PUBLIC_MARK, PUBLIC_PRODUCT_NAME } from "@/lib/marketing/copy";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { BUSINESS_TYPE_LABEL } from "@/lib/labels";
@@ -92,7 +93,12 @@ function SidebarBody({
 }) {
   return (
     <div className="flex h-full flex-col gap-5 p-3">
-      <DeskMark href={demo ? "/demo" : "/"} subtitle={demo ? "Demo desk" : "Support desk"} />
+      <DeskMark
+        href={demo ? "/demo" : "/"}
+        subtitle={demo ? "Demo desk" : "Support desk"}
+        name={demo ? PUBLIC_PRODUCT_NAME : undefined}
+        mark={demo ? PUBLIC_MARK : undefined}
+      />
       <NavLinks onNavigate={onNavigate} basePath={basePath} />
       <div className="mt-auto grid gap-3">
         {demo ? (
@@ -105,7 +111,7 @@ function SidebarBody({
         )}
         {demo ? (
           <Link href="/" className="px-1 text-[11px] text-muted-foreground underline-offset-2 hover:underline">
-            Back to BizPilot AI
+            Back to Bizlyro AI
           </Link>
         ) : (
           <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">
@@ -139,7 +145,12 @@ export function AppShell({
           <Button variant="outline" size="icon" className={TOUCH_TARGET_CLASS} onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="size-4" />
           </Button>
-          <DeskMark href={demo ? "/demo" : "/"} className="min-w-0 flex-1" />
+          <DeskMark
+            href={demo ? "/demo" : "/"}
+            className="min-w-0 flex-1"
+            name={demo ? PUBLIC_PRODUCT_NAME : undefined}
+            mark={demo ? PUBLIC_MARK : undefined}
+          />
         </header>
         <nav className="flex min-w-0 gap-2 overflow-x-auto border-b px-3 py-2 overscroll-x-contain md:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Desk">
           {NAV.map((item) => {

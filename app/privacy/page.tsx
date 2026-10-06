@@ -20,7 +20,8 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-heading text-xl">What this product stores</h2>
             <p className="mt-2 text-muted-foreground">
-              BizPilot AI is a paid customer-support desk for one business workspace. If you create
+              Bizlyro AI is an AI customer service and sales assistant for one business workspace. The
+              official website is bizlyro.com. If you create
               an account we store your name, email, password hash, workspace knowledge, website
               widget conversations, optional Gmail inbox data for that workspace, email drafts, and
               social drafts. Demo mode at /demo stays in your browser and is not this account.
@@ -69,7 +70,7 @@ export default function PrivacyPage() {
               You can change your password while signed in on Account. There is no automated
               password-reset email. To review or delete workspace data, sign in and use the
               dashboard, or email the address on your account from that same mailbox. Cancelling
-              BizPilot Pro stops new AI replies; stored knowledge and conversations remain until
+              Bizlyro AI stops new AI replies; stored knowledge and conversations remain until
               you ask us to delete the workspace.
             </p>
           </section>

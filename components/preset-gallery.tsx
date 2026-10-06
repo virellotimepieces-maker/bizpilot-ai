@@ -29,7 +29,7 @@ export function PresetGallery({
         <div>
           <h2 className="font-heading text-xl tracking-tight text-foreground">{heading}</h2>
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            BizPilot is a customer-support desk for any business. Online selling is one sample,
+            Bizlyro AI is an AI customer service and sales assistant for any business. Online selling is one sample,
             not the product. Chat and email both read the same knowledge base.
           </p>
         </div>

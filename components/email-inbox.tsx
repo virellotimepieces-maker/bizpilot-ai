@@ -29,7 +29,7 @@ export function EmailInbox() {
   return (
     <SetupGate
       title="Email support, with humans in the loop"
-      description="Every inbound message becomes an editable draft from the same knowledge base as website chat. BizPilot never sends the email for you."
+      description="Every inbound message becomes an editable draft from the same knowledge base as website chat. Bizlyro AI never sends the email for you."
     >
       <InboxBody />
     </SetupGate>
@@ -153,7 +153,7 @@ function InboxBody() {
           <DialogHeader>
             <DialogTitle>Simulate an inbound email</DialogTitle>
             <DialogDescription>
-              BizPilot will write a draft from the current knowledge base. It still will not send.
+              Bizlyro AI will write a draft from the current knowledge base. It still will not send.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
