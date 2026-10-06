@@ -12,7 +12,13 @@ import {
   TAB_ROW_CLASS,
   TOUCH_TARGET_CLASS,
 } from "./type-scale";
-import { DESK_MOBILE_PRIMARY, DESK_NAV, isDeskNavActive } from "./desk-nav";
+import {
+  DESK_MOBILE_PRIMARY,
+  DESK_NAV,
+  isDeskNavActive,
+  widgetDeskTab,
+  widgetInstallDeskHref,
+} from "./desk-nav";
 
 describe("dashboard type scale", () => {
   it("keeps page titles at 20–24px instead of display sizes", () => {
@@ -71,5 +77,14 @@ describe("V2 desk navigation", () => {
     assert.equal(isDeskNavActive("/app/quotes", DESK_NAV.find((item) => item.id === "leads")!), true);
     assert.equal(isDeskNavActive("/app/appointments", DESK_NAV.find((item) => item.id === "leads")!), true);
     assert.equal(isDeskNavActive("/billing", DESK_NAV.find((item) => item.id === "billing")!), true);
+  });
+
+  it("opens the existing Widget install tab after payment without a second key", () => {
+    assert.equal(widgetInstallDeskHref(), "/app/widget?tab=install");
+    assert.equal(widgetDeskTab("install"), "install");
+    assert.equal(widgetDeskTab(["install"]), "install");
+    assert.equal(widgetDeskTab(undefined), "appearance");
+    assert.equal(widgetDeskTab("appearance"), "appearance");
+    assert.equal(DESK_NAV.find((item) => item.id === "widget")?.href, "/app/widget");
   });
 });

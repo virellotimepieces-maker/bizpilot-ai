@@ -71,6 +71,18 @@ export const DESK_MOBILE_PRIMARY: readonly DeskNavId[] = [
   "knowledge",
 ];
 
+/** Existing Widget page tab id. Post-payment opens this tab directly. */
+export const WIDGET_INSTALL_TAB = "install";
+
+export function widgetDeskTab(tab: string | string[] | undefined): "appearance" | "install" {
+  const value = Array.isArray(tab) ? tab[0] : tab;
+  return value === WIDGET_INSTALL_TAB ? WIDGET_INSTALL_TAB : "appearance";
+}
+
+export function widgetInstallDeskHref() {
+  return `/app/widget?tab=${WIDGET_INSTALL_TAB}`;
+}
+
 export function pathMatchesHref(pathname: string, href: string) {
   if (href === "/app") return pathname === "/app";
   return pathname === href || pathname.startsWith(`${href}/`);

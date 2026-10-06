@@ -38,6 +38,7 @@ import {
   WIDGET_VERIFY_STEPS,
   type WidgetPlatformId,
 } from "@/lib/widget-install-guides";
+import { WIDGET_INSTALL_TAB } from "@/lib/ui/desk-nav";
 import {
   HELPER_TEXT_CLASS,
   PAGE_SHELL_CLASS,
@@ -53,7 +54,11 @@ import {
 import type { SerializedWidgetSettings } from "@/lib/v2/widget-settings";
 import { useEffect, useRef, useState } from "react";
 
-export function PaidWidget() {
+export function PaidWidget({
+  initialTab = "appearance",
+}: {
+  initialTab?: "appearance" | "install";
+}) {
   const [widgetKey, setWidgetKey] = useState("");
   const [appUrl, setAppUrl] = useState("");
   const [pageState, setPageState] = useState<"loading" | "ready" | "error">("loading");
@@ -222,12 +227,12 @@ export function PaidWidget() {
           {pageError}
         </p>
       ) : null}
-      <Tabs defaultValue="appearance" className="min-w-0">
+      <Tabs defaultValue={initialTab} className="min-w-0">
         <TabsList variant="line" className={`${TAB_ROW_CLASS} w-full max-w-full justify-start`}>
           <TabsTrigger value="appearance" className={TAB_ITEM_CLASS}>
             Appearance
           </TabsTrigger>
-          <TabsTrigger value="install" className={TAB_ITEM_CLASS}>
+          <TabsTrigger value={WIDGET_INSTALL_TAB} className={TAB_ITEM_CLASS}>
             Install
           </TabsTrigger>
         </TabsList>
@@ -261,7 +266,7 @@ export function PaidWidget() {
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="install" className="min-w-0 pt-4">
+        <TabsContent value={WIDGET_INSTALL_TAB} className="min-w-0 pt-4">
           <Card>
             <CardHeader className="border-b">
               <CardTitle>Install widget</CardTitle>

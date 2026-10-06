@@ -213,7 +213,16 @@ describe("Widget V2 UI wiring", () => {
     const leads = readFileSync("app/app/leads/page.tsx", "utf8");
     assert.match(paid, /Appearance/);
     assert.match(paid, /Install widget/);
+    assert.match(paid, /initialTab/);
+    assert.match(paid, /WIDGET_INSTALL_TAB/);
+    assert.match(paid, /widgetInstallSnippet/);
     assert.match(paid, /WIDGET_APP_SETTINGS_PATH/);
+    const billing = readFileSync("components/billing-panel.tsx", "utf8");
+    const widgetPage = readFileSync("app/app/widget/page.tsx", "utf8");
+    assert.match(billing, /widgetInstallDeskHref\(\)/);
+    assert.doesNotMatch(billing, /router\.replace\("\/app"\)/);
+    assert.match(widgetPage, /widgetDeskTab/);
+    assert.match(widgetPage, /initialTab=\{widgetDeskTab\(tab\)\}/);
     assert.match(form, /Identify as an AI assistant/);
     assert.match(form, /Ask for name and email/);
     assert.match(form, /creates a Lead/);

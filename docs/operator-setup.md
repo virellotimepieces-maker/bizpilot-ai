@@ -84,7 +84,7 @@ Without this, **Manage in Stripe Customer Portal** on `/billing` fails.
 2. Create a throwaway account.
 3. You land on `/billing`. Subscribe — $29 / month.
 4. Pay with a real card (Live mode). Stripe may show 3D Secure.
-5. After Checkout, `/billing` waits for the webhook, then `/app` unlocks.
+5. After Checkout, `/billing` waits for the webhook, then `/app/widget?tab=install` opens with that workspace’s existing snippet.
 6. Open Customer Portal from `/billing` and confirm you can cancel.
 
 If Checkout succeeds but `/app` stays locked, the webhook URL, events, or `STRIPE_WEBHOOK_SECRET` is wrong.
