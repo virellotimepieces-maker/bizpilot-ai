@@ -18,6 +18,7 @@ import {
   storeLiveStatus,
   type OperatorCheck,
 } from "@/lib/operator-setup";
+import { widgetInstallDeskHref } from "@/lib/ui/desk-nav";
 import { PAGE_SHELL_CLASS } from "@/lib/ui/type-scale";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -106,7 +107,7 @@ export function BillingPanel({
           if (payload.paidAccess) {
             window.clearInterval(timer);
             setWaitingOnWebhook(false);
-            router.replace("/app");
+            router.replace(widgetInstallDeskHref());
           } else if (tries >= 15) {
             window.clearInterval(timer);
             setWaitingOnWebhook(false);
