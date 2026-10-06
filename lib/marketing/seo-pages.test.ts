@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { SEO_ROUTES } from "./seo-routes";
+import { INTENT_ROUTES, SEO_ROUTES } from "./seo-routes";
 import type { ResolvingMetadata } from "next";
 import { SEO_PAGES, seoPageGenerateMetadata, seoPageJsonLd, seoPageMetadata } from "./seo-pages";
 import { BIZLYRO_ORGANIZATION_ID, BIZLYRO_SOFTWARE_ID, BIZLYRO_WEBSITE_ID, publicSitemapUrls, sitemapXml } from "./site";
@@ -32,9 +32,9 @@ function visibleText(page: (typeof SEO_PAGES)[number]) {
 }
 
 describe("use-case landing pages", () => {
-  it("publishes four unique indexable pages for the target intents", async () => {
+  it("publishes unique indexable pages for the target intents", async () => {
     assert.deepEqual(
-      SEO_ROUTES.map((route) => route.path),
+      [...SEO_ROUTES, ...INTENT_ROUTES].map((route) => route.path),
       SEO_PAGES.map((page) => page.path),
     );
     assert.equal(new Set(SEO_PAGES.map((page) => page.title)).size, SEO_PAGES.length);
@@ -118,7 +118,7 @@ describe("use-case landing pages", () => {
   it("adds the pages to the Bizlyro sitemap and the homepage", () => {
     const urls = publicSitemapUrls(BIZLYRO_PUBLIC_ORIGIN);
     const xml = sitemapXml(BIZLYRO_PUBLIC_ORIGIN);
-    for (const route of SEO_ROUTES) {
+    for (const route of [...SEO_ROUTES, ...INTENT_ROUTES]) {
       const url = `${BIZLYRO_PUBLIC_ORIGIN}${route.path}`;
       const entry = urls.find((item) => item.url === url);
       assert.ok(entry, url);
@@ -159,11 +159,20 @@ describe("use-case landing pages", () => {
     assert.match(hrefs(sales), /\/ai-customer-service-assistant/);
     assert.equal(new Set(SEO_PAGES.map((page) => page.benefitsHeading)).size, SEO_PAGES.length);
     const operational = publicSitemapUrls();
-    for (const route of SEO_ROUTES) {
+    for (const route of [...SEO_ROUTES, ...INTENT_ROUTES]) {
       assert.equal(operational.some((entry) => entry.url.endsWith(route.path)), false, route.path);
     }
     for (const phrase of FORBIDDEN) {
-      assert.equal(readFileSync("lib/marketing/seo-pages.ts", "utf8").includes(phrase), false, phrase);
+      for (const file of ["lib/marketing/seo-pages.ts", "lib/marketing/intent-pages.ts"]) {
+        assert.equal(readFileSync(file, "utf8").includes(phrase), false, `${file} contains "${phrase}"`);
+      }
+    }
+    for (const page of SEO_PAGES.filter((item) => INTENT_ROUTES.some((route) => route.path === item.path))) {
+      const text = visibleText(page);
+      assert.match(text, /Honest AI does not invent prices, policies, promotions, or missing business facts/);
+      assert.match(text, /24\/7/);
+      assert.match(text, /\$29\.99/);
+      assert.match(text, /lead/i);
     }
   });
 });

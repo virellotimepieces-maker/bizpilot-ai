@@ -51,6 +51,7 @@ const LANDING_FILES = [
   "components/seo-landing.tsx",
   "lib/marketing/seo-pages.ts",
   "lib/marketing/seo-routes.ts",
+  "lib/marketing/intent-pages.ts",
 ];
 
 describe("V2 public landing copy", () => {
@@ -185,6 +186,7 @@ describe("V2 public landing copy", () => {
       "components/social-inbox.tsx",
       "components/setup-gate.tsx",
       "components/preset-gallery.tsx",
+      "lib/marketing/intent-pages.ts",
     ];
     for (const file of publicSources) {
       assert.doesNotMatch(readFileSync(file, "utf8"), /BizPilot/, `${file} still names BizPilot`);
@@ -236,6 +238,12 @@ describe("V2 public landing copy", () => {
     assert.equal(urls.some((url) => url.includes("/ai-sales-assistant")), false);
     assert.equal(urls.some((url) => url.includes("/ai-business-assistant")), false);
     assert.equal(urls.some((url) => url.includes("/ai-chatbot-for-small-business")), false);
+    assert.equal(urls.some((url) => url.includes("/ai-customer-service-for-small-business")), false);
+    assert.equal(urls.some((url) => url.includes("/ai-website-chatbot-for-small-business")), false);
+    assert.equal(urls.some((url) => url.includes("/ai-lead-capture-for-small-business")), false);
+    assert.equal(urls.some((url) => url.includes("/ai-chatbot-for-contractors")), false);
+    assert.equal(urls.some((url) => url.includes("/ai-chatbot-for-dental-clinics")), false);
+    assert.equal(urls.some((url) => url.includes("/ai-chatbot-for-local-businesses")), false);
     assert.equal(
       urls.some((url) => url.includes("/app") || url.includes("/api")),
       false,
@@ -252,6 +260,12 @@ describe("V2 public landing copy", () => {
       "https://bizlyro.com/ai-sales-assistant",
       "https://bizlyro.com/ai-business-assistant",
       "https://bizlyro.com/ai-chatbot-for-small-business",
+      "https://bizlyro.com/ai-customer-service-for-small-business",
+      "https://bizlyro.com/ai-website-chatbot-for-small-business",
+      "https://bizlyro.com/ai-lead-capture-for-small-business",
+      "https://bizlyro.com/ai-chatbot-for-contractors",
+      "https://bizlyro.com/ai-chatbot-for-dental-clinics",
+      "https://bizlyro.com/ai-chatbot-for-local-businesses",
     ]);
     assert.equal(bizlyro.some((url) => url.includes("mybizpilotai.com")), false);
     const xml = sitemapXml(BIZLYRO_PUBLIC_ORIGIN);

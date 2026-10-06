@@ -2,7 +2,8 @@ import type { Metadata, ResolvingMetadata } from "next";
 import { BIZPILOT_PRO } from "@/lib/plan";
 import { BIZLYRO_PUBLIC_ORIGIN } from "@/lib/public-origin";
 import { formatPlanPriceUsd, HOME_METADATA } from "./copy";
-import { SEO_ROUTES, type SeoRoutePath } from "./seo-routes";
+import type { SeoRoutePath } from "./seo-routes";
+import { INTENT_PAGES } from "./intent-pages";
 import { BIZLYRO_SOFTWARE_ID, BIZLYRO_WEBSITE_ID, bizlyroEntityGraph } from "./site";
 
 const PLAN_PRICE = `USD ${formatPlanPriceUsd()} per month`;
@@ -173,6 +174,7 @@ const customerService: SeoLandingPage = {
     { href: "/ai-business-assistant", label: "AI business assistant" },
     { href: "/#pricing", label: "Bizlyro AI pricing" },
     { href: "/demo", label: "Open the local demo" },
+    { href: "/ai-customer-service-for-small-business", label: "AI customer service for small business" },
   ],
   closeHeading: "Answer published support questions on your site",
   closeBody:
@@ -314,6 +316,7 @@ const salesAssistant: SeoLandingPage = {
     { href: "/ai-chatbot-for-small-business", label: "AI chatbot for small business" },
     { href: "/#knowledge", label: "Knowledge engine" },
     { href: "/signup", label: "Create a Bizlyro account" },
+    { href: "/ai-lead-capture-for-small-business", label: "AI lead capture for small business" },
   ],
   closeHeading: "Capture the request. You close the sale.",
   closeBody:
@@ -458,6 +461,7 @@ const businessAssistant: SeoLandingPage = {
     { href: "/ai-chatbot-for-small-business", label: "AI chatbot for small business" },
     { href: "/#pricing", label: "Pricing" },
     { href: "/#how-it-works", label: "How it works" },
+    { href: "/ai-chatbot-for-local-businesses", label: "AI chatbot for local businesses" },
   ],
   closeHeading: "One assistant for this business",
   closeBody:
@@ -600,6 +604,7 @@ const smallBusinessChatbot: SeoLandingPage = {
     { href: "/ai-customer-service-assistant", label: "AI customer service assistant" },
     { href: "/#pricing", label: "Pricing" },
     { href: "/signup", label: "Get started with Bizlyro" },
+    { href: "/ai-website-chatbot-for-small-business", label: "AI website chatbot for small business" },
   ],
   closeHeading: "Install one widget on the site you already have",
   closeBody:
@@ -611,6 +616,7 @@ export const SEO_PAGES: readonly SeoLandingPage[] = [
   salesAssistant,
   businessAssistant,
   smallBusinessChatbot,
+  ...INTENT_PAGES,
 ];
 
 export function seoPageByPath(path: SeoRoutePath) {

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { DeskMark } from "@/components/desk-mark";
 import { PUBLIC_MARK, PUBLIC_PRODUCT_NAME } from "@/lib/marketing/copy";
 import { LANDING_DEMO, LANDING_NAV, LANDING_PRIMARY_CTA, LANDING_SIGN_IN } from "@/lib/marketing/copy";
-import { SEO_ROUTES } from "@/lib/marketing/seo-routes";
+import { INTENT_ROUTES, SEO_ROUTES } from "@/lib/marketing/seo-routes";
 
 export function SiteFooter() {
   return (
@@ -27,6 +27,11 @@ export function SiteFooter() {
               Demo
             </Link>
             {SEO_ROUTES.map((route) => (
+              <Link key={route.path} className="hover:underline" href={route.path}>
+                {route.label}
+              </Link>
+            ))}
+            {INTENT_ROUTES.map((route) => (
               <Link key={route.path} className="hover:underline" href={route.path}>
                 {route.label}
               </Link>

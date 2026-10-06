@@ -1,7 +1,7 @@
 import type { Metadata, MetadataRoute } from "next";
 import { BIZLYRO_PUBLIC_ORIGIN, PRODUCTION_PUBLIC_ORIGIN } from "@/lib/public-origin";
 import { HOME_METADATA, PUBLIC_BRAND_NAME, PUBLIC_PRODUCT_NAME } from "./copy";
-import { SEO_ROUTES } from "./seo-routes";
+import { INTENT_ROUTES, SEO_ROUTES } from "./seo-routes";
 
 export const BIZLYRO_ORGANIZATION_ID = `${BIZLYRO_PUBLIC_ORIGIN}/#organization`;
 export const BIZLYRO_WEBSITE_ID = `${BIZLYRO_PUBLIC_ORIGIN}/#website`;
@@ -85,6 +85,12 @@ const SITEMAP_PATHS: { path: string; priority: number; lastModified: string; gui
   { path: "/privacy", priority: 0.6, lastModified: "2026-10-02T00:00:00.000Z" },
   { path: "/terms", priority: 0.6, lastModified: "2026-10-02T00:00:00.000Z" },
   ...SEO_ROUTES.map((route) => ({
+    path: route.path,
+    priority: 0.8,
+    lastModified: GUIDE_SITEMAP_LAST_MODIFIED,
+    guide: true,
+  })),
+  ...INTENT_ROUTES.map((route) => ({
     path: route.path,
     priority: 0.8,
     lastModified: GUIDE_SITEMAP_LAST_MODIFIED,
