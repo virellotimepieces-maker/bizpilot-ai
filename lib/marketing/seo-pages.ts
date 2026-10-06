@@ -1,8 +1,12 @@
 import type { Metadata, ResolvingMetadata } from "next";
+import { BIZPILOT_PRO } from "@/lib/plan";
 import { BIZLYRO_PUBLIC_ORIGIN } from "@/lib/public-origin";
-import { HOME_METADATA } from "./copy";
+import { formatPlanPriceUsd, HOME_METADATA } from "./copy";
 import { SEO_ROUTES, type SeoRoutePath } from "./seo-routes";
 import { BIZLYRO_SOFTWARE_ID, BIZLYRO_WEBSITE_ID, bizlyroEntityGraph } from "./site";
+
+const PLAN_PRICE = `USD ${formatPlanPriceUsd()} per month`;
+const PLAN_REPLIES = BIZPILOT_PRO.replyLimit;
 
 export type SeoTextLink = { href: string; label: string };
 
@@ -21,109 +25,148 @@ export type SeoLandingPage = {
   steps: { title: string; body: string }[];
   faqs: { question: string; answer: string }[];
   related: SeoTextLink[];
+  previewHeading: string;
+  previewNote: string;
+  benefitsHeading: string;
+  limitsHeading: string;
+  stepsHeading: string;
+  faqsHeading: string;
+  relatedHeading: string;
+  closeHeading: string;
+  closeBody: string;
 };
 
 const customerService: SeoLandingPage = {
   path: "/ai-customer-service-assistant",
   label: "AI customer service assistant",
   intent: "AI customer service assistant",
-  title: "AI Customer Service Assistant for Your Website — Bizlyro AI",
+  title: "AI Customer Service Assistant — Bizlyro AI",
   description:
-    "Bizlyro is an AI customer service assistant for your website. It answers published hours, policies, and FAQs, then hands the thread to you when a person should reply.",
+    "Bizlyro AI is an AI customer service assistant for your website. It answers published hours and policies, then hands the thread to you.",
   eyebrow: "Customer service",
-  h1: "AI customer service assistant for your website",
+  h1: "AI customer service assistant for after-hours questions",
   lede:
-    "Bizlyro is an AI customer service assistant for one business. Visitors ask on the site they already opened. Answers come from the hours, policies, and FAQs you publish. When a question needs a person, the thread waits in Inbox instead of receiving a made-up policy.",
+    "Bizlyro AI answers customer-service questions from the hours, policies, and FAQs you publish. A visitor can ask after you have locked the door. When the question needs a person, the thread waits in Inbox instead of receiving a made-up policy.",
+  previewHeading: "A sample support answer",
+  previewNote:
+    "The Saturday hours reply is the kind of published fact this assistant can repeat. The quote row is a different job, covered on the sales guide. Names in this sample are not live customers.",
   sections: [
     {
-      heading: "The questions that arrive after you close",
+      heading: "Support questions that arrive after you close",
       paragraphs: [
         "A small site still gets “Are you open Saturday?”, “What is your return window?”, and “Do you serve my area?” when nobody is at the desk. A contact form stores the name. It does not answer the question that made someone write.",
-        "An AI customer service assistant is useful when those questions repeat and the safe answer is already written down. Bizlyro reads the knowledge you published for that workspace and replies in the website widget. It is help for the facts you trained, not a claim that a teammate is on duty overnight.",
+        "An AI customer service assistant is useful when those questions repeat and the safe answer is already written down. Bizlyro AI reads the knowledge published for that workspace and replies in the website widget. It is help for the facts you trained. It is not a claim that a teammate is on duty overnight.",
       ],
     },
     {
-      heading: "Answers stay tied to your knowledge",
+      heading: "Example: Saturday hours from Knowledge",
       paragraphs: [
-        "You write hours, services, policies, and FAQs in Knowledge. Website chat uses that published material, and public pages you choose to index can sit beside it. If two sources disagree, the conflict stays visible so you can correct it. The assistant does not silently invent a third version.",
-        "If the fact is missing, Bizlyro should say so and keep the gap on record. That unanswered question is a prompt to publish the missing policy, not a license to guess a price, a promise, or a legal position.",
+        "You publish Saturday as 9:00–14:00 in Knowledge. A visitor asks, “What time do you open on Saturday?” The widget can answer with those hours because you wrote them down. It should not add a promise that someone will be on the phone at 9:00.",
+        "If Saturday hours are missing, the assistant should say the fact is not available and keep the gap on record. That unanswered question is a prompt to publish the hours, not a license to guess a schedule.",
       ],
       links: [
         { href: "/#knowledge", label: "How Bizlyro knowledge works" },
-        { href: "/ai-business-assistant", label: "AI business assistant" },
+        { href: "/ai-chatbot-for-small-business", label: "How a small business publishes those facts" },
       ],
     },
     {
-      heading: "A person still owns the hard threads",
+      heading: "Example: the visitor asks for a person",
       paragraphs: [
-        "Visitors can ask to talk to a person. Complaints, legal or medical questions, and emergencies pause the assistant and wait in Inbox. The visitor is told a teammate will reply in the widget. You answer when you are back, in your own words.",
-        "The monthly reply allowance is a stop, not a surprise invoice. When it is used, AI replies pause and visitors are offered a person. There is no automatic overage charge.",
+        "A visitor writes, “I need to talk to someone about a complaint.” Asking for a person pauses AI on that thread. Complaints, legal or medical questions, and emergencies wait in Inbox. The visitor is told a teammate will reply in the widget.",
+        "You answer when you are back, in your own words. The assistant does not email the customer on its own. If Gmail is connected, a draft can be prepared, and it is sent through that Gmail account only after you confirm.",
       ],
       links: [
         { href: "/#handoff", label: "Human handoff on the homepage" },
         { href: "/#inbox", label: "Inbox" },
       ],
     },
+    {
+      heading: "The reply allowance is a stop, not an invoice",
+      paragraphs: [
+        `Bizlyro AI is ${PLAN_PRICE} for one website widget and ${PLAN_REPLIES} AI-generated customer replies in a billing month. The official website is bizlyro.com. When those replies are used, AI answers pause and the visitor is offered a person. There is no automatic overage charge.`,
+        "Support questions that are really about a price or a quote belong on the sales guide. This page stays with hours, policies, FAQs, and the handoff.",
+      ],
+      links: [
+        { href: "/ai-sales-assistant", label: "AI sales assistant" },
+        { href: "/ai-business-assistant", label: "AI business assistant" },
+      ],
+    },
+    {
+      heading: "What you do with a thread that is waiting",
+      paragraphs: [
+        "A paused thread stays in Inbox with the visitor’s messages. You read what was already answered from Knowledge and what was held back. You reply in that conversation when you are ready. The assistant does not keep talking on a thread you have taken over.",
+        "That is the customer-service loop: publish the safe answers, let the widget repeat them, and use Inbox for complaints, missing policies, and anyone who asked for a person. A quote or a custom price is a different conversation.",
+      ],
+    },
   ],
+  benefitsHeading: "What this does for support",
   benefits: [
     {
-      title: "Support on the page they opened",
-      body: "Hours, policies, and published FAQs are answered in the widget. The visitor does not have to hunt through a PDF to find the same fact.",
+      title: "Answers on the page they opened",
+      body: "Published hours, return rules, and service-area facts are repeated in the widget. The visitor does not have to hunt through a PDF for the same line.",
     },
     {
-      title: "One source of truth",
-      body: "Update Knowledge when a policy changes. The assistant uses what is published now, instead of an old macro copied into a separate chat tool.",
+      title: "One support source",
+      body: "Change the policy in Knowledge. The next visitor gets the updated fact, instead of an old macro copied into a separate chat tool.",
     },
     {
-      title: "A queue for everything else",
-      body: "Handoffs and messages that should not be automated stay in Inbox, next to the conversation, so you are not reconstructing the thread from a personal chat app.",
+      title: "A queue for the rest",
+      body: "Handoffs stay in Inbox next to the conversation, so you are not reconstructing the thread from a personal chat app.",
     },
   ],
+  limitsHeading: "What this assistant will not do",
   limits: [
     {
       title: "It is not overnight staff",
-      body: "Bizlyro can answer published questions around the clock. It does not mean a person from your business is available around the clock.",
+      body: "Bizlyro AI can answer published support questions around the clock. It does not mean a person from your business is available around the clock.",
     },
     {
-      title: "It does not invent policy",
-      body: "Missing prices, exceptions, and promises stay unanswered until you publish them or reply yourself.",
+      title: "It does not invent a policy",
+      body: "A missing return window, exception, or promise stays unanswered until you publish it or reply yourself.",
     },
     {
-      title: "Email still needs your confirmation",
+      title: "It does not email the customer for you",
       body: "Gmail replies send only after you confirm. The website assistant does not quietly email customers on its own.",
     },
   ],
+  stepsHeading: "How to put support answers on your site",
   steps: [
     {
-      title: "Create the workspace",
-      body: "Get started opens an account for one business. The paid plan is Bizlyro AI, billed monthly after you subscribe.",
+      title: "Open one workspace",
+      body: `Get started creates the account. Subscribe to Bizlyro AI at ${PLAN_PRICE} when you want the paid widget.`,
     },
     {
       title: "Publish the answers you already give",
-      body: "Add hours, service area, shipping or visit policies, and the FAQs you repeat on the phone. Chat answers from that material.",
+      body: "Add hours, holiday closures, service area, and the policies you repeat on the phone. Leave unpublished exceptions out.",
     },
     {
-      title: "Install the widget and watch Inbox",
-      body: "Place the snippet on your site. Answered questions stay in the widget. Threads that need you wait in Inbox.",
+      title: "Watch Inbox for handoffs",
+      body: "Install the snippet from the Widget page. Answered questions stay in the widget. Threads that need you wait in Inbox.",
     },
   ],
+  faqsHeading: "Support questions",
   faqs: [
     {
       question: "Will an AI customer service assistant replace my team?",
       answer:
-        "No. Bizlyro covers published questions on your website and pauses when a visitor asks for a person or raises a complaint, legal, or medical issue. Your team still replies from Inbox.",
+        "No. Bizlyro AI covers published support questions on your website and pauses when a visitor asks for a person or raises a complaint, legal, or medical issue. Your team still replies from Inbox.",
     },
     {
-      question: "What if the answer is not in Knowledge?",
+      question: "What if the hours or policy are not in Knowledge?",
       answer:
-        "The assistant should not invent it. The gap can be stored so you can publish the missing fact. Until then, the thread can wait for you.",
+        "The assistant should not invent them. The gap can be stored so you can publish the missing fact. Until then, the thread can wait for you.",
     },
     {
       question: "Can visitors request a person?",
       answer:
         "Yes. Asking to talk to a person pauses AI on that thread. The visitor is told a teammate will reply in the widget.",
     },
+    {
+      question: "What happens when the monthly support replies are used?",
+      answer: `AI-generated customer replies pause for the rest of that billing month after ${PLAN_REPLIES} replies. Visitors are offered a person. There is no automatic overage charge.`,
+    },
   ],
+  relatedHeading: "When the question is not support",
   related: [
     { href: "/ai-sales-assistant", label: "AI sales assistant" },
     { href: "/ai-chatbot-for-small-business", label: "AI chatbot for small business" },
@@ -131,31 +174,44 @@ const customerService: SeoLandingPage = {
     { href: "/#pricing", label: "Bizlyro AI pricing" },
     { href: "/demo", label: "Open the local demo" },
   ],
+  closeHeading: "Answer published support questions on your site",
+  closeBody:
+    "Create an account, subscribe to Bizlyro AI, and publish the hours and policies this page describes. Use the sales guide when the visitor is asking for a quote instead of a policy.",
 };
 
 const salesAssistant: SeoLandingPage = {
   path: "/ai-sales-assistant",
   label: "AI sales assistant",
   intent: "AI sales assistant",
-  title: "AI Sales Assistant That Stays Inside Your Catalog — Bizlyro AI",
+  title: "AI Sales Assistant for Quote Requests — Bizlyro AI",
   description:
-    "Use Bizlyro as an AI sales assistant on your site. It explains published products, services, and prices, captures quote requests, and does not invent a discount.",
+    "Bizlyro AI is an AI sales assistant for your website. It explains published products and prices, captures quote requests, and does not invent a discount.",
   eyebrow: "Sales",
-  h1: "AI sales assistant for published products and services",
+  h1: "AI sales assistant for published offers and quote requests",
   lede:
-    "Bizlyro can work as an AI sales assistant on your website. It explains products, services, and prices you have published, then captures the quote or contact request for you to review. It does not invent a discount, mark an item in stock, or close a sale you did not define.",
+    "Bizlyro AI handles sales questions about products, services, and prices you have already published. It can capture a quote request or a lead for you to review. It does not invent a discount, mark an item in stock, or close a sale you did not define.",
+  previewHeading: "A sample quote request",
+  previewNote:
+    "The kitchen-install message shows a request the assistant can take without confirming a price. The Saturday hours line is a support answer, not a sale. Names in this sample are not live customers.",
   sections: [
     {
-      heading: "Sell only what you have already said is for sale",
+      heading: "Sales questions about what you already offer",
       paragraphs: [
-        "Visitors ask which service fits, what a published price includes, and whether you cover their situation. A useful AI sales assistant answers from that catalog. It does not freelance a new offer because a sentence sounded helpful.",
-        "Bizlyro uses the offerings and prices in your knowledge, and indexed public pages you connect, for that workspace only. If a price is missing, it should ask you rather than fill one in. Shopify and WooCommerce are not live catalog connections in this product. Inventory and checkout are not read from those platforms.",
+        "Visitors ask which service fits, what a published price includes, and whether you cover their situation. A useful AI sales assistant answers from that offer. It does not freelance a new package because a sentence sounded helpful.",
+        "Bizlyro AI uses the offerings and prices in your knowledge, and indexed public pages you connect, for that workspace only. If a price is missing, it should ask you rather than fill one in. Shopify and WooCommerce are not live catalog connections. Inventory and checkout are not read from those platforms.",
       ],
     },
     {
-      heading: "The next step is a request, not a fake order",
+      heading: "Example: a price you already published",
       paragraphs: [
-        "When a visitor shares a name and email, or asks for a quote, the request lands in your workspace. Quote rows are requests you review. You decide the number, the scope, and whether to send it.",
+        "You publish a service named “Standard visit” at a price you are willing to state, and a short note about what the visit includes. A visitor asks what that visit costs. The widget can repeat the published price and the included scope.",
+        "If the visitor asks for a discount that is not in Knowledge, the assistant should not offer one to be polite. If the price field is empty, it should not invent a number. The gap stays for you to fill or to answer yourself.",
+      ],
+    },
+    {
+      heading: "Example: a quote request stays a request",
+      paragraphs: [
+        "A visitor asks for a quote on a kitchen install and leaves a name and email. The request lands in your workspace. Quote rows are requests you review. You decide the number, the scope, and whether to send it. Nothing in that queue is a completed order or a card payment.",
         "Appointment requests work the same way unless that workspace has connected Google Calendar. With a connected calendar, the assistant can check real availability and book only a time the visitor confirms. Without one, it collects the request and does not confirm a booking.",
       ],
       links: [
@@ -164,59 +220,71 @@ const salesAssistant: SeoLandingPage = {
       ],
     },
     {
-      heading: "Where sales help ends",
+      heading: "The plan does not take the payment",
       paragraphs: [
-        "Bizlyro will not promise a discount, a delivery date, or a custom package that is not in the material you published. It will not tell a visitor an item is available unless you published that fact. Closing the sale, taking payment, and making exceptions stay with you.",
-        "That limit is the point of an AI sales assistant for a real business. The widget can keep the conversation moving after hours. You still approve anything that commits the company.",
+        `Subscribe to Bizlyro AI at ${PLAN_PRICE} on bizlyro.com. The plan is one widget and ${PLAN_REPLIES} AI replies in the billing month, with no automatic overage. A quote request is not a charge. Gmail and social posts leave only after you confirm them.`,
+        "Hours-and-policy questions are the customer-service guide. Installing the widget on a small-business site is the chatbot guide. This page is the sales conversation: explain the published offer, capture the request, and stop before you commit the company.",
       ],
       links: [
         { href: "/ai-business-assistant", label: "AI business assistant" },
+        { href: "/ai-chatbot-for-small-business", label: "AI chatbot for small business" },
         { href: "/#pricing", label: "See Bizlyro AI pricing" },
       ],
     },
+    {
+      heading: "What “qualify” means here",
+      paragraphs: [
+        "The assistant can ask which published service the visitor means and collect a name and email with the request. That is the qualification it can do: enough detail for you to answer. It does not score the lead, predict a close, or tell you the conversation is worth a certain amount.",
+        "You open Leads, read the request, and decide the follow-up. If the question was only about hours or a return rule, it belongs with customer service, not in a quote queue.",
+      ],
+    },
   ],
+  benefitsHeading: "What this does in a sales conversation",
   benefits: [
     {
-      title: "Answers that match the offer",
-      body: "Published services, products, and prices are explained in the visitor’s words, without a second catalog hiding in the chat tool.",
+      title: "The offer you published",
+      body: "Services, products, and prices you wrote down are explained in the visitor’s words. There is no second catalog hiding in the chat tool.",
     },
     {
-      title: "Leads you can actually use",
+      title: "A lead you can answer",
       body: "Name, email, and the request show up for review. You follow up when the question needs a custom price or a person.",
     },
     {
       title: "No invented close",
-      body: "The assistant can prepare the conversation. It does not mark a deal won, collect a card, or guarantee a result.",
+      body: "The assistant can keep the conversation moving. It does not mark a deal won, collect a card, or guarantee a result.",
     },
   ],
+  limitsHeading: "What this assistant will not promise",
   limits: [
     {
       title: "It does not promise revenue",
-      body: "Bizlyro helps visitors understand what you published and how to ask for the next step. Results depend on your offer and your follow-up.",
+      body: "Bizlyro AI helps visitors understand a published offer and how to ask for the next step. Results depend on your offer and your follow-up.",
     },
     {
       title: "No surprise discounts",
-      body: "A discount exists only if you published it. The assistant should not offer one to be polite.",
+      body: "A discount exists only if you published it. The assistant should not create one during the chat.",
     },
     {
-      title: "Store platforms are not connected",
+      title: "Store platforms are not the catalog",
       body: "Shopify and WooCommerce are not live integrations. Stock and checkout are not pulled from those accounts.",
     },
   ],
+  stepsHeading: "How to use it for quotes and leads",
   steps: [
     {
-      title: "Publish the catalog you want repeated",
+      title: "Publish the offer you want repeated",
       body: "Add services or products, what they include, and any price you are willing to state. Leave unpublished numbers out.",
     },
     {
-      title: "Let the widget take the first question",
+      title: "Let the widget take the first sales question",
       body: "Visitors ask in the installed widget. Answers stay inside that published material.",
     },
     {
-      title: "Review quotes and leads yourself",
-      body: "Open the request, confirm the details, and reply. Nothing in that queue is a completed order.",
+      title: "Review the request yourself",
+      body: "Open the quote or lead, confirm the details, and reply. You send the price. Bizlyro AI does not.",
     },
   ],
+  faqsHeading: "Sales questions",
   faqs: [
     {
       question: "Can the AI sales assistant close a sale on its own?",
@@ -233,7 +301,13 @@ const salesAssistant: SeoLandingPage = {
       answer:
         "No. Those store connections are not live. Put the products, services, and prices you want used into Knowledge, or index the public pages that already state them.",
     },
+    {
+      question: "Can it book a time during a sales chat?",
+      answer:
+        "Only if that workspace has connected Google Calendar, and only for a time the visitor confirms. Otherwise it can store an appointment request and must not confirm a booking.",
+    },
   ],
+  relatedHeading: "Support and setup, separate from the sale",
   related: [
     { href: "/ai-customer-service-assistant", label: "AI customer service assistant" },
     { href: "/ai-business-assistant", label: "AI business assistant" },
@@ -241,6 +315,9 @@ const salesAssistant: SeoLandingPage = {
     { href: "/#knowledge", label: "Knowledge engine" },
     { href: "/signup", label: "Create a Bizlyro account" },
   ],
+  closeHeading: "Capture the request. You close the sale.",
+  closeBody:
+    "Create an account and subscribe to Bizlyro AI, then publish the offers this page is allowed to repeat. The assistant can qualify the question and store the lead. Payment and exceptions stay with you.",
 };
 
 const businessAssistant: SeoLandingPage = {
@@ -249,28 +326,39 @@ const businessAssistant: SeoLandingPage = {
   intent: "AI business assistant",
   title: "AI Business Assistant for One Company — Bizlyro AI",
   description:
-    "Bizlyro AI is an AI business assistant for one workspace. It answers website visitors from your knowledge, captures leads, and keeps drafts waiting for your confirmation.",
+    "Bizlyro AI is an AI business assistant for one company. It answers visitors from your knowledge, captures leads, and holds drafts until you confirm.",
   eyebrow: "One workspace",
   h1: "AI business assistant for one company",
   lede:
-    "Bizlyro AI is an AI business assistant for a single company. The same workspace answers website visitors, collects leads and quote requests, and holds email and social drafts until you confirm them. It is built for one business, with one website widget, trained on the knowledge you publish.",
+    "Bizlyro AI is an AI customer service and sales assistant, and its official website is bizlyro.com. One workspace answers website visitors, collects leads and quote requests, and holds email and social drafts until you confirm them. It is built for one business and one website widget.",
+  previewHeading: "The widget and the desk",
+  previewNote:
+    "Visitors use the chat. You review website threads in Inbox and requests in Leads. This sample layout is not live customer data. The support and sales guides explain each job on its own.",
   sections: [
     {
-      heading: "Customer service and sales in the same assistant",
+      heading: "The hub for support and sales",
       paragraphs: [
-        "Owners rarely split “support” and “sales” into two desks. A visitor asks whether you are open, then asks what a service costs. Bizlyro treats both as questions about published facts. The customer-service answer and the sales answer come from the same knowledge, with the same rule: do not invent what is missing.",
-        "That is the practical meaning of an AI business assistant here. It is not a general chatbot you point at the public internet. It is a desk for the business you described in Knowledge, plus the public pages you index for that workspace.",
+        "Owners rarely split “support” and “sales” into two products. A visitor asks whether you are open, then asks what a service costs. Bizlyro AI treats both as questions about published facts, with the same rule: do not invent what is missing.",
+        "This page is the overview. The customer-service guide is hours, policies, and handoff. The sales guide is published offers, quote requests, and leads. The small-business chatbot guide is what to publish and how the widget is installed.",
       ],
       links: [
         { href: "/ai-customer-service-assistant", label: "AI customer service assistant" },
         { href: "/ai-sales-assistant", label: "AI sales assistant" },
+        { href: "/ai-chatbot-for-small-business", label: "AI chatbot for small business" },
       ],
     },
     {
-      heading: "The work that stays with you",
+      heading: "Example: hours first, then a price",
       paragraphs: [
-        "Gmail can be connected so Bizlyro drafts a reply from the incoming email. Send goes through that Gmail account only after you confirm. Email never auto-sends. Social drafts stay in the workspace until you approve them, and a post is published only after that platform is connected and you confirm.",
-        "Complaints, requests for a person, and topics that should not be automated pause AI and wait in Inbox. You remain the one who commits the business: the custom quote, the exception, the message that leaves your mailbox.",
+        "A visitor asks if you are open Saturday and then what a published visit costs. Both answers come from the same Knowledge for that workspace. The hours answer does not invent a staffed front desk. The price answer uses only the number you published.",
+        "If either fact is missing, the assistant should say so. It should not browse the public internet for a stand-in, and it should not borrow another subscriber’s workspace.",
+      ],
+    },
+    {
+      heading: "Example: a Gmail draft and a social draft wait",
+      paragraphs: [
+        "Gmail can be connected so Bizlyro AI drafts a reply from the incoming email. Send goes through that Gmail account only after you press Send reply and confirm. Email never auto-sends.",
+        "A social draft stays in the workspace until you approve it. A post is published only after that platform is connected and you confirm. Copy stays available when a platform is not set up. The assistant does not post for you.",
       ],
       links: [
         { href: "/#inbox", label: "Inbox and drafts" },
@@ -278,31 +366,40 @@ const businessAssistant: SeoLandingPage = {
       ],
     },
     {
-      heading: "Why it is one workspace",
+      heading: "One company, one widget, one monthly allowance",
       paragraphs: [
-        "Bizlyro AI is one business workspace and one installed website widget. Conversations, knowledge, and drafts for that widget stay with that account. Another subscriber’s workspace is not a source of answers.",
-        "The monthly allowance covers AI-generated customer replies. When it is used, replies pause for the rest of the billing period and visitors are offered a person. Cancel anytime in Billing. Stored knowledge remains until you ask for the workspace to be deleted.",
+        `Bizlyro AI is ${PLAN_PRICE} for one business workspace and one installed website widget, with ${PLAN_REPLIES} AI-generated customer replies in a billing month. When the allowance is used, replies pause and visitors are offered a person. There is no automatic overage charge. Cancel anytime in Billing. Stored knowledge remains until you ask for the workspace to be deleted.`,
+        "Another subscriber’s knowledge is not a source of answers. Conversations, leads, and drafts for this widget stay with this account.",
       ],
       links: [
         { href: "/#how-it-works", label: "How setup works" },
-        { href: "/ai-chatbot-for-small-business", label: "AI chatbot for small business" },
+        { href: "/#pricing", label: "Pricing" },
+      ],
+    },
+    {
+      heading: "Counts come from this workspace only",
+      paragraphs: [
+        "Reply usage, threads waiting on a person, and lead rows come from records stored for this account. The workspace can show those counts. It does not estimate revenue, a close rate, or how many customers you served.",
+        "Use the three guides when you want the working detail. This page is the map: one company, the facts you publish, and the actions that still require you.",
       ],
     },
   ],
+  benefitsHeading: "What the workspace covers",
   benefits: [
     {
-      title: "One place for the repetitive work",
-      body: "Website questions, lead details, and drafts sit in the same workspace, so you are not copying facts into a separate bot for every channel.",
+      title: "Support and sales in one place",
+      body: "Website questions, lead details, and drafts sit in the same workspace, so you are not copying facts into a separate bot for every job.",
     },
     {
       title: "A boundary you can explain",
       body: "Customers get answers you published. Anything that commits money, medicine, law, or a personal reply waits for you.",
     },
     {
-      title: "A plan sized for one business",
-      body: "You are not buying a call-center suite. The subscription is one workspace, one widget, and a monthly reply allowance with no automatic overage.",
+      title: "Sized for one business",
+      body: `The subscription is one workspace, one widget, and ${PLAN_REPLIES} AI replies a month. It is not a call-center suite and it does not add an overage invoice.`,
     },
   ],
+  limitsHeading: "What stays with you",
   limits: [
     {
       title: "Not a staffed front desk",
@@ -310,27 +407,29 @@ const businessAssistant: SeoLandingPage = {
     },
     {
       title: "Not an open-ended researcher",
-      body: "It should not browse for an answer you did not publish, and it should not borrow another business’s facts.",
+      body: "It should not look up an answer you did not publish, and it should not use another business’s facts.",
     },
     {
       title: "Drafts are not sent for you",
-      body: "Email and social posts leave the building only after you confirm them. There is no silent send.",
+      body: "Email and social posts leave only after you confirm them. There is no silent send.",
     },
   ],
+  stepsHeading: "How one company sets it up",
   steps: [
     {
-      title: "Open the account",
-      body: "Get started creates the login and the workspace. Subscribe to Bizlyro AI when you want the paid widget and dashboard.",
+      title: "Open the account on bizlyro.com",
+      body: `Get started creates the login and the workspace. Subscribe to Bizlyro AI at ${PLAN_PRICE} when you want the paid widget and dashboard.`,
     },
     {
       title: "Train it on this business only",
-      body: "Publish hours, services, policies, and prices you stand behind. Index public pages if you want those facts beside what you typed.",
+      body: "Publish hours, services, policies, and prices you stand behind. Index public pages on your own site if you want those facts beside what you typed.",
     },
     {
-      title: "Use the desk, not a pile of tools",
-      body: "Read website threads in Inbox, review leads, and confirm any Gmail or social draft before it is sent or published.",
+      title: "Use the specialized guides for the details",
+      body: "Read the customer-service guide for handoff, the sales guide for quotes, and the chatbot guide for the install. Then confirm any Gmail or social draft before it is sent.",
     },
   ],
+  faqsHeading: "Questions about the assistant",
   faqs: [
     {
       question: "Is Bizlyro an AI business assistant or only a help widget?",
@@ -344,10 +443,15 @@ const businessAssistant: SeoLandingPage = {
     },
     {
       question: "Is there a free plan?",
+      answer: `No. Get started creates an account, then you subscribe to Bizlyro AI for ${PLAN_PRICE}. The local demo is a browser-only preview. It is not a free workspace and does not call an AI model or Stripe.`,
+    },
+    {
+      question: "Does Bizlyro AI send email or social posts by itself?",
       answer:
-        "No. Get started creates an account, then you subscribe to Bizlyro AI. The price is on the homepage. The local demo is a browser-only preview. It is not a free workspace and does not call an AI model or Stripe.",
+        "No. A Gmail reply is sent only after you confirm. A social post is published only after that platform is connected and you confirm. Drafts can sit in the workspace until then.",
     },
   ],
+  relatedHeading: "Specialized Bizlyro guides",
   related: [
     { href: "/ai-customer-service-assistant", label: "AI customer service assistant" },
     { href: "/ai-sales-assistant", label: "AI sales assistant" },
@@ -355,65 +459,88 @@ const businessAssistant: SeoLandingPage = {
     { href: "/#pricing", label: "Pricing" },
     { href: "/#how-it-works", label: "How it works" },
   ],
+  closeHeading: "One assistant for this business",
+  closeBody:
+    "Create an account on bizlyro.com and subscribe to Bizlyro AI. Publish the facts for this company, then use the customer-service, sales, and chatbot guides for the job you are setting up.",
 };
 
 const smallBusinessChatbot: SeoLandingPage = {
   path: "/ai-chatbot-for-small-business",
   label: "AI chatbot for small business",
   intent: "AI chatbot for small business",
-  title: "AI Chatbot for Small Business Websites — Bizlyro AI",
+  title: "AI Chatbot for Small Business — Bizlyro AI",
   description:
-    "Bizlyro is an AI chatbot for small business websites. Publish hours, services, and policies, then review leads and handoffs from a single workspace.",
+    "Bizlyro AI is an AI chatbot for small business websites. Publish hours and policies once, install one widget, and review leads yourself.",
   eyebrow: "Small business",
   h1: "AI chatbot for small business websites",
   lede:
-    "Bizlyro is an AI chatbot for small business owners who want website answers without hiring a round-the-clock front desk. You publish hours, services, and policies. The chatbot uses those facts on your site. You review leads and any thread that should not be answered automatically.",
+    "Bizlyro AI is an AI chatbot for small business owners who want website answers without hiring a round-the-clock front desk. You publish the business once. Customers use one widget on the site you already have. You review leads and any thread that should not be answered automatically.",
+  previewHeading: "What the visitor sees, and what you review",
+  previewNote:
+    "The chat panel is the widget on your site. Inbox and Leads are the desk behind it. This sample is not a live customer, and the local demo does not install the widget for you.",
   sections: [
     {
-      heading: "What a small-business chatbot is for",
+      heading: "Publish the business before you install anything",
       paragraphs: [
-        "A shop, clinic, or service company does not need a call-center script. It needs a straight answer to the questions already on the website: when you are open, what you offer, where you work, and how to ask for a quote or a visit.",
-        "An AI chatbot for small business is a poor fit when you want it to improvise. Bizlyro is a better fit when you can write the facts down once. The installed widget then repeats those facts to each visitor, including after you have locked the door.",
-      ],
-    },
-    {
-      heading: "What to publish before you install it",
-      paragraphs: [
+        "A shop, clinic, or service company needs a straight answer to questions already on the website: when you are open, what you offer, where you work, and how to ask for a quote or a visit. It does not need a call-center script.",
         "Start with the answers you already give by phone. Hours and holiday closures. The services you actually sell. The area you cover. Shipping, booking, or visit policies. A price only if you are willing to state it. A short FAQ for the exceptions people ask about.",
-        "You can also point Bizlyro at public pages on your own site so indexed copy sits beside what you typed. Do not expect it to know a fact that appears in neither place. Unanswered questions stay on record so you can add the missing line.",
       ],
-      links: [
-        { href: "/#knowledge", label: "What belongs in Knowledge" },
-        { href: "/ai-customer-service-assistant", label: "AI customer service assistant" },
+      links: [{ href: "/#knowledge", label: "What belongs in Knowledge" }],
+    },
+    {
+      heading: "Example: a return window you wrote down",
+      paragraphs: [
+        "You add a policy: returns are accepted within 14 days if the item is unused. A visitor asks about returns on your site. The chatbot can repeat that window because it is in Knowledge. It should not extend the window, invent a restocking fee, or promise an exception.",
+        "You can also point Bizlyro AI at public pages on your own site so indexed copy sits beside what you typed. Do not expect it to know a fact that appears in neither place. Unanswered questions stay on record so you can add the missing line.",
       ],
     },
     {
-      heading: "One widget on the site you already have",
+      heading: "Example: one snippet from the Widget page",
       paragraphs: [
-        "Bizlyro AI includes one website widget. Customers never log in. They open the chat on your site, ask a question, and either get a published answer or a handoff. You install it with the snippet from the paid Widget page.",
-        "The public demo is a separate, browser-only preview of the desk layout. It is not the chatbot your customers would use, it is not billed, and it does not call an AI model. Use it to see the screens. Use the subscription when you want the widget on your domain.",
+        "After you subscribe, the paid Widget page shows the snippet for that workspace. You add it to the site you already run. Customers never log in. They open the chat, ask a question, and either get a published answer or a handoff.",
+        "The public demo is a separate, browser-only preview of the desk layout. It is not the chatbot your customers would use, it is not billed, and it does not call an AI model. Use it to click through the screens. Use the subscription when you want the widget on your domain. The official website is bizlyro.com.",
       ],
       links: [
         { href: "/#widget", label: "Website widget" },
         { href: "/demo", label: "Open the local demo" },
+      ],
+    },
+    {
+      heading: "Quotes are a sales conversation, not the install",
+      paragraphs: [
+        `Bizlyro AI is ${PLAN_PRICE} for that one widget and ${PLAN_REPLIES} AI replies in a billing month. There is no automatic overage, and there is no free chatbot plan that sends live AI replies. Email and social posts still wait for your confirmation.`,
+        "If the visitor is asking for a custom price rather than a published fact, send them through the sales guide. This page is how a small business writes the facts down and puts the widget on the site.",
+      ],
+      links: [
+        { href: "/ai-sales-assistant", label: "AI sales assistant" },
+        { href: "/ai-customer-service-assistant", label: "AI customer service assistant" },
         { href: "/ai-business-assistant", label: "AI business assistant" },
       ],
     },
+    {
+      heading: "What a visitor does, and what you check afterward",
+      paragraphs: [
+        "A visitor opens the chat on your site and asks a question in their own words. If the answer is in the knowledge you published, the widget can give that answer. If they ask for a person, or the fact is missing, the thread waits for you.",
+        "You do not watch the chat in real time for it to be useful. Later, Inbox shows handoffs and Leads shows people who left a name or email. The snippet you installed is the only customer-facing piece. There is not a second widget for a second brand on the same account.",
+      ],
+    },
   ],
+  benefitsHeading: "Why a small business uses one chatbot",
   benefits: [
     {
-      title: "Written for one company",
-      body: "The chatbot is trained on your knowledge, not on a generic small-business script that mentions services you do not offer.",
+      title: "Written for this company",
+      body: "The chatbot is trained on your knowledge, not on a generic script that mentions services you do not offer.",
     },
     {
-      title: "Honest when it does not know",
-      body: "Missing facts are not filled in. You can publish the answer later and the next visitor gets the updated version.",
+      title: "Honest when a fact is missing",
+      body: "Missing hours or policies are not filled in. Publish the answer later and the next visitor gets the updated line.",
     },
     {
       title: "A desk behind the chat",
-      body: "Leads, handoffs, and drafts are in the workspace, so the chatbot is not a widget with nowhere for the follow-up to go.",
+      body: "Leads and handoffs are in the workspace, so the follow-up has a place to go after the visitor closes the widget.",
     },
   ],
+  limitsHeading: "What the chatbot will not do",
   limits: [
     {
       title: "The demo is not the live chatbot",
@@ -421,27 +548,29 @@ const smallBusinessChatbot: SeoLandingPage = {
     },
     {
       title: "There is no free chatbot plan",
-      body: "Get started creates an account. The website chatbot is available on the paid plan. There is no trial workspace that sends live AI replies.",
+      body: "Get started creates an account. The website chatbot is available on the paid plan. The demo does not send live AI replies.",
     },
     {
-      title: "It will not run your marketing unsupervised",
+      title: "It will not run marketing unsupervised",
       body: "Social drafts and Gmail replies wait for confirmation. The chatbot does not post or email on its own.",
     },
   ],
+  stepsHeading: "Publish, subscribe, then install",
   steps: [
     {
-      title: "Look at the layout",
-      body: "Open the local demo if you want to click through Inbox, Knowledge, and chat before you pay. It stays in this browser.",
+      title: "Look at the layout first, if you want",
+      body: "Open the local demo to click through Inbox, Knowledge, and chat before you pay. It stays in this browser.",
     },
     {
-      title: "Subscribe and publish",
-      body: "Create an account, subscribe to Bizlyro AI, and add the facts the chatbot is allowed to repeat.",
+      title: "Subscribe and write the facts",
+      body: `Create an account, subscribe to Bizlyro AI at ${PLAN_PRICE}, and add the hours, services, and policies the chatbot is allowed to repeat.`,
     },
     {
-      title: "Add the snippet",
-      body: "Install the one widget on your site. Check Inbox for handoffs and Leads for people who asked to be contacted.",
+      title: "Add the one snippet",
+      body: "Install the widget from the paid Widget page. Check Inbox for handoffs and Leads for people who asked to be contacted.",
     },
   ],
+  faqsHeading: "Questions before you install",
   faqs: [
     {
       question: "Is this AI chatbot only for small businesses?",
@@ -458,14 +587,23 @@ const smallBusinessChatbot: SeoLandingPage = {
       answer:
         "It is not supposed to. It answers from published knowledge and indexed public pages. If a price or policy is missing, it should not invent one.",
     },
+    {
+      question: "Is the demo the chatbot my customers use?",
+      answer:
+        "No. The demo is a browser-only preview of the desk. Customers use the widget you install after you subscribe to Bizlyro AI. The demo does not call an AI model.",
+    },
   ],
+  relatedHeading: "Sales and support after the widget is in",
   related: [
+    { href: "/ai-sales-assistant", label: "AI sales assistant" },
     { href: "/ai-business-assistant", label: "AI business assistant" },
     { href: "/ai-customer-service-assistant", label: "AI customer service assistant" },
-    { href: "/ai-sales-assistant", label: "AI sales assistant" },
     { href: "/#pricing", label: "Pricing" },
     { href: "/signup", label: "Get started with Bizlyro" },
   ],
+  closeHeading: "Install one widget on the site you already have",
+  closeBody:
+    "Create an account, subscribe to Bizlyro AI, and publish the facts the chatbot may repeat. Use the sales guide when a visitor asks for a quote instead of a published policy.",
 };
 
 export const SEO_PAGES: readonly SeoLandingPage[] = [
@@ -522,7 +660,11 @@ export function seoPageJsonLd(page: SeoLandingPage) {
   return {
     "@context": "https://schema.org",
     "@graph": [
-      ...bizlyroEntityGraph(HOME_METADATA.description),
+      ...bizlyroEntityGraph(HOME_METADATA.description, {
+        price: String(BIZPILOT_PRO.amountCents / 100),
+        priceCurrency: BIZPILOT_PRO.currency.toUpperCase(),
+        url: `${BIZLYRO_PUBLIC_ORIGIN}/signup`,
+      }),
       {
         "@type": "WebPage",
         "@id": `${url}#webpage`,

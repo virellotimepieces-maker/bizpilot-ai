@@ -74,7 +74,10 @@ export const homeMetadata: Metadata = {
   },
 };
 
-const SITEMAP_PATHS: { path: string; priority: number; lastModified: string }[] = [
+/** Date the four Bizlyro guide pages were rewritten. Other marketing URLs keep their earlier date. */
+export const GUIDE_SITEMAP_LAST_MODIFIED = "2026-10-06T00:00:00.000Z";
+
+const SITEMAP_PATHS: { path: string; priority: number; lastModified: string; guide?: boolean }[] = [
   { path: "", priority: 1, lastModified: "2026-10-02T00:00:00.000Z" },
   { path: "/signup", priority: 0.6, lastModified: "2026-10-02T00:00:00.000Z" },
   { path: "/login", priority: 0.6, lastModified: "2026-10-02T00:00:00.000Z" },
@@ -84,13 +87,15 @@ const SITEMAP_PATHS: { path: string; priority: number; lastModified: string }[] 
   ...SEO_ROUTES.map((route) => ({
     path: route.path,
     priority: 0.8,
-    lastModified: "2026-10-06T00:00:00.000Z",
+    lastModified: GUIDE_SITEMAP_LAST_MODIFIED,
+    guide: true,
   })),
 ];
 
 export function publicSitemapUrls(origin: string = MARKETING_ORIGIN) {
   const base = origin.replace(/\/$/, "");
-  return SITEMAP_PATHS.map((entry) => ({
+  const entries = base === BIZLYRO_PUBLIC_ORIGIN ? SITEMAP_PATHS : SITEMAP_PATHS.filter((entry) => !entry.guide);
+  return entries.map((entry) => ({
     url: `${base}${entry.path}`,
     lastModified: new Date(entry.lastModified),
     changeFrequency: "weekly" as const,
