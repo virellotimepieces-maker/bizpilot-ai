@@ -23,11 +23,11 @@ export async function generateMetadata(): Promise<Metadata> {
       template: "%s",
     },
     description: HOME_METADATA.description,
-    applicationName: "BizPilot AI",
+    applicationName: "Bizlyro AI",
     openGraph: {
       type: "website",
       locale: "en_US",
-      siteName: "BizPilot AI",
+      siteName: "Bizlyro AI",
       title: HOME_METADATA.title,
       description: HOME_METADATA.description,
     },

@@ -307,9 +307,9 @@ export const FAQ_ITEMS = [
 ] as const;
 
 export const HOME_METADATA = {
-  title: "BizPilot AI — 24/7 AI Customer Service & Sales Assistant",
+  title: "Bizlyro AI — AI Business Assistant for Customer Service & Sales",
   description:
-    "Train BizPilot on your business and let it answer customers, capture leads, and help visitors around the clock. BizPilot Pro is $29 per month for one workspace, one widget, and 500 AI replies. Email sends through Gmail only after you confirm.",
+    "Bizlyro AI is an AI business assistant for customer service and sales. It helps your website or store answer visitors, capture leads, and use your business knowledge.",
 } as const;
 
 export const PRODUCT_PREVIEW_LABEL = "Sample layout. Not live customer data.";

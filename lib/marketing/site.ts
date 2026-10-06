@@ -1,5 +1,5 @@
 import type { Metadata, MetadataRoute } from "next";
-import { PRODUCTION_PUBLIC_ORIGIN } from "@/lib/public-origin";
+import { BIZLYRO_PUBLIC_ORIGIN, PRODUCTION_PUBLIC_ORIGIN } from "@/lib/public-origin";
 import { HOME_METADATA } from "./copy";
 
 export const MARKETING_ORIGIN = PRODUCTION_PUBLIC_ORIGIN;
@@ -7,12 +7,12 @@ export const MARKETING_ORIGIN = PRODUCTION_PUBLIC_ORIGIN;
 export const homeMetadata: Metadata = {
   title: HOME_METADATA.title,
   description: HOME_METADATA.description,
-  alternates: { canonical: "/" },
+  alternates: { canonical: BIZLYRO_PUBLIC_ORIGIN },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "/",
-    siteName: "BizPilot AI",
+    url: BIZLYRO_PUBLIC_ORIGIN,
+    siteName: "Bizlyro AI",
     title: HOME_METADATA.title,
     description: HOME_METADATA.description,
   },

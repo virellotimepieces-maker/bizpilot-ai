@@ -3,9 +3,9 @@ import { SiteHeader } from "@/components/site-header";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — BizPilot AI",
-  description: "How BizPilot AI stores account, knowledge, and conversation data.",
-  alternates: { canonical: "/privacy" },
+  title: "Privacy Policy — Bizlyro AI",
+  description: "How Bizlyro AI stores account, knowledge, and conversation data.",
+  alternates: { canonical: "https://bizlyro.com/privacy" },
 };
 
 export default function PrivacyPage() {

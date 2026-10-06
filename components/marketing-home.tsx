@@ -24,8 +24,8 @@ import {
   WIDGET_POINTS,
   formatPlanPriceUsd,
 } from "@/lib/marketing/copy";
+import { BIZLYRO_PUBLIC_ORIGIN } from "@/lib/public-origin";
 import { BIZPILOT_PRO } from "@/lib/plan";
-import { requestPublicOrigin } from "@/lib/marketing/request-origin";
 import { Check } from "lucide-react";
 import Link from "next/link";
 
@@ -64,21 +64,36 @@ function PointGrid({
 
 export async function MarketingHome() {
   const price = formatPlanPriceUsd();
-  const origin = await requestPublicOrigin();
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "BizPilot AI",
-    applicationCategory: "BusinessApplication",
-    operatingSystem: "Web",
-    url: origin,
-    description: HOME_METADATA.description,
-    offers: {
-      "@type": "Offer",
-      price: String(BIZPILOT_PRO.amountCents / 100),
-      priceCurrency: BIZPILOT_PRO.currency.toUpperCase(),
-      url: `${origin}/signup`,
-    },
+    "@graph": [
+      {
+        "@type": "Organization",
+        name: "Bizlyro AI",
+        url: BIZLYRO_PUBLIC_ORIGIN,
+        description: HOME_METADATA.description,
+      },
+      {
+        "@type": "WebSite",
+        name: "Bizlyro AI",
+        url: BIZLYRO_PUBLIC_ORIGIN,
+        description: HOME_METADATA.description,
+      },
+      {
+        "@type": "SoftwareApplication",
+        name: "Bizlyro AI",
+        applicationCategory: "BusinessApplication",
+        operatingSystem: "Web",
+        url: BIZLYRO_PUBLIC_ORIGIN,
+        description: HOME_METADATA.description,
+        offers: {
+          "@type": "Offer",
+          price: String(BIZPILOT_PRO.amountCents / 100),
+          priceCurrency: BIZPILOT_PRO.currency.toUpperCase(),
+          url: `${BIZLYRO_PUBLIC_ORIGIN}/signup`,
+        },
+      },
+    ],
   };
 
   return (

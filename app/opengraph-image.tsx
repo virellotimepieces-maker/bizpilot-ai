@@ -37,19 +37,19 @@ export default function OpenGraphImage() {
               fontWeight: 700,
             }}
           >
-            BP
+            BL
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", fontSize: 22, fontWeight: 700 }}>BizPilot AI</div>
+            <div style={{ display: "flex", fontSize: 22, fontWeight: 700 }}>Bizlyro AI</div>
             <div style={{ display: "flex", fontSize: 18, color: "#5b6784" }}>{priceLine}</div>
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 18, maxWidth: 980 }}>
-          <div style={{ display: "flex", fontSize: 54, fontWeight: 700, lineHeight: 1.1 }}>
-            Your 24/7 AI Customer Service & Sales Assistant
+          <div style={{ display: "flex", fontSize: 46, fontWeight: 700, lineHeight: 1.15 }}>
+            {HOME_METADATA.title}
           </div>
           <div style={{ display: "flex", fontSize: 24, color: "#4a5670", lineHeight: 1.4 }}>
-            Train it on your business. Answer customers, capture leads, and help visitors around the clock from published knowledge only.
+            {HOME_METADATA.description}
           </div>
         </div>
       </div>

@@ -16,7 +16,7 @@ import {
   PRODUCT_PREVIEW_LABEL,
 } from "./copy";
 import { BIZPILOT_PRO } from "@/lib/plan";
-import { marketingRobots, publicSitemapUrls, sitemapXml } from "./site";
+import { homeMetadata, marketingRobots, publicSitemapUrls, sitemapXml } from "./site";
 import { BIZLYRO_PUBLIC_ORIGIN, PRODUCTION_PUBLIC_ORIGIN } from "@/lib/public-origin";
 
 const FORBIDDEN = [
@@ -122,7 +122,15 @@ describe("V2 public landing copy", () => {
     assert.match(LANDING_HERO.subtitle, /does not invent prices/);
     assert.match(FAQ_ITEMS.find((item) => item.id === "appointments")!.answer, /does not confirm a booking/);
     assert.equal(FAQ_ITEMS.length >= 6, true);
-    assert.match(HOME_METADATA.description, /\$29 per month/);
+    assert.equal(
+      HOME_METADATA.title,
+      "Bizlyro AI — AI Business Assistant for Customer Service & Sales",
+    );
+    assert.match(HOME_METADATA.description, /Bizlyro AI is an AI business assistant/);
+    assert.match(HOME_METADATA.description, /customer service and sales/);
+    assert.match(HOME_METADATA.description, /website or store/);
+    assert.match(HOME_METADATA.description, /capture leads/);
+    assert.match(HOME_METADATA.description, /business knowledge/);
   });
 
   it("lists only public marketing URLs on the sitemap", () => {
@@ -154,6 +162,15 @@ describe("V2 public landing copy", () => {
     const robots = marketingRobots(BIZLYRO_PUBLIC_ORIGIN);
     assert.equal(robots.sitemap, "https://bizlyro.com/sitemap.xml");
     assert.equal(robots.host, undefined);
+    assert.deepEqual(robots.rules, {
+      userAgent: "*",
+      allow: "/",
+      disallow: ["/api/", "/app/", "/account", "/billing", "/embed/"],
+    });
+    assert.equal(homeMetadata.alternates && "canonical" in homeMetadata.alternates ? homeMetadata.alternates.canonical : "", BIZLYRO_PUBLIC_ORIGIN);
+    assert.equal(homeMetadata.openGraph && "siteName" in homeMetadata.openGraph ? homeMetadata.openGraph.siteName : "", "Bizlyro AI");
+    assert.equal(homeMetadata.openGraph && "url" in homeMetadata.openGraph ? homeMetadata.openGraph.url : "", BIZLYRO_PUBLIC_ORIGIN);
+    assert.equal(homeMetadata.twitter && "title" in homeMetadata.twitter ? homeMetadata.twitter.title : "", HOME_METADATA.title);
     const existing = marketingRobots();
     assert.equal(existing.sitemap, `${PRODUCTION_PUBLIC_ORIGIN}/sitemap.xml`);
     assert.equal(existing.host, undefined);
