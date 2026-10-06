@@ -26,7 +26,7 @@ export const LANDING_HERO = {
   subtitle:
     "Train BizPilot on your business and let it answer customers, capture leads, and help visitors around the clock. It answers from your published knowledge. It does not invent prices, inventory, or confirmed appointments.",
   demoNote:
-    "The demo is a browser-only preview. It is not a paid workspace and does not call an AI model or Stripe. Get started creates an account, then BizPilot Pro is $29 per month.",
+    "The demo is a browser-only preview. It is not a paid workspace and does not call an AI model or Stripe. Get started creates an account, then BizPilot Pro is $29.99 per month.",
 } as const;
 
 export const LANDING_NAV = [
@@ -266,7 +266,7 @@ export const FAQ_ITEMS = [
     id: "free-plan",
     question: "Is there a free plan?",
     answer:
-      "No. Get started creates an account, then you subscribe to BizPilot Pro for $29 per month. The local demo is a browser-only preview. It is not a free workspace and does not call an AI model or Stripe.",
+      "No. Get started creates an account, then you subscribe to BizPilot Pro for $29.99 per month. The local demo is a browser-only preview. It is not a free workspace and does not call an AI model or Stripe.",
   },
   {
     id: "limit",
