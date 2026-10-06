@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { SEO_ROUTES } from "./seo-routes";
-import { SEO_PAGES, seoPageJsonLd, seoPageMetadata } from "./seo-pages";
+import type { ResolvingMetadata } from "next";
+import { SEO_PAGES, seoPageGenerateMetadata, seoPageJsonLd, seoPageMetadata } from "./seo-pages";
 import { publicSitemapUrls, sitemapXml } from "./site";
 import { BIZLYRO_PUBLIC_ORIGIN } from "@/lib/public-origin";
 
@@ -31,7 +32,7 @@ function visibleText(page: (typeof SEO_PAGES)[number]) {
 }
 
 describe("use-case landing pages", () => {
-  it("publishes four unique indexable pages for the target intents", () => {
+  it("publishes four unique indexable pages for the target intents", async () => {
     assert.deepEqual(
       SEO_ROUTES.map((route) => route.path),
       SEO_PAGES.map((page) => page.path),
@@ -71,6 +72,13 @@ describe("use-case landing pages", () => {
       const robots = metadata.robots;
       assert.equal(!!robots && typeof robots === "object" && robots.index === true, true);
       assert.equal(!!robots && typeof robots === "object" && robots.follow === true, true);
+      const inherited = [{ url: "https://bizlyro.com/opengraph-image", width: 1200, height: 630, alt: "Bizlyro AI" }];
+      const withImages = await seoPageGenerateMetadata(
+        page,
+        Promise.resolve({ openGraph: { images: inherited } }) as ResolvingMetadata,
+      );
+      assert.deepEqual(withImages.openGraph && "images" in withImages.openGraph ? withImages.openGraph.images : null, inherited);
+      assert.deepEqual(withImages.twitter && "images" in withImages.twitter ? withImages.twitter.images : null, inherited);
 
       const jsonLd = JSON.stringify(seoPageJsonLd(page));
       assert.match(jsonLd, /"@type":"WebPage"/);
@@ -103,10 +111,9 @@ describe("use-case landing pages", () => {
       assert.equal(entry.lastModified.toISOString().slice(0, 10), "2026-10-06");
       assert.match(xml, new RegExp(`<loc>${url}</loc><lastmod>2026-10-06</lastmod>`));
       assert.match(readFileSync("lib/marketing/seo-routes.ts", "utf8"), new RegExp(route.path));
-      assert.match(
-        readFileSync(`app${route.path}/page.tsx`, "utf8"),
-        new RegExp(`seoPageByPath\\("${route.path}"\\)`),
-      );
+      const pageSource = readFileSync(`app${route.path}/page.tsx`, "utf8");
+      assert.match(pageSource, new RegExp(`seoPageByPath\\("${route.path}"\\)`));
+      assert.match(pageSource, /seoPageGenerateMetadata\(page, parent\)/);
     }
     const home = readFileSync("components/marketing-home.tsx", "utf8");
     const footer = readFileSync("components/site-footer.tsx", "utf8");

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { BIZLYRO_PUBLIC_ORIGIN } from "@/lib/public-origin";
 import { SEO_ROUTES, type SeoRoutePath } from "./seo-routes";
 
@@ -479,7 +479,9 @@ export function seoPageByPath(path: SeoRoutePath) {
   return page;
 }
 
-export function seoPageMetadata(page: SeoLandingPage): Metadata {
+type InheritedImages = NonNullable<Metadata["openGraph"]>["images"];
+
+export function seoPageMetadata(page: SeoLandingPage, images?: InheritedImages): Metadata {
   const url = `${BIZLYRO_PUBLIC_ORIGIN}${page.path}`;
   return {
     title: page.title,
@@ -492,17 +494,25 @@ export function seoPageMetadata(page: SeoLandingPage): Metadata {
       siteName: "Bizlyro AI",
       title: page.title,
       description: page.description,
+      ...(images ? { images } : {}),
     },
     twitter: {
       card: "summary_large_image",
       title: page.title,
       description: page.description,
+      ...(images ? { images } : {}),
     },
     robots: {
       index: true,
       follow: true,
     },
   };
+}
+
+/** Keep the root opengraph-image when this page replaces the layout Open Graph object. */
+export async function seoPageGenerateMetadata(page: SeoLandingPage, parent: ResolvingMetadata): Promise<Metadata> {
+  const images = (await parent).openGraph?.images;
+  return seoPageMetadata(page, images);
 }
 
 export function seoPageJsonLd(page: SeoLandingPage) {
