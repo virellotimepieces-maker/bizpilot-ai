@@ -20,7 +20,7 @@ export default function TermsPage() {
           <section>
             <h2 className="font-heading text-xl">The product</h2>
             <p className="mt-2 text-muted-foreground">
-              BizPilot Pro is USD $29 per month for one business workspace, one website widget, and
+              BizPilot Pro is USD $29.99 per month for one business workspace, one website widget, and
               500 AI-generated customer replies per Stripe billing month. When the allowance is
               used, AI replies pause and visitors are offered a human. There are no automatic
               overage charges. Cancel anytime in Billing.
