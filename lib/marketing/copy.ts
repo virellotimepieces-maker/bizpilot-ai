@@ -1,8 +1,12 @@
 import { BIZPILOT_PRO } from "@/lib/plan";
 
+export function formatPlanPriceUsd(amountCents = BIZPILOT_PRO.amountCents) {
+  return `$${amountCents / 100}`;
+}
+
 export const LANDING_PRIMARY_CTA = {
   href: "/signup",
-  label: "Get started",
+  label: `Get started — ${formatPlanPriceUsd()}/month`,
 } as const;
 
 export const LANDING_SECONDARY_CTA = {
@@ -27,14 +31,30 @@ export const PUBLIC_ENTITY_STATEMENT =
   "Bizlyro AI is an AI customer service and sales assistant, and its official website is bizlyro.com.";
 
 export const LANDING_HERO = {
-  eyebrow: "Bizlyro · one business workspace",
-  title: "Your 24/7 AI Customer Service & Sales Assistant",
+  eyebrow: "Bizlyro · AI website assistant",
+  title: "Capture Leads & Answer Customers 24/7 — Without Hiring a Front Desk.",
   subtitle:
-    "Train Bizlyro AI on your business and let it answer customers, capture leads, and help visitors around the clock. It answers from your published knowledge. It does not invent prices, inventory, or confirmed appointments.",
+    "Bizlyro is an AI website assistant that helps businesses answer customer questions and capture leads 24/7. It answers from your published knowledge. It does not invent prices, inventory, or confirmed appointments.",
+  honest: "Honest AI — Never invents prices, policies, or business information.",
   entity: PUBLIC_ENTITY_STATEMENT,
-  demoNote:
-    "The demo is a browser-only preview. It is not a paid workspace and does not call an AI model or Stripe. Get started creates an account, then Bizlyro AI is $29.99 per month.",
+  ctaSupport: `Creates your account, then you subscribe to Bizlyro AI for USD ${formatPlanPriceUsd()} per month. Cancel anytime.`,
+  demoNote: `The demo is a browser-only preview. It is not a paid workspace and does not call an AI model or Stripe. Get started creates an account, then Bizlyro AI is ${formatPlanPriceUsd()} per month.`,
 } as const;
+
+export const HERO_OUTCOMES = [
+  {
+    title: "Answers questions 24/7",
+    body: "The website widget replies from published knowledge when nobody is at the desk.",
+  },
+  {
+    title: "Captures leads",
+    body: "Name, email, quote, and appointment requests land in your workspace for you to review.",
+  },
+  {
+    title: "Hands off to you",
+    body: "Missing facts, complaints, and “talk to a person” wait in Inbox. Email is never sent for you.",
+  },
+] as const;
 
 export const LANDING_NAV = [
   { href: "#product", label: "Product" },
@@ -63,10 +83,6 @@ export const LANDING_SECTIONS = [
 ] as const;
 
 export type LandingSectionId = (typeof LANDING_SECTIONS)[number]["id"];
-
-export function formatPlanPriceUsd(amountCents = BIZPILOT_PRO.amountCents) {
-  return `$${amountCents / 100}`;
-}
 
 export const PRICING_FEATURES = [
   "One business workspace",

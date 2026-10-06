@@ -82,7 +82,7 @@ describe("V2 public landing copy", () => {
 
   it("uses honest CTAs that match signup and the in-page walkthrough", () => {
     assert.equal(LANDING_PRIMARY_CTA.href, "/signup");
-    assert.equal(LANDING_PRIMARY_CTA.label, "Get started");
+    assert.equal(LANDING_PRIMARY_CTA.label, "Get started — $29.99/month");
     assert.equal(LANDING_SECONDARY_CTA.href, "#how-it-works");
     assert.equal(LANDING_SECONDARY_CTA.label, "See how it works");
     assert.equal(LANDING_DEMO.href, "/demo");
@@ -135,8 +135,22 @@ describe("V2 public landing copy", () => {
     assert.match(header, /LANDING_PRIMARY_CTA/);
     assert.doesNotMatch(header, />Subscribe</);
     assert.match(LANDING_HERO.demoNote, /browser-only preview/);
-    assert.match(LANDING_HERO.title, /24\/7 AI Customer Service & Sales Assistant/);
+    assert.equal(
+      LANDING_HERO.title,
+      "Capture Leads & Answer Customers 24/7 — Without Hiring a Front Desk.",
+    );
+    assert.match(LANDING_HERO.subtitle, /AI website assistant/);
+    assert.match(LANDING_HERO.subtitle, /answer customer questions/);
+    assert.match(LANDING_HERO.subtitle, /capture leads 24\/7/);
     assert.match(LANDING_HERO.subtitle, /does not invent prices/);
+    assert.equal(
+      LANDING_HERO.honest,
+      "Honest AI — Never invents prices, policies, or business information.",
+    );
+    assert.match(LANDING_HERO.ctaSupport, /subscribe/);
+    assert.match(LANDING_HERO.ctaSupport, /\$29\.99/);
+    assert.match(readFileSync("components/marketing-home.tsx", "utf8"), /LANDING_HERO\.honest/);
+    assert.match(readFileSync("components/marketing-home.tsx", "utf8"), /LANDING_HERO\.ctaSupport/);
     assert.match(FAQ_ITEMS.find((item) => item.id === "appointments")!.answer, /does not confirm a booking/);
     assert.equal(FAQ_ITEMS.length >= 6, true);
     assert.equal(

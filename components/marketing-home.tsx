@@ -8,6 +8,7 @@ import {
   ANALYTICS_POINTS,
   CAPABILITY_SECTIONS,
   HANDOFF_POINTS,
+  HERO_OUTCOMES,
   HOME_METADATA,
   HOW_IT_WORKS_STEPS,
   INBOX_POINTS,
@@ -29,21 +30,42 @@ import { SEO_ROUTES } from "@/lib/marketing/seo-routes";
 import { bizlyroEntityGraph } from "@/lib/marketing/site";
 import { BIZLYRO_PUBLIC_ORIGIN } from "@/lib/public-origin";
 import { BIZPILOT_PRO } from "@/lib/plan";
-import { Check } from "lucide-react";
+import { ArrowRight, Check, Inbox, MessageSquare, ShieldCheck, UserRoundPlus } from "lucide-react";
 import Link from "next/link";
 
 const sectionClass = "scroll-mt-24";
 const wrapClass = "mx-auto w-full min-w-0 max-w-6xl px-4 sm:px-6";
 
+const OUTCOME_ICONS = [MessageSquare, UserRoundPlus, Inbox] as const;
+
 function CtaPair({ className = "" }: { className?: string }) {
   return (
     <div className={`flex min-w-0 flex-wrap gap-3 ${className}`}>
-      <Button size="lg" nativeButton={false} render={<Link href={LANDING_PRIMARY_CTA.href} />}>
+      <Button
+        size="lg"
+        className="px-4 shadow-sm sm:px-5"
+        nativeButton={false}
+        render={<Link href={LANDING_PRIMARY_CTA.href} />}
+      >
         {LANDING_PRIMARY_CTA.label}
+        <ArrowRight aria-hidden />
       </Button>
       <Button size="lg" variant="outline" nativeButton={false} render={<a href={LANDING_SECONDARY_CTA.href} />}>
         {LANDING_SECONDARY_CTA.label}
       </Button>
+    </div>
+  );
+}
+
+function HonestAiNote({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`flex min-w-0 items-start gap-3 rounded-xl border border-primary/25 bg-card px-4 py-3 shadow-[0_1px_2px_oklch(0.22_0.03_264/0.06)] ${className}`}
+    >
+      <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
+      <p className="min-w-0 text-sm font-semibold leading-relaxed text-foreground sm:text-base">
+        {LANDING_HERO.honest}
+      </p>
     </div>
   );
 }
@@ -104,30 +126,80 @@ export async function MarketingHome() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <main className="min-w-0">
-        <section id="hero" className={`${sectionClass} border-b bg-[linear-gradient(180deg,oklch(0.97_0.012_264),oklch(0.975_0.006_264))]`}>
-          <div className={`${wrapClass} grid gap-6 py-12 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-end lg:py-20`}>
-            <div className="min-w-0">
-              <p className="text-xs font-medium tracking-[0.18em] text-primary uppercase">
-                {LANDING_HERO.eyebrow}
-              </p>
-              <h1 className="font-heading mt-3 max-w-3xl text-3xl leading-tight tracking-tight sm:text-4xl lg:text-5xl">
-                {LANDING_HERO.title}
-              </h1>
-              <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-                {LANDING_HERO.subtitle}
-              </p>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-foreground">
-                {LANDING_HERO.entity}
-              </p>
-              <CtaPair className="mt-7" />
-              <p className="mt-3 max-w-xl text-xs leading-relaxed text-muted-foreground">
-                {LANDING_HERO.demoNote}
-              </p>
+        <section id="hero" className={`${sectionClass} relative overflow-hidden border-b`}>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_8%_0%,oklch(0.92_0.045_264),transparent_52%),linear-gradient(180deg,oklch(0.975_0.01_264),oklch(0.965_0.008_264))]"
+          />
+          <div className={`${wrapClass} relative py-14 sm:py-16 lg:py-20`}>
+            <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+              <div className="min-w-0">
+                <p className="inline-flex max-w-full items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium tracking-wide text-primary uppercase">
+                  {LANDING_HERO.eyebrow}
+                </p>
+                <h1 className="font-heading mt-4 max-w-3xl text-balance text-3xl leading-[1.12] tracking-tight sm:text-4xl lg:text-5xl">
+                  {LANDING_HERO.title}
+                </h1>
+                <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+                  {LANDING_HERO.subtitle}
+                </p>
+                <HonestAiNote className="mt-5 max-w-2xl" />
+                <p className="mt-4 max-w-2xl text-sm leading-relaxed text-foreground">
+                  {LANDING_HERO.entity}
+                </p>
+                <CtaPair className="mt-7" />
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-foreground">
+                  {LANDING_HERO.ctaSupport}
+                </p>
+                <p className="mt-2 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                  {LANDING_HERO.demoNote}
+                </p>
+              </div>
+              <Card className="min-w-0 border-primary/15 shadow-[0_24px_60px_-32px_oklch(0.32_0.1_264/0.55)]">
+                <CardHeader className="border-b">
+                  <p className="text-xs font-medium tracking-wide text-primary uppercase">{PUBLIC_PRODUCT_NAME}</p>
+                  <p className="font-heading text-4xl tracking-tight">
+                    {price}
+                    <span className="text-base font-sans font-medium text-muted-foreground"> USD / month</span>
+                  </p>
+                  <CardDescription>One business workspace. Cancel anytime. No overage invoice.</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <ul className="grid gap-2">
+                    {PRICING_FEATURES.slice(0, 6).map((item) => (
+                      <li key={item} className="flex items-start gap-2 text-sm">
+                        <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                    Built for one business at a time. {BIZPILOT_PRO.replyLimit} AI replies each month.
+                    You stay in control of email, quotes, and anything that needs a person.
+                  </p>
+                  <Button
+                    className="mt-5 w-full"
+                    nativeButton={false}
+                    render={<Link href={LANDING_PRIMARY_CTA.href} />}
+                  >
+                    {LANDING_PRIMARY_CTA.label}
+                    <ArrowRight aria-hidden />
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
-            <p className="max-w-sm text-sm leading-relaxed text-muted-foreground lg:justify-self-end">
-              Built for one business at a time. {BIZPILOT_PRO.replyLimit} AI replies each month.
-              You stay in control of email, quotes, and anything that needs a person.
-            </p>
+            <ul className="mt-10 grid min-w-0 gap-3 sm:grid-cols-3">
+              {HERO_OUTCOMES.map((item, index) => {
+                const Icon = OUTCOME_ICONS[index] ?? MessageSquare;
+                return (
+                  <li key={item.title} className="min-w-0 rounded-xl border bg-card/90 p-4 shadow-[0_1px_2px_oklch(0.22_0.03_264/0.04)]">
+                    <Icon className="size-4 text-primary" aria-hidden />
+                    <p className="mt-3 text-sm font-semibold">{item.title}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{item.body}</p>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </section>
 
@@ -331,8 +403,9 @@ export async function MarketingHome() {
               <CardContent className="pt-4">
                 <p className="font-heading text-4xl tracking-tight">
                   {price}
-                  <span className="text-base font-sans text-muted-foreground"> / month</span>
+                  <span className="text-base font-sans text-muted-foreground"> USD / month</span>
                 </p>
+                <HonestAiNote className="mt-4" />
                 <ul className="mt-4 grid gap-2">
                   {PRICING_FEATURES.map((item) => (
                     <li key={item} className="flex items-start gap-2 text-sm">
@@ -343,6 +416,7 @@ export async function MarketingHome() {
                 </ul>
                 <Button className="mt-5 w-full min-w-0 sm:w-auto" nativeButton={false} render={<Link href={LANDING_PRIMARY_CTA.href} />}>
                   {LANDING_PRIMARY_CTA.label}
+                  <ArrowRight aria-hidden />
                 </Button>
               </CardContent>
             </Card>
@@ -364,15 +438,16 @@ export async function MarketingHome() {
         <section id="final-cta" className={`${sectionClass} bg-[oklch(0.22_0.035_264)] py-14 text-[oklch(0.97_0.006_264)] sm:py-16`}>
           <div className={wrapClass}>
             <h2 className="font-heading max-w-2xl text-2xl tracking-tight sm:text-3xl">
-              Put a trained assistant on your site this month.
+              Answer customers and capture leads — without a front desk.
             </h2>
             <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/75">
-              Get started creates the account. Stripe collects {price} for {PUBLIC_PRODUCT_NAME}.
-              The demo remains a local preview if you want to see the layout first.
+              Get started creates the account. Stripe collects {price} USD per month for {PUBLIC_PRODUCT_NAME}.
+              Cancel anytime. The demo remains a local preview if you want to see the layout first.
             </p>
             <div className="mt-7 flex min-w-0 flex-wrap gap-3">
-              <Button size="lg" nativeButton={false} render={<Link href={LANDING_PRIMARY_CTA.href} />}>
+              <Button size="lg" className="px-4 sm:px-5" nativeButton={false} render={<Link href={LANDING_PRIMARY_CTA.href} />}>
                 {LANDING_PRIMARY_CTA.label}
+                <ArrowRight aria-hidden />
               </Button>
               <Button
                 size="lg"
