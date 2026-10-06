@@ -80,9 +80,9 @@ describe("V2 public landing copy", () => {
     );
   });
 
-  it("keeps BizPilot Pro at $29 with 500 replies and no overage", () => {
-    assert.equal(BIZPILOT_PRO.amountCents, 2900);
-    assert.equal(formatPlanPriceUsd(), "$29");
+  it("keeps BizPilot Pro at $29.99 with 500 replies and no overage", () => {
+    assert.equal(BIZPILOT_PRO.amountCents, 2999);
+    assert.equal(formatPlanPriceUsd(), "$29.99");
     assert.equal(BIZPILOT_PRO.replyLimit, 500);
     assert.equal(BIZPILOT_PRO.automaticOverageCharges, false);
     assert.match(PRICING_FEATURES.join(" "), /500 AI-generated customer replies/);
