@@ -24,6 +24,7 @@ import {
   WIDGET_POINTS,
   formatPlanPriceUsd,
 } from "@/lib/marketing/copy";
+import { SEO_ROUTES } from "@/lib/marketing/seo-routes";
 import { BIZLYRO_PUBLIC_ORIGIN } from "@/lib/public-origin";
 import { BIZPILOT_PRO } from "@/lib/plan";
 import { Check } from "lucide-react";
@@ -42,6 +43,20 @@ function CtaPair({ className = "" }: { className?: string }) {
         {LANDING_SECONDARY_CTA.label}
       </Button>
     </div>
+  );
+}
+
+function SectionGuide({ sectionId }: { sectionId: string }) {
+  const route = SEO_ROUTES.find((item) => item.homeSectionId === sectionId);
+  if (!route) return null;
+  return (
+    <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+      <Link className="font-medium text-foreground underline-offset-2 hover:underline" href={route.path}>
+        {route.label}
+      </Link>
+      {". "}
+      {route.blurb}
+    </p>
   );
 }
 
@@ -159,6 +174,20 @@ export async function MarketingHome() {
                 </li>
               ))}
             </ul>
+            <h3 className="font-heading mt-10 text-xl tracking-tight">Guides</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              Longer notes on the jobs Bizlyro is built to do, including the limits of each one.
+            </p>
+            <ul className="mt-4 grid min-w-0 gap-4 md:grid-cols-2">
+              {SEO_ROUTES.map((route) => (
+                <li key={route.path} className="min-w-0 rounded-lg border bg-card p-5">
+                  <Link className="font-medium underline-offset-2 hover:underline" href={route.path}>
+                    {route.label}
+                  </Link>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{route.blurb}</p>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
@@ -172,6 +201,7 @@ export async function MarketingHome() {
               This preview uses the real Inbox, Leads, and chat layout. Names and messages are
               sample copy so the page never pretends to show live customers.
             </p>
+            <SectionGuide sectionId="product" />
             <div className="mt-8">
               <ProductPreview />
             </div>
@@ -187,6 +217,7 @@ export async function MarketingHome() {
             <div className={`${wrapClass} max-w-3xl`}>
               <h2 className="font-heading text-2xl tracking-tight sm:text-3xl">{item.title}</h2>
               <p className="mt-4 text-base leading-relaxed text-muted-foreground">{item.body}</p>
+              <SectionGuide sectionId={item.id} />
             </div>
           </section>
         ))}
@@ -254,6 +285,7 @@ export async function MarketingHome() {
             <h2 className="font-heading mt-2 max-w-2xl text-2xl tracking-tight sm:text-3xl">
               One website widget. The customer never logs in.
             </h2>
+            <SectionGuide sectionId="widget" />
             <PointGrid items={WIDGET_POINTS} />
           </div>
         </section>

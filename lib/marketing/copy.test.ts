@@ -36,6 +36,9 @@ const LANDING_FILES = [
   "components/site-footer.tsx",
   "components/product-preview.tsx",
   "components/marketing-faq.tsx",
+  "components/seo-landing.tsx",
+  "lib/marketing/seo-pages.ts",
+  "lib/marketing/seo-routes.ts",
 ];
 
 describe("V2 public landing copy", () => {
@@ -150,6 +153,10 @@ describe("V2 public landing copy", () => {
       "https://bizlyro.com/demo",
       "https://bizlyro.com/privacy",
       "https://bizlyro.com/terms",
+      "https://bizlyro.com/ai-customer-service-assistant",
+      "https://bizlyro.com/ai-sales-assistant",
+      "https://bizlyro.com/ai-business-assistant",
+      "https://bizlyro.com/ai-chatbot-for-small-business",
     ]);
     assert.equal(bizlyro.some((url) => url.includes("mybizpilotai.com")), false);
     const xml = sitemapXml(BIZLYRO_PUBLIC_ORIGIN);

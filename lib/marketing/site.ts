@@ -1,6 +1,7 @@
 import type { Metadata, MetadataRoute } from "next";
 import { BIZLYRO_PUBLIC_ORIGIN, PRODUCTION_PUBLIC_ORIGIN } from "@/lib/public-origin";
 import { HOME_METADATA } from "./copy";
+import { SEO_ROUTES } from "./seo-routes";
 
 export const MARKETING_ORIGIN = PRODUCTION_PUBLIC_ORIGIN;
 
@@ -27,13 +28,27 @@ export const homeMetadata: Metadata = {
   },
 };
 
+const SITEMAP_PATHS: { path: string; priority: number; lastModified: string }[] = [
+  { path: "", priority: 1, lastModified: "2026-10-02T00:00:00.000Z" },
+  { path: "/signup", priority: 0.6, lastModified: "2026-10-02T00:00:00.000Z" },
+  { path: "/login", priority: 0.6, lastModified: "2026-10-02T00:00:00.000Z" },
+  { path: "/demo", priority: 0.6, lastModified: "2026-10-02T00:00:00.000Z" },
+  { path: "/privacy", priority: 0.6, lastModified: "2026-10-02T00:00:00.000Z" },
+  { path: "/terms", priority: 0.6, lastModified: "2026-10-02T00:00:00.000Z" },
+  ...SEO_ROUTES.map((route) => ({
+    path: route.path,
+    priority: 0.8,
+    lastModified: "2026-10-06T00:00:00.000Z",
+  })),
+];
+
 export function publicSitemapUrls(origin: string = MARKETING_ORIGIN) {
   const base = origin.replace(/\/$/, "");
-  return ["", "/signup", "/login", "/demo", "/privacy", "/terms"].map((path) => ({
-    url: `${base}${path}`,
-    lastModified: new Date("2026-10-02T00:00:00.000Z"),
+  return SITEMAP_PATHS.map((entry) => ({
+    url: `${base}${entry.path}`,
+    lastModified: new Date(entry.lastModified),
     changeFrequency: "weekly" as const,
-    priority: path === "" ? 1 : 0.6,
+    priority: entry.priority,
   }));
 }
 

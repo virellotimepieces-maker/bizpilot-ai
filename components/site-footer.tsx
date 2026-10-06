@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DeskMark } from "@/components/desk-mark";
 import { LANDING_DEMO, LANDING_NAV, LANDING_PRIMARY_CTA, LANDING_SIGN_IN } from "@/lib/marketing/copy";
+import { SEO_ROUTES } from "@/lib/marketing/seo-routes";
 
 export function SiteFooter() {
   return (
@@ -24,6 +25,11 @@ export function SiteFooter() {
             <Link className="hover:underline" href={LANDING_DEMO.href}>
               Demo
             </Link>
+            {SEO_ROUTES.map((route) => (
+              <Link key={route.path} className="hover:underline" href={route.path}>
+                {route.label}
+              </Link>
+            ))}
           </nav>
         </div>
         <div className="min-w-0">
