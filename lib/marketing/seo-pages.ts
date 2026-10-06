@@ -1,6 +1,8 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { BIZLYRO_PUBLIC_ORIGIN } from "@/lib/public-origin";
+import { HOME_METADATA } from "./copy";
 import { SEO_ROUTES, type SeoRoutePath } from "./seo-routes";
+import { BIZLYRO_SOFTWARE_ID, BIZLYRO_WEBSITE_ID, bizlyroEntityGraph } from "./site";
 
 export type SeoTextLink = { href: string; label: string };
 
@@ -94,7 +96,7 @@ const customerService: SeoLandingPage = {
   steps: [
     {
       title: "Create the workspace",
-      body: "Get started opens an account for one business. The paid plan is BizPilot Pro, billed monthly after you subscribe.",
+      body: "Get started opens an account for one business. The paid plan is Bizlyro AI, billed monthly after you subscribe.",
     },
     {
       title: "Publish the answers you already give",
@@ -126,7 +128,7 @@ const customerService: SeoLandingPage = {
     { href: "/ai-sales-assistant", label: "AI sales assistant" },
     { href: "/ai-chatbot-for-small-business", label: "AI chatbot for small business" },
     { href: "/ai-business-assistant", label: "AI business assistant" },
-    { href: "/#pricing", label: "BizPilot Pro pricing" },
+    { href: "/#pricing", label: "Bizlyro AI pricing" },
     { href: "/demo", label: "Open the local demo" },
   ],
 };
@@ -169,7 +171,7 @@ const salesAssistant: SeoLandingPage = {
       ],
       links: [
         { href: "/ai-business-assistant", label: "AI business assistant" },
-        { href: "/#pricing", label: "See BizPilot Pro pricing" },
+        { href: "/#pricing", label: "See Bizlyro AI pricing" },
       ],
     },
   ],
@@ -278,7 +280,7 @@ const businessAssistant: SeoLandingPage = {
     {
       heading: "Why it is one workspace",
       paragraphs: [
-        "BizPilot Pro is one business workspace and one installed website widget. Conversations, knowledge, and drafts for that widget stay with that account. Another subscriber’s workspace is not a source of answers.",
+        "Bizlyro AI is one business workspace and one installed website widget. Conversations, knowledge, and drafts for that widget stay with that account. Another subscriber’s workspace is not a source of answers.",
         "The monthly allowance covers AI-generated customer replies. When it is used, replies pause for the rest of the billing period and visitors are offered a person. Cancel anytime in Billing. Stored knowledge remains until you ask for the workspace to be deleted.",
       ],
       links: [
@@ -318,7 +320,7 @@ const businessAssistant: SeoLandingPage = {
   steps: [
     {
       title: "Open the account",
-      body: "Get started creates the login and the workspace. Subscribe to BizPilot Pro when you want the paid widget and dashboard.",
+      body: "Get started creates the login and the workspace. Subscribe to Bizlyro AI when you want the paid widget and dashboard.",
     },
     {
       title: "Train it on this business only",
@@ -343,7 +345,7 @@ const businessAssistant: SeoLandingPage = {
     {
       question: "Is there a free plan?",
       answer:
-        "No. Get started creates an account, then you subscribe to BizPilot Pro. The price is on the homepage. The local demo is a browser-only preview. It is not a free workspace and does not call an AI model or Stripe.",
+        "No. Get started creates an account, then you subscribe to Bizlyro AI. The price is on the homepage. The local demo is a browser-only preview. It is not a free workspace and does not call an AI model or Stripe.",
     },
   ],
   related: [
@@ -388,7 +390,7 @@ const smallBusinessChatbot: SeoLandingPage = {
     {
       heading: "One widget on the site you already have",
       paragraphs: [
-        "BizPilot Pro includes one website widget. Customers never log in. They open the chat on your site, ask a question, and either get a published answer or a handoff. You install it with the snippet from the paid Widget page.",
+        "Bizlyro AI includes one website widget. Customers never log in. They open the chat on your site, ask a question, and either get a published answer or a handoff. You install it with the snippet from the paid Widget page.",
         "The public demo is a separate, browser-only preview of the desk layout. It is not the chatbot your customers would use, it is not billed, and it does not call an AI model. Use it to see the screens. Use the subscription when you want the widget on your domain.",
       ],
       links: [
@@ -415,7 +417,7 @@ const smallBusinessChatbot: SeoLandingPage = {
   limits: [
     {
       title: "The demo is not the live chatbot",
-      body: "The local demo never becomes your customer-facing widget. The installed chatbot is part of BizPilot Pro.",
+      body: "The local demo never becomes your customer-facing widget. The installed chatbot is part of Bizlyro AI.",
     },
     {
       title: "There is no free chatbot plan",
@@ -433,7 +435,7 @@ const smallBusinessChatbot: SeoLandingPage = {
     },
     {
       title: "Subscribe and publish",
-      body: "Create an account, subscribe to BizPilot Pro, and add the facts the chatbot is allowed to repeat.",
+      body: "Create an account, subscribe to Bizlyro AI, and add the facts the chatbot is allowed to repeat.",
     },
     {
       title: "Add the snippet",
@@ -520,6 +522,7 @@ export function seoPageJsonLd(page: SeoLandingPage) {
   return {
     "@context": "https://schema.org",
     "@graph": [
+      ...bizlyroEntityGraph(HOME_METADATA.description),
       {
         "@type": "WebPage",
         "@id": `${url}#webpage`,
@@ -527,18 +530,8 @@ export function seoPageJsonLd(page: SeoLandingPage) {
         name: page.title,
         description: page.description,
         inLanguage: "en",
-        isPartOf: {
-          "@type": "WebSite",
-          name: "Bizlyro AI",
-          url: BIZLYRO_PUBLIC_ORIGIN,
-        },
-        about: {
-          "@type": "SoftwareApplication",
-          name: "Bizlyro AI",
-          applicationCategory: "BusinessApplication",
-          operatingSystem: "Web",
-          url: BIZLYRO_PUBLIC_ORIGIN,
-        },
+        isPartOf: { "@id": BIZLYRO_WEBSITE_ID },
+        about: { "@id": BIZLYRO_SOFTWARE_ID },
         breadcrumb: { "@id": `${url}#breadcrumb` },
         mainEntity: { "@id": `${url}#faq` },
       },

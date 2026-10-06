@@ -16,7 +16,7 @@ export function DashboardHome() {
   return (
     <SetupGate
       title="A support desk for any kind of business"
-      description="Teach BizPilot who you are — products or services, prices, hours, policies, and when a human must take over. Website chat, email drafts, and social drafts share that knowledge. Neither one is a store plugin."
+      description="Teach Bizlyro AI who you are — products or services, prices, hours, policies, and when a human must take over. Website chat, email drafts, and social drafts share that knowledge. Neither one is a store plugin."
     >
       <LoadedDashboard />
     </SetupGate>
@@ -114,7 +114,7 @@ function LoadedDashboard() {
               href="/demo/social"
               icon={Share2}
               title="Social drafts"
-              body="Paste an Instagram, Facebook, TikTok, or Messenger message. Copy the draft and post it yourself — BizPilot never posts."
+              body="Paste an Instagram, Facebook, TikTok, or Messenger message. Copy the draft and post it yourself — Bizlyro AI never posts."
             />
           </CardContent>
         </Card>
@@ -147,7 +147,7 @@ function LoadedDashboard() {
             <CardTitle>What this is not</CardTitle>
           </div>
           <CardDescription>
-            BizPilot is not a Shopify app, a stock system, or a clinic EHR. Store-only fields such
+            Bizlyro AI is not a Shopify app, a stock system, or a clinic EHR. Store-only fields such
             as shipping, inventory, and cash on delivery appear only if you choose the online-store
             type.
           </CardDescription>

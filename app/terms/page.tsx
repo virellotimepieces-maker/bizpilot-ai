@@ -20,7 +20,7 @@ export default function TermsPage() {
           <section>
             <h2 className="font-heading text-xl">The product</h2>
             <p className="mt-2 text-muted-foreground">
-              BizPilot Pro is USD $29.99 per month for one business workspace, one website widget, and
+              Bizlyro AI is USD $29.99 per month for one business workspace, one website widget, and
               500 AI-generated customer replies per Stripe billing month. When the allowance is
               used, AI replies pause and visitors are offered a human. There are no automatic
               overage charges. Cancel anytime in Billing.
@@ -40,14 +40,14 @@ export default function TermsPage() {
             <p className="mt-2 text-muted-foreground">
               Suggested email replies are never sent automatically. If you connect Gmail, a reply
               goes out through that Gmail account only after you press Send reply and confirm.
-              Social drafts are never posted by BizPilot. There is no Meta or TikTok connection.
+              Social drafts are never posted by Bizlyro AI. There is no Meta or TikTok connection.
             </p>
           </section>
           <section>
             <h2 className="font-heading text-xl">Demo versus paid</h2>
             <p className="mt-2 text-muted-foreground">
               /demo is a browser-only preview. It is not a customer workspace, does not take
-              payment, and does not call an AI model. Paid features require an active BizPilot Pro
+              payment, and does not call an AI model. Paid features require an active Bizlyro AI
               subscription.
             </p>
           </section>

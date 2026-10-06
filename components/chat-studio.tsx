@@ -54,7 +54,7 @@ function ChatBody() {
           <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">Website chat</p>
           <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Customer site + operator view</h1>
           <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
-            Left: what a visitor sees on {knowledge.name}. Right: whether BizPilot answered from
+            Left: what a visitor sees on {knowledge.name}. Right: whether Bizlyro AI answered from
             the knowledge base or asked a human to step in. Email is not sent from here.
           </p>
         </div>
@@ -70,7 +70,7 @@ function ChatBody() {
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div>
                 <p className="text-sm font-medium">Chat with {knowledge.name}</p>
-                <p className="text-xs text-neutral-500">Powered by BizPilot AI · same knowledge as email and social</p>
+                <p className="text-xs text-neutral-500">Powered by Bizlyro AI · same knowledge as email and social</p>
               </div>
               <Badge variant="secondary">Live demo</Badge>
             </div>

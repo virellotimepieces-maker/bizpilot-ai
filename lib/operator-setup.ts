@@ -194,7 +194,7 @@ export function publicLiveStatusPayload(env: EnvMap = process.env) {
     return {
       kind: "live" as const,
       label: "Live",
-      detail: "BizPilot Pro is live and open to subscribers.",
+      detail: "Bizlyro AI is live and open to subscribers.",
       openToSubscribers: true,
     };
   }
@@ -202,14 +202,14 @@ export function publicLiveStatusPayload(env: EnvMap = process.env) {
     return {
       kind: "test" as const,
       label: "Test mode",
-      detail: "BizPilot Pro is not open to paying subscribers yet.",
+      detail: "Bizlyro AI is not open to paying subscribers yet.",
       openToSubscribers: false,
     };
   }
   return {
     kind: "setup" as const,
     label: "Not live",
-    detail: "BizPilot Pro is not open to subscribers yet.",
+    detail: "Bizlyro AI is not open to subscribers yet.",
     openToSubscribers: false,
   };
 }

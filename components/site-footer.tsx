@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DeskMark } from "@/components/desk-mark";
+import { PUBLIC_MARK, PUBLIC_PRODUCT_NAME } from "@/lib/marketing/copy";
 import { LANDING_DEMO, LANDING_NAV, LANDING_PRIMARY_CTA, LANDING_SIGN_IN } from "@/lib/marketing/copy";
 import { SEO_ROUTES } from "@/lib/marketing/seo-routes";
 
@@ -8,7 +9,7 @@ export function SiteFooter() {
     <footer className="border-t bg-card">
       <div className="mx-auto grid w-full min-w-0 max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
         <div className="min-w-0">
-          <DeskMark href="/" />
+          <DeskMark href="/" name={PUBLIC_PRODUCT_NAME} mark={PUBLIC_MARK} />
           <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
             24/7 AI customer service and sales assistance for one business. Answers from your
             knowledge. Drafts you send yourself.

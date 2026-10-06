@@ -15,6 +15,7 @@ import {
   KNOWLEDGE_POINTS,
   LANDING_DEMO,
   LANDING_HERO,
+  PUBLIC_PRODUCT_NAME,
   LANDING_PRIMARY_CTA,
   LANDING_SECONDARY_CTA,
   PROBLEM_POINTS,
@@ -25,6 +26,7 @@ import {
   formatPlanPriceUsd,
 } from "@/lib/marketing/copy";
 import { SEO_ROUTES } from "@/lib/marketing/seo-routes";
+import { bizlyroEntityGraph } from "@/lib/marketing/site";
 import { BIZLYRO_PUBLIC_ORIGIN } from "@/lib/public-origin";
 import { BIZPILOT_PRO } from "@/lib/plan";
 import { Check } from "lucide-react";
@@ -81,34 +83,11 @@ export async function MarketingHome() {
   const price = formatPlanPriceUsd();
   const jsonLd = {
     "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "Organization",
-        name: "Bizlyro AI",
-        url: BIZLYRO_PUBLIC_ORIGIN,
-        description: HOME_METADATA.description,
-      },
-      {
-        "@type": "WebSite",
-        name: "Bizlyro AI",
-        url: BIZLYRO_PUBLIC_ORIGIN,
-        description: HOME_METADATA.description,
-      },
-      {
-        "@type": "SoftwareApplication",
-        name: "Bizlyro AI",
-        applicationCategory: "BusinessApplication",
-        operatingSystem: "Web",
-        url: BIZLYRO_PUBLIC_ORIGIN,
-        description: HOME_METADATA.description,
-        offers: {
-          "@type": "Offer",
-          price: String(BIZPILOT_PRO.amountCents / 100),
-          priceCurrency: BIZPILOT_PRO.currency.toUpperCase(),
-          url: `${BIZLYRO_PUBLIC_ORIGIN}/signup`,
-        },
-      },
-    ],
+    "@graph": bizlyroEntityGraph(HOME_METADATA.description, {
+      price: String(BIZPILOT_PRO.amountCents / 100),
+      priceCurrency: BIZPILOT_PRO.currency.toUpperCase(),
+      url: `${BIZLYRO_PUBLIC_ORIGIN}/signup`,
+    }),
   };
 
   return (
@@ -136,6 +115,9 @@ export async function MarketingHome() {
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
                 {LANDING_HERO.subtitle}
+              </p>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-foreground">
+                {LANDING_HERO.entity}
               </p>
               <CtaPair className="mt-7" />
               <p className="mt-3 max-w-xl text-xs leading-relaxed text-muted-foreground">
@@ -256,7 +238,7 @@ export async function MarketingHome() {
           <div className={wrapClass}>
             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">How it works</p>
             <h2 className="font-heading mt-2 max-w-2xl text-2xl tracking-tight sm:text-3xl">
-              Account, then {BIZPILOT_PRO.name}, then knowledge, then the widget.
+              Account, then {PUBLIC_PRODUCT_NAME}, then knowledge, then the widget.
             </h2>
             <ol className="mt-8 grid min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-4">
               {HOW_IT_WORKS_STEPS.map((item) => (
@@ -336,14 +318,14 @@ export async function MarketingHome() {
                 One plan. {price} per month.
               </h2>
               <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
-                {BIZPILOT_PRO.name} is billed monthly in USD through Stripe. Create an account,
+                {PUBLIC_PRODUCT_NAME} is billed monthly in USD through Stripe. Create an account,
                 then subscribe. When the {BIZPILOT_PRO.replyLimit}-reply allowance is used, AI
                 stops. There is no overage invoice.
               </p>
             </div>
             <Card className="min-w-0">
               <CardHeader className="border-b">
-                <CardTitle className="text-lg">{BIZPILOT_PRO.name}</CardTitle>
+                <CardTitle className="text-lg">{PUBLIC_PRODUCT_NAME}</CardTitle>
                 <CardDescription>Per business, billed monthly in USD.</CardDescription>
               </CardHeader>
               <CardContent className="pt-4">
@@ -385,7 +367,7 @@ export async function MarketingHome() {
               Put a trained assistant on your site this month.
             </h2>
             <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/75">
-              Get started creates the account. Stripe collects {price} for {BIZPILOT_PRO.name}.
+              Get started creates the account. Stripe collects {price} for {PUBLIC_PRODUCT_NAME}.
               The demo remains a local preview if you want to see the layout first.
             </p>
             <div className="mt-7 flex min-w-0 flex-wrap gap-3">

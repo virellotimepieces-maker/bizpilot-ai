@@ -11,6 +11,16 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [{ source: "/w/:key.js", destination: "/w/:key" }];
   },
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.bizlyro.com" }],
+        destination: "https://bizlyro.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

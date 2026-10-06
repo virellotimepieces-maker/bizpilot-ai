@@ -20,13 +20,20 @@ export const LANDING_SIGN_IN = {
   label: "Sign in",
 } as const;
 
+export const PUBLIC_BRAND_NAME = "Bizlyro";
+export const PUBLIC_PRODUCT_NAME = "Bizlyro AI";
+export const PUBLIC_MARK = "BL";
+export const PUBLIC_ENTITY_STATEMENT =
+  "Bizlyro AI is an AI customer service and sales assistant, and its official website is bizlyro.com.";
+
 export const LANDING_HERO = {
-  eyebrow: "BizPilot Pro · one business workspace",
+  eyebrow: "Bizlyro · one business workspace",
   title: "Your 24/7 AI Customer Service & Sales Assistant",
   subtitle:
-    "Train BizPilot on your business and let it answer customers, capture leads, and help visitors around the clock. It answers from your published knowledge. It does not invent prices, inventory, or confirmed appointments.",
+    "Train Bizlyro AI on your business and let it answer customers, capture leads, and help visitors around the clock. It answers from your published knowledge. It does not invent prices, inventory, or confirmed appointments.",
+  entity: PUBLIC_ENTITY_STATEMENT,
   demoNote:
-    "The demo is a browser-only preview. It is not a paid workspace and does not call an AI model or Stripe. Get started creates an account, then BizPilot Pro is $29.99 per month.",
+    "The demo is a browser-only preview. It is not a paid workspace and does not call an AI model or Stripe. Get started creates an account, then Bizlyro AI is $29.99 per month.",
 } as const;
 
 export const LANDING_NAV = [
@@ -38,7 +45,7 @@ export const LANDING_NAV = [
 export const LANDING_SECTIONS = [
   { id: "hero", title: "Hero" },
   { id: "problem", title: "The gap after hours" },
-  { id: "solution", title: "What BizPilot does" },
+  { id: "solution", title: "What Bizlyro AI does" },
   { id: "product", title: "Product preview" },
   { id: "customer-service", title: "Customer service" },
   { id: "sales-assistant", title: "Sales assistant" },
@@ -82,7 +89,7 @@ export const HOW_IT_WORKS_STEPS = [
   },
   {
     step: "2",
-    title: `Subscribe to ${BIZPILOT_PRO.name}`,
+    title: "Subscribe to Bizlyro AI",
     body: `${formatPlanPriceUsd()} per month unlocks the paid dashboard and widget. There is no free paid plan.`,
   },
   {
@@ -108,7 +115,7 @@ export const PROBLEM_POINTS = [
   },
   {
     title: "A 24/7 hire is the expensive version of this",
-    body: "BizPilot covers published questions around the clock. A person still handles what should not be automated.",
+    body: "Bizlyro AI covers published questions around the clock. A person still handles what should not be automated.",
   },
 ] as const;
 
@@ -136,7 +143,7 @@ export const CAPABILITY_SECTIONS = [
   {
     id: "sales-assistant" as const,
     title: "A sales assistant that stays inside your catalog",
-    body: "BizPilot can explain published products, services, and prices. It will not invent a discount, mark an item in stock, or close a sale you did not define.",
+    body: "Bizlyro AI can explain published products, services, and prices. It will not invent a discount, mark an item in stock, or close a sale you did not define.",
   },
   {
     id: "lead-capture" as const,
@@ -152,7 +159,7 @@ export const KNOWLEDGE_POINTS = [
   },
   {
     title: "Public pages can be indexed",
-    body: "You can point BizPilot at your public site so indexed pages sit beside the facts you typed. Conflicts stay visible instead of being silently merged.",
+    body: "You can point Bizlyro AI at your public site so indexed pages sit beside the facts you typed. Conflicts stay visible instead of being silently merged.",
   },
   {
     title: "Unanswered questions stay on the record",
@@ -171,7 +178,7 @@ export const INBOX_POINTS = [
   },
   {
     title: "Social posts wait for confirmation",
-    body: "Drafts stay in BizPilot until you approve them. Publishing runs only after that platform is connected and you confirm. Copy stays available when a platform is not set up.",
+    body: "Drafts stay in Bizlyro AI until you approve them. Publishing runs only after that platform is connected and you confirm. Copy stays available when a platform is not set up.",
   },
 ] as const;
 
@@ -193,7 +200,7 @@ export const HANDOFF_POINTS = [
 export const WIDGET_POINTS = [
   {
     title: "One widget per workspace",
-    body: `${BIZPILOT_PRO.name} includes one installed website widget. That is the customer surface.`,
+    body: "Bizlyro AI includes one installed website widget. That is the customer surface.",
   },
   {
     title: "Safe questions, then a person",
@@ -234,7 +241,7 @@ export const INTEGRATION_ITEMS = [
     name: "Calendar",
     status: "Not connected",
     live: false,
-    body: "Appointment rows are requests. BizPilot does not confirm a slot on a calendar.",
+    body: "Appointment rows are requests. Bizlyro AI does not confirm a slot on a calendar.",
   },
 ] as const;
 
@@ -258,15 +265,15 @@ export const WHO_IT_FITS = [
 export const FAQ_ITEMS = [
   {
     id: "what-is-it",
-    question: "What is BizPilot AI?",
+    question: "What is Bizlyro AI?",
     answer:
-      "A paid desk for one business: website chat trained on your knowledge, an inbox, lead and request capture, Gmail drafts you confirm, and social drafts you approve before anything is published. It is billed as BizPilot Pro.",
+      "Bizlyro AI is an AI customer service and sales assistant for one business. The official website is bizlyro.com. It includes website chat trained on your knowledge, an inbox, lead and request capture, Gmail drafts you confirm, and social drafts you approve before anything is published.",
   },
   {
     id: "free-plan",
     question: "Is there a free plan?",
     answer:
-      "No. Get started creates an account, then you subscribe to BizPilot Pro for $29.99 per month. The local demo is a browser-only preview. It is not a free workspace and does not call an AI model or Stripe.",
+      "No. Get started creates an account, then you subscribe to Bizlyro AI for $29.99 per month. The local demo is a browser-only preview. It is not a free workspace and does not call an AI model or Stripe.",
   },
   {
     id: "limit",
@@ -276,7 +283,7 @@ export const FAQ_ITEMS = [
   },
   {
     id: "email",
-    question: "Does BizPilot send email on its own?",
+    question: "Does Bizlyro AI send email on its own?",
     answer:
       "No. If you connect Gmail, a reply is sent through that Gmail account only after you press Send reply and confirm. Email never auto-sends.",
   },
