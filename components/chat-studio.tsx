@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { INTENT_LABEL } from "@/lib/intent-labels";
 import { BUSINESS_TYPE_LABEL } from "@/lib/labels";
 import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS, PAGE_TITLE_CLASS, SECTION_HEADING_CLASS } from "@/lib/ui/type-scale";
+import { INDUSTRY_DEMO_LABEL, industryDemoByPresetId } from "@/lib/industry-demos";
 import { PRESETS } from "@/lib/presets";
 import type { BusinessType, ChatMessage, KnowledgeBase } from "@/lib/types";
 import { useWorkspace } from "@/lib/workspace-store";
@@ -54,8 +55,9 @@ function ChatBody() {
           <p className="text-xs font-medium tracking-[0.2em] text-primary uppercase">Website chat</p>
           <h1 className={`${PAGE_TITLE_CLASS} mt-2`}>Customer site + operator view</h1>
           <p className={`mt-2 max-w-2xl ${HELPER_TEXT_CLASS}`}>
-            Left: what a visitor sees on {knowledge.name}. Right: whether Bizlyro AI answered from
-            the knowledge base or asked a human to step in. Email is not sent from here.
+            {INDUSTRY_DEMO_LABEL} Left: what a visitor sees on {knowledge.name}. Right: whether
+            Bizlyro AI answered from the knowledge base or asked a human to step in. Email is not
+            sent from here.
           </p>
         </div>
         <Button variant="outline" onClick={resetChat}>
@@ -72,7 +74,7 @@ function ChatBody() {
                 <p className="text-sm font-medium">Chat with {knowledge.name}</p>
                 <p className="text-xs text-neutral-500">Powered by Bizlyro AI · same knowledge as email and social</p>
               </div>
-              <Badge variant="secondary">Live demo</Badge>
+              <Badge variant="secondary">Sample data</Badge>
             </div>
             <div className="flex-1 space-y-3 overflow-y-auto bg-neutral-50 p-4">
               {(activeChat?.messages.length ?? 0) === 0 && (
@@ -149,8 +151,23 @@ function ChatBody() {
               emergencies, and clinical advice should not.
             </p>
           )}
+          <SampleLead presetId={presetId} />
         </aside>
       </div>
+    </div>
+  );
+}
+
+function SampleLead({ presetId }: { presetId: string | null }) {
+  const demo = industryDemoByPresetId(presetId);
+  if (!demo) return null;
+  return (
+    <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-3">
+      <p className="text-xs font-medium tracking-wide text-primary uppercase">Owner view — sample lead</p>
+      <p className="mt-2 text-sm font-medium">{demo.lead.name}</p>
+      <p className="text-sm break-all text-muted-foreground">{demo.lead.email}</p>
+      <p className="mt-2 text-sm leading-relaxed">{demo.lead.request}</p>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{demo.lead.withheld}</p>
     </div>
   );
 }

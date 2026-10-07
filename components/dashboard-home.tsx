@@ -1,5 +1,7 @@
 "use client";
 
+import { DemoSalesStrip } from "@/components/demo-sales-strip";
+import { IndustryDemoPanel } from "@/components/industry-demo-panel";
 import { PresetGallery } from "@/components/preset-gallery";
 import { SetupGate } from "@/components/setup-gate";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +66,9 @@ function LoadedDashboard() {
           </Button>
         </div>
       </div>
+
+      <DemoSalesStrip />
+      <IndustryDemoPanel />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat

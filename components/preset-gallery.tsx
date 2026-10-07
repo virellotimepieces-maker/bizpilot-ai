@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { INDUSTRY_DEMOS, INDUSTRY_DEMO_LABEL, industryDemoByPresetId } from "@/lib/industry-demos";
 import { PRESETS } from "@/lib/presets";
 import { BUSINESS_TYPE_LABEL } from "@/lib/labels";
 import { useWorkspace } from "@/lib/workspace-store";
@@ -29,8 +30,8 @@ export function PresetGallery({
         <div>
           <h2 className="font-heading text-xl tracking-tight text-foreground">{heading}</h2>
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Bizlyro AI is an AI customer service and sales assistant for any business. Online selling is one sample,
-            not the product. Chat and email both read the same knowledge base.
+            {INDUSTRY_DEMO_LABEL} Bizlyro AI is an AI customer service and sales assistant for any business.
+            Online selling is one sample, not the product. Chat and email both read the same knowledge base.
           </p>
         </div>
         <Button
@@ -43,10 +44,11 @@ export function PresetGallery({
           Start blank
         </Button>
       </div>
-      <div className={`grid gap-3 ${compact ? "md:grid-cols-3" : "lg:grid-cols-3"}`}>
-        {PRESETS.map((preset) => {
+      <div className={`grid gap-3 ${compact ? "md:grid-cols-2 xl:grid-cols-3" : "sm:grid-cols-2 xl:grid-cols-3"}`}>
+        {orderedPresets().map((preset) => {
           const Icon = ICONS[preset.businessType];
           const selected = knowledge?.name === preset.knowledge.name;
+          const industry = industryDemoByPresetId(preset.id);
           return (
             <button
               key={preset.id}
@@ -68,6 +70,11 @@ export function PresetGallery({
                 </span>
               </div>
               <p className="font-heading mt-3 text-lg leading-snug">{preset.subtitle}</p>
+              {industry ? (
+                <p className="mt-1 text-xs font-medium tracking-wide text-primary uppercase">
+                  {industry.audience}
+                </p>
+              ) : null}
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{preset.blurb}</p>
             </button>
           );
@@ -75,4 +82,12 @@ export function PresetGallery({
       </div>
     </div>
   );
+}
+
+function orderedPresets() {
+  const sales = INDUSTRY_DEMOS.map((demo) => PRESETS.find((preset) => preset.id === demo.presetId)).filter(
+    (preset) => preset != null,
+  );
+  const rest = PRESETS.filter((preset) => !sales.some((row) => row.id === preset.id));
+  return [...sales, ...rest];
 }

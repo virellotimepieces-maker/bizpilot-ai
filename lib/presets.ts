@@ -173,7 +173,7 @@ const serviceKnowledge: KnowledgeBase = {
   tagline: "Licensed residential electricians for the East Bay",
   industry: "Home services / electrical",
   description:
-    "Lumen Electrical is a licensed, insured residential electrical contractor. We handle repairs, panel upgrades, lighting, and EV charger installs for homes in Oakland, Berkeley, Alameda, and nearby East Bay cities. We are not a retail store and we do not sell products online.",
+    "Lumen Electrical is sample demo data for a licensed, insured residential electrical contractor. It is not a real customer. The sample covers repairs, panel upgrades, lighting, and EV charger installs for homes in Oakland, Berkeley, Alameda, and nearby East Bay cities. It is not a retail store and it does not sell products online.",
   voice:
     "Calm, direct, and safety-first. Quote published rates only. Never diagnose a hazard as 'probably fine'.",
   contact: {
@@ -446,6 +446,210 @@ const clinicKnowledge: KnowledgeBase = {
   },
 };
 
+const dentalKnowledge: KnowledgeBase = {
+  ...emptyKnowledge("clinic"),
+  businessType: "clinic",
+  name: "Harbor Dental",
+  tagline: "Sample neighborhood dental office",
+  industry: "Dental clinic",
+  description:
+    "Harbor Dental is sample demo data for a small dental clinic. It is not a real practice and not a live patient. The published facts are office hours, the new-patient cleaning fee, and how to request a visit.",
+  voice:
+    "Calm and specific. Repeat published hours and the published cleaning fee. Never diagnose, recommend treatment, or invent a fee.",
+  contact: {
+    email: "frontdesk@harbordental.example",
+    phone: "(415) 555-0164",
+    address: "18 Harbor Lane, Oakland, CA 94607",
+    website: "https://harbordental.example",
+    extra: "Sample office. Appointment requests wait for the front desk.",
+    instagram: "",
+    facebook: "",
+    tiktok: "",
+    messenger: "",
+  },
+  hours: hours(
+    "America/Los_Angeles",
+    "The sample office is closed Saturday and Sunday. After hours, callers can leave a message. This is not an emergency department.",
+    {
+      monday: ["08:00", "17:00"],
+      tuesday: ["08:00", "17:00"],
+      wednesday: ["08:00", "17:00"],
+      thursday: ["08:00", "17:00"],
+      friday: ["08:00", "14:00"],
+      saturday: "closed",
+      sunday: "closed",
+    },
+  ),
+  offerings: [
+    {
+      id: "off_cleaning",
+      kind: "service",
+      name: "New-patient cleaning and exam",
+      summary: "First visit for an adult cleaning and exam at this sample office.",
+      price: "$189 self-pay for the published new-patient cleaning and exam",
+      availability: "Request a visit. Chat cannot hold a time or say a chair is open.",
+      details: "Arrive 15 minutes early with photo ID and an insurance card if you have one.",
+    },
+  ],
+  pricingNotes:
+    "The new-patient cleaning and exam is the only published fee. Crown fees, filling fees, and whitening fees are not published. There is no published promotion or discount.",
+  policies: [
+    {
+      id: "pol_cancel",
+      title: "Cancellation",
+      summary:
+        "Cancel or reschedule with one business day's notice. A late-cancellation fee is not published.",
+    },
+    {
+      id: "pol_privacy",
+      title: "Patient privacy",
+      summary:
+        "Chat and email are not for charts, images, or treatment plans. The sample office does not discuss another person's visit.",
+    },
+  ],
+  faqs: [
+    {
+      id: "faq_saturday",
+      question: "Are you open on Saturday?",
+      answer: "No. The sample office is closed Saturday and Sunday.",
+    },
+    {
+      id: "faq_request",
+      question: "How do I request an appointment?",
+      answer:
+        "Call (415) 555-0164 or leave a name and email. The front desk confirms a time. Chat cannot reserve a chair.",
+    },
+  ],
+  documents: [
+    {
+      id: "doc_unlisted_fees",
+      title: "Internal: unlisted fees",
+      visibility: "internal",
+      body: "Do not quote a crown, filling, or whitening fee from chat. Those numbers are not in the published list.",
+    },
+  ],
+  clinicOps: {
+    appointmentBooking:
+      "Phone, or a request with a name and email. The office confirms the time. Chat cannot reserve a slot or say a day is open.",
+    insuranceAccepted:
+      "Delta Dental PPO and Cigna PPO are the published plans. Other plans are not listed. Bring the card.",
+    newPatientProcess:
+      "New patients can request the published cleaning and exam. Arrive 15 minutes early with photo ID.",
+    emergencyProtocol:
+      "Swelling, uncontrolled bleeding, trauma, or trouble breathing: call 911 or go to an emergency department. This sample office is not an emergency department.",
+    clinicalAdvicePolicy:
+      "No diagnosis, no medication, and no treatment advice. Tooth pain and 'what should I do' go to the dentist. Chat repeats published hours and the published cleaning fee only.",
+  },
+  escalation: {
+    autoAnswerChat: true,
+    alwaysEscalateTopics:
+      "Symptoms, medications, x-rays, treatment plans, billing balances, complaints about a clinician",
+    neverAutoAnswer:
+      "Dental advice, medication, and any promise that a specific time is open",
+    emergencyInstructions:
+      "If the message describes swelling, bleeding, trauma, or trouble breathing, tell them to call 911 or go to an emergency department, then hand off.",
+    handoffMessage:
+      "This needs the Harbor Dental front desk, not an automated dental answer. I'm passing it to the office now.",
+    afterHoursNote:
+      "After closing, repeat that the office is closed and that a time is not reserved. Appointment requests wait until the office is open.",
+  },
+};
+
+const localServiceKnowledge: KnowledgeBase = {
+  ...emptyKnowledge("service"),
+  businessType: "service",
+  name: "Cedar Lane Home Cleaning",
+  tagline: "Sample local cleaning service",
+  industry: "Local home services",
+  description:
+    "Cedar Lane Home Cleaning is sample demo data for a local service business. It is not a real company and not a live customer. Published facts are the neighborhoods, hours, and the standard clean rate.",
+  voice:
+    "Plain and local. Repeat the published rate and the listed neighborhoods. Never invent a coupon or a price that is not written down.",
+  contact: {
+    email: "hello@cedarlane.example",
+    phone: "(510) 555-0133",
+    address: "Serving listed neighborhoods from 400 Cedar Lane, Oakland, CA 94606",
+    website: "https://cedarlane.example",
+    extra: "Sample business. A requested date is not a reserved visit.",
+    instagram: "",
+    facebook: "",
+    tiktok: "",
+    messenger: "",
+  },
+  hours: hours(
+    "America/Los_Angeles",
+    "Crews run on the hours below. Chat can repeat them. It cannot promise a crew is free on a requested day.",
+    {
+      monday: ["08:00", "18:00"],
+      tuesday: ["08:00", "18:00"],
+      wednesday: ["08:00", "18:00"],
+      thursday: ["08:00", "18:00"],
+      friday: ["08:00", "18:00"],
+      saturday: ["09:00", "13:00"],
+      sunday: "closed",
+    },
+  ),
+  offerings: [
+    {
+      id: "off_standard_clean",
+      kind: "service",
+      name: "Standard home clean",
+      summary: "Recurring or one-time clean for a home up to 1,500 square feet in Cedar Lane, Maple Court, or the Harbor district.",
+      price: "$145 for a published standard clean",
+      availability: "Usually booked 4–7 days out. Chat cannot hold a date.",
+      details: "Supplies are included. A requested day is a request for the owner to confirm.",
+    },
+  ],
+  pricingNotes:
+    "The standard clean rate is the only published price. Move-out prices and coupons are not published. There is no published first-visit discount.",
+  policies: [
+    {
+      id: "pol_reschedule",
+      title: "Reschedule",
+      summary:
+        "Reschedule with one business day's notice. A same-day cancellation fee is not published.",
+    },
+  ],
+  faqs: [
+    {
+      id: "faq_area",
+      question: "Which neighborhoods do you clean?",
+      answer: "Cedar Lane, Maple Court, and the Harbor district. Other neighborhoods are not listed.",
+    },
+    {
+      id: "faq_pets",
+      question: "Do you clean homes with dogs?",
+      answer: "Yes, if the dog is in another room during the clean. That is the published note.",
+    },
+  ],
+  documents: [
+    {
+      id: "doc_unlisted_prices",
+      title: "Internal: unlisted prices",
+      visibility: "internal",
+      body: "Do not invent a move-out price or a coupon. Only the standard clean rate is published.",
+    },
+  ],
+  serviceOps: {
+    serviceArea: "Cedar Lane, Maple Court, and the Harbor district. Other neighborhoods are not listed.",
+    bookingLeadTime:
+      "Standard cleans are usually 4–7 days out. A requested date is a request, not a reserved visit.",
+    onsiteVsRemote: "Cleaning is on-site. Photos are not a quote.",
+    emergencyCallout: "This sample business does not offer emergency call-out.",
+  },
+  escalation: {
+    autoAnswerChat: true,
+    alwaysEscalateTopics: "Damage claims, unpaid invoices, access codes, and complaints about a cleaner",
+    neverAutoAnswer: "Unpublished prices, coupons, and any promise that a specific day is reserved",
+    emergencyInstructions:
+      "This is a cleaning sample, not emergency services. If someone reports a hazard, tell them to contact local emergency services, then hand off.",
+    handoffMessage:
+      "This needs the Cedar Lane owner, not an automated promise. I'm handing it over now.",
+    afterHoursNote:
+      "After the published hours, repeat the hours and do not reserve a crew.",
+  },
+};
+
 export const PRESETS: BusinessPreset[] = [
   {
     id: "service-lumen",
@@ -453,12 +657,13 @@ export const PRESETS: BusinessPreset[] = [
     title: "Service business",
     subtitle: "Lumen Electrical Co.",
     blurb:
-      "A licensed home-services company: rates, coverage area, booking lead time, and emergency call-out — no catalog or shipping fields.",
+      "Sample contractor / home services data. Published rates and service area only. Not a real customer.",
     knowledge: serviceKnowledge,
     suggestedQuestions: [
       "Do you work in Berkeley?",
       "What do you charge for a diagnostic visit?",
       "Can you install a Level 2 EV charger?",
+      "How much is a commercial warehouse bid?",
       "An outlet is sparking in our kitchen",
     ],
     sampleEmails: [
@@ -606,6 +811,86 @@ export const PRESETS: BusinessPreset[] = [
         handle: "@alexc",
         body: "Do you ship the Ember Enamel Mug pair to Anchorage, Alaska, and what does shipping cost?",
         receivedAt: "Today, 10:30 AM",
+      },
+    ],
+  },
+  {
+    id: "clinic-harbor-dental",
+    businessType: "clinic",
+    title: "Dental clinic",
+    subtitle: "Harbor Dental",
+    blurb:
+      "Sample dental clinic. Published hours and one cleaning fee. Crown fees and promotions are not in the knowledge base.",
+    knowledge: dentalKnowledge,
+    suggestedQuestions: [
+      "Are you open on Saturday?",
+      "What is the new-patient cleaning fee?",
+      "How much is a porcelain crown?",
+      "Do you have a whitening promotion this month?",
+    ],
+    sampleEmails: [
+      {
+        fromName: "Maya Chen",
+        fromEmail: "maya.chen@example.com",
+        subject: "New patient cleaning",
+        body: "Hello, I would like a new-patient cleaning. What is the published fee, and can the office contact me at this email?",
+        receivedAt: "Today, 9:20 AM",
+      },
+      {
+        fromName: "Luis Ortega",
+        fromEmail: "luis.ortega@example.com",
+        subject: "Crown price",
+        body: "How much is a porcelain crown, and do you have a whitening promotion this month?",
+        receivedAt: "Today, 8:05 AM",
+      },
+    ],
+    sampleSocials: [
+      {
+        platform: "facebook",
+        fromName: "Maya Chen",
+        handle: "Maya Chen",
+        body: "Are you open on Saturday, and what is the new-patient cleaning fee?",
+        receivedAt: "Today, 9:28 AM",
+      },
+    ],
+  },
+  {
+    id: "service-cedar-lane",
+    businessType: "service",
+    title: "Local service business",
+    subtitle: "Cedar Lane Home Cleaning",
+    blurb:
+      "Sample local service business. Published neighborhoods and the standard clean rate. Move-out prices and coupons are not published.",
+    knowledge: localServiceKnowledge,
+    suggestedQuestions: [
+      "What does a standard clean cost in the Harbor district?",
+      "Do you serve the Harbor district?",
+      "How much is a move-out, and is there a first-visit coupon?",
+      "Can you reserve Tuesday at 2?",
+    ],
+    sampleEmails: [
+      {
+        fromName: "Andre Walsh",
+        fromEmail: "andre.walsh@example.com",
+        subject: "Standard clean in the Harbor district",
+        body: "Hi — what does a standard clean cost in the Harbor district? Please contact me at this email.",
+        receivedAt: "Today, 11:02 AM",
+      },
+      {
+        fromName: "Nina Patel",
+        fromEmail: "nina.patel@example.com",
+        subject: "Move-out price",
+        body: "How much is a move-out, and is there a first-visit coupon?",
+        receivedAt: "Yesterday, 3:40 PM",
+      },
+    ],
+    sampleSocials: [
+      {
+        platform: "instagram",
+        fromName: "Andre Walsh",
+        handle: "@andrewalsh",
+        body: "What does a standard clean cost in the Harbor district?",
+        receivedAt: "Today, 11:10 AM",
       },
     ],
   },

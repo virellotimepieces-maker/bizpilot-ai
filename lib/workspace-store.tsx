@@ -40,6 +40,7 @@ const initialState: WorkspaceState = {
 
 interface WorkspaceContextValue {
   ready: boolean;
+  hydrated: boolean;
   knowledge: KnowledgeBase | null;
   presetId: string | null;
   emails: EmailMessage[];
@@ -375,6 +376,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const value = useMemo<WorkspaceContextValue>(
     () => ({
       ready: true,
+      hydrated,
       knowledge: state.knowledge,
       presetId: state.presetId,
       emails: state.emails,
@@ -398,6 +400,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       resetWorkspace,
     }),
     [
+      hydrated,
       state.knowledge,
       state.presetId,
       state.emails,

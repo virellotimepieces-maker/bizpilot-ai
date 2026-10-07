@@ -1,5 +1,6 @@
 "use client";
 
+import { DemoSalesStrip } from "@/components/demo-sales-strip";
 import { PresetGallery } from "@/components/preset-gallery";
 import { HELPER_TEXT_CLASS, PAGE_SHELL_CLASS, PAGE_TITLE_CLASS } from "@/lib/ui/type-scale";
 import { useWorkspace } from "@/lib/workspace-store";
@@ -26,6 +27,7 @@ export function SetupGate({
             {description}
           </p>
         </div>
+        <DemoSalesStrip />
         <PresetGallery />
       </div>
     );

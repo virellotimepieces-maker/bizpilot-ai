@@ -2,6 +2,7 @@ import { ProductPreview } from "@/components/product-preview";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
+import { demoHrefForSeoPath } from "@/lib/industry-demos";
 import { LANDING_DEMO, LANDING_PRIMARY_CTA, PUBLIC_PRODUCT_NAME, formatPlanPriceUsd } from "@/lib/marketing/copy";
 import { seoPageJsonLd, type SeoLandingPage } from "@/lib/marketing/seo-pages";
 import Link from "next/link";
@@ -10,6 +11,7 @@ const wrapClass = "mx-auto w-full min-w-0 max-w-3xl px-4 sm:px-6";
 
 export function SeoLanding({ page }: { page: SeoLandingPage }) {
   const jsonLd = JSON.stringify(seoPageJsonLd(page)).replace(/</g, "\\u003c");
+  const demoHref = demoHrefForSeoPath(page.path);
 
   return (
     <div className="min-h-full min-w-0 overflow-x-hidden">
@@ -42,7 +44,7 @@ export function SeoLanding({ page }: { page: SeoLandingPage }) {
               <Button size="lg" nativeButton={false} render={<Link href={LANDING_PRIMARY_CTA.href} />}>
                 {LANDING_PRIMARY_CTA.label}
               </Button>
-              <Button size="lg" variant="outline" nativeButton={false} render={<Link href={LANDING_DEMO.href} />}>
+              <Button size="lg" variant="outline" nativeButton={false} render={<Link href={demoHref} />}>
                 {LANDING_DEMO.label}
               </Button>
             </div>
@@ -179,7 +181,7 @@ export function SeoLanding({ page }: { page: SeoLandingPage }) {
                 variant="outline"
                 className="border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
                 nativeButton={false}
-                render={<Link href={LANDING_DEMO.href} />}
+                render={<Link href={demoHref} />}
               >
                 {LANDING_DEMO.label}
               </Button>
