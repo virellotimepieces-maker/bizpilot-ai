@@ -84,6 +84,7 @@ const SITEMAP_PATHS: { path: string; priority: number; lastModified: string; gui
   { path: "/demo", priority: 0.6, lastModified: "2026-10-02T00:00:00.000Z" },
   { path: "/privacy", priority: 0.6, lastModified: "2026-10-02T00:00:00.000Z" },
   { path: "/terms", priority: 0.6, lastModified: "2026-10-02T00:00:00.000Z" },
+  { path: "/product", priority: 0.7, lastModified: "2026-10-07T00:00:00.000Z", guide: true },
   ...SEO_ROUTES.map((route) => ({
     path: route.path,
     priority: 0.8,

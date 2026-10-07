@@ -256,6 +256,7 @@ describe("V2 public landing copy", () => {
       "https://bizlyro.com/demo",
       "https://bizlyro.com/privacy",
       "https://bizlyro.com/terms",
+      "https://bizlyro.com/product",
       "https://bizlyro.com/ai-customer-service-assistant",
       "https://bizlyro.com/ai-sales-assistant",
       "https://bizlyro.com/ai-business-assistant",
