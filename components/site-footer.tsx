@@ -29,6 +29,9 @@ export function SiteFooter() {
             <Link className="hover:underline" href="/product">
               Product overview
             </Link>
+            <Link className="hover:underline" href="/about">
+              About
+            </Link>
             {SEO_ROUTES.map((route) => (
               <Link key={route.path} className="hover:underline" href={route.path}>
                 {route.label}
